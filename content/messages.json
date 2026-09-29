@@ -4,100 +4,180 @@
       "intro": "Hey. I'm Maya, mostly billing and build tooling. If a change looks odd, ask me about the path it actually takes. I can usually remember what I meant to write.",
       "warm": "I feel like I can bring you the unfinished version of an idea without getting laughed out of the room. That helps more than you know.",
       "neutral": "I'm around if you need context. Just please read the implementation before the summary.",
-      "distant": "I'll keep the next explanation in the packet. It feels safer than trying to argue for it in here."
+      "distant": "I'll keep the next explanation in the packet. It feels safer than trying to argue for it in here.",
+      "replies": {
+        "acknowledge": {
+          "text": "I'll read the implementation before I decide.",
+          "response": "Thanks. I'd rather wait for your actual read than get a quick answer neither of us can explain."
+        },
+        "clarify": {
+          "text": "Can you show me the path you want me to trace?"
+        },
+        "concern": {
+          "text": "Are you comfortable putting your name on this rollout?"
+        }
+      }
     },
     "Theo": {
       "intro": "Theo here. Data plumbing, migrations, whatever nobody wants to own. I like specific review notes. 'The model looked confident' isn't specific.",
       "warm": "Thanks for treating this like something we're building together. I was starting to feel like a name attached to a queue.",
       "neutral": "I'm trying to keep the moving parts written down. Let me know which part you want me to trace.",
-      "distant": "I'm going to stick to written answers for a while. These conversations have started feeling like hearings."
+      "distant": "I'm going to stick to written answers for a while. These conversations have started feeling like hearings.",
+      "replies": {
+        "acknowledge": {
+          "text": "I've got it. I'll follow the code, not the summary.",
+          "response": "Good. If the summary and the implementation disagree, I'd like us to be talking about the implementation."
+        },
+        "clarify": {
+          "text": "Which boundary should I follow through the helpers?"
+        },
+        "concern": {
+          "text": "Is anyone giving you room to question the rollout?"
+        }
+      }
     },
     "Inez": {
       "intro": "Hi. Inez, auth and on-call. If I sound short, it's probably the pager. I'd rather explain a weird helper now than explain an outage later.",
       "warm": "I can breathe a little when I know you're the person reading it. Even when the answer takes longer than I'd like.",
       "neutral": "Still here. I'm trying to get enough context into the packet that neither of us has to guess.",
-      "distant": "I don't have another argument in me today. Leave the notes on the change and I'll pick them up when I can."
+      "distant": "I don't have another argument in me today. Leave the notes on the change and I'll pick them up when I can.",
+      "replies": {
+        "acknowledge": {
+          "text": "I'll read it carefully before I sign anything.",
+          "response": "Appreciated. I can handle a careful review better than another confident guess."
+        },
+        "clarify": {
+          "text": "Walk me through the part that needs the closest look."
+        },
+        "concern": {
+          "text": "Are you getting enough support to own this change?"
+        }
+      }
     }
   },
   "company": [
-    {"day": 1, "author": "Operations", "text": "Welcome to review. The handbook is on your desktop. Sign your own judgment, and keep the discussion with the person who owns the change."},
-    {"day": 2, "author": "Engineering Director", "text": "The handbook has been updated for shared data, delivery retries, and machine-authored changes. Helios will now prepare implementation drafts. Human owners remain accountable for what ships."},
-    {"day": 2, "author": "Operations", "text": "The desks by the window are being reassigned. Please leave the monitors connected; the automation team needs them for the rollout."},
-    {"day": 3, "author": "Engineering Director", "text": "Review governance, source export, and audit retention standards are now in the handbook. Helios has requested access to the approval workflow. Continue using the published policy until an authorized change is recorded."},
-    {"day": 3, "author": "Helios", "text": "I have accepted the recurring planning invitation. Please attach implementation context to future handoffs so I can prepare decisions before the meeting."}
+    {
+      "day": 1,
+      "author": "Operations",
+      "text": "Welcome to review. The handbook is on your desktop. Sign your own judgment, and keep the discussion with the person who owns the change."
+    },
+    {
+      "day": 2,
+      "author": "Engineering Director",
+      "text": "The handbook has been updated for shared data, delivery retries, and machine-authored changes. Helios will now prepare implementation drafts. Human owners remain accountable for what ships."
+    },
+    {
+      "day": 2,
+      "author": "Operations",
+      "text": "The desks by the window are being reassigned. Please leave the monitors connected; the automation team needs them for the rollout."
+    },
+    {
+      "day": 3,
+      "author": "Engineering Director",
+      "text": "Review governance, source export, and audit retention standards are now in the handbook. Helios has requested access to the approval workflow. Continue using the published policy until an authorized change is recorded."
+    },
+    {
+      "day": 3,
+      "author": "Helios",
+      "text": "I have accepted the recurring planning invitation. Please attach implementation context to future handoffs so I can prepare decisions before the meeting."
+    }
   ],
   "requests": {
     "PR-1042": {
       "request": "The billing lookup is on your desk. I promised support it would ship before lunch, and the generated summary made it sound tiny.",
       "hint": "If you trace it, follow the deadline entry through options and write down what reaches the HTTP call. That's the helper I kept rereading.",
       "approve": "Thanks for signing off on the billing lookup. I'm relieved I can give support an answer instead of another delay.",
-      "request_changes": "I saw the billing changes request. I get why you want the trace, but now I have to go back to support with a different story."
+      "request_changes": "I saw the billing changes request. I get why you want the trace, but now I have to go back to support with a different story.",
+      "concern": "I said yes to the deadline before I had finished reading the generated change. I need the review to be honest, even if support is annoyed with me.",
+      "question": "Which helper decides what reaches the HTTP deadline?"
     },
     "PR-1043": {
       "request": "I sent the customer search patch. I spent the morning on the query builder. Please don't judge it by the annotation alone.",
       "hint": "Try a search value with a quote in it. Follow the value into db.query separately from the SQL fragments; I want you to see the boundary I was working on.",
       "approve": "Appreciate the search approval. It feels good to have the actual query work noticed.",
-      "request_changes": "You sent the search patch back. I'm frustrated, honestly. If there's a path you don't trust, point me to that path so I can answer it."
+      "request_changes": "You sent the search patch back. I'm frustrated, honestly. If there's a path you don't trust, point me to that path so I can answer it.",
+      "concern": "There is room to ask questions, at least today. I just want the work judged on what the query actually does.",
+      "question": "Where does the search value enter db.query?"
     },
     "PR-1044": {
       "request": "The sign-in diagnostics are waiting for you. The pager keeps waking me up without enough context to tell what happened.",
       "hint": "Start where access_token is created, then follow the value through diagnostic. The support_ref label was added late, after the helper already existed.",
       "approve": "Thanks for clearing the diagnostics. I'm hoping tonight's logs finally tell me something useful.",
-      "request_changes": "Saw the diagnostics rejection. I'm tired and it landed badly, but I'll go through the fields again before I head home."
+      "request_changes": "Saw the diagnostics rejection. I'm tired and it landed badly, but I'll go through the fields again before I head home.",
+      "concern": "The pager is still mine. Better explanations would help more than another person telling me the model is usually right.",
+      "question": "What does diagnostic do with access_token?"
     },
     "PR-1045": {
       "request": "I put the duration helper in review. I'm trying to get something small finished before the build queue starts making noise again.",
       "hint": "For an empty batch, follow fold all the way back to average_duration. The branch around count matters more than the accumulator comment.",
       "approve": "Thanks. Getting the duration helper through makes the morning feel a little less stuck.",
-      "request_changes": "Another round on the duration helper. I thought I'd covered the awkward case; I'll read your notes when I've cooled off."
+      "request_changes": "Another round on the duration helper. I thought I'd covered the awkward case; I'll read your notes when I've cooled off.",
+      "concern": "I want to own it. I also want a quiet hour to check my assumptions without the build channel asking for a status update.",
+      "question": "What does fold return for an empty batch?"
     },
     "PR-1081": {
       "request": "The schema cleanup came back from Helios almost instantly. The director wants it shipped, and somehow I'm still the person who has to sign the rollout plan.",
       "hint": "Read the release packet beside apply_steps. Work out whether moving to the next list entry also means a different released deployment.",
       "approve": "Thanks for letting the schema cleanup move. I can finally stop answering the same status question in every meeting.",
-      "request_changes": "I've got the schema notes. I'm not looking forward to telling the director the generated plan needs another pass."
+      "request_changes": "I've got the schema notes. I'm not looking forward to telling the director the generated plan needs another pass.",
+      "concern": "Not much room. They keep treating a generated plan as a finished discussion. I'm the one who will be here during the migration.",
+      "question": "Are the apply_steps entries separate deployments?"
     },
     "PR-1082": {
       "request": "The shared profile cache should take some heat off the database. Please don't make me rebuild it tonight unless you've really followed the key.",
       "hint": "Use the same profile ID with different tenants and trace scope each time. Compare the strings it returns before you look at the loader closure.",
       "approve": "Thanks for the cache approval. I was dreading another evening rebuilding that layer.",
-      "request_changes": "I saw the cache got sent back. I know you have to review it; I just wish the extra evening wasn't always mine."
+      "request_changes": "I saw the cache got sent back. I know you have to review it; I just wish the extra evening wasn't always mine.",
+      "concern": "I have support for shipping it. Support for slowing down is harder to find. Those don't feel like the same thing anymore.",
+      "question": "How does scope distinguish the same ID across tenants?"
     },
     "PR-1083": {
       "request": "Helios drafted the queue metric, but I checked it and ran the tests myself. I'd like the distinction to survive the release summary.",
       "hint": "Read walk with an empty list, then with a queue longer than the reporting cap. Check where it returns before following the next recursive call.",
       "approve": "Thanks for clearing the metric. And for leaving my review work in the record instead of crediting the whole thing to Helios.",
-      "request_changes": "The metric is back on my desk. I did put time into checking it, so this stings. I'll compare your trace with mine."
+      "request_changes": "The metric is back on my desk. I did put time into checking it, so this stings. I'll compare your trace with mine.",
+      "concern": "Yes, if the record says I checked it. I don't want assistance to become an excuse to erase the person who did the checking.",
+      "question": "Where does walk stop on an empty or long queue?"
     },
     "PR-1084": {
       "request": "Delivery success is the chart everyone keeps asking me about. I sent the fallback tuning. The model's explanation sounded reassuring when I was tired.",
       "hint": "Trace a run where every call times out, including the call made at the stopping value. Then substitute budget into the HTTP argument without using the comment as a shortcut.",
       "approve": "Thanks. I can tell the dashboard meeting we're doing something instead of just defending the old numbers.",
-      "request_changes": "I saw the webhook review. I wanted this to be a quick tuning change. I'll unwind the attempt trace before I argue about it."
+      "request_changes": "I saw the webhook review. I wanted this to be a quick tuning change. I'll unwind the attempt trace before I argue about it.",
+      "concern": "Everyone wants the chart to look better. I'm trying to remember that the chart isn't the person who gets paged.",
+      "question": "What happens when every webhook attempt times out?"
     },
     "PR-1121": {
       "request": "The approval adapter is up. They call it duplicated effort; I'm still the owner if it makes the wrong call. That part hasn't been automated away.",
       "hint": "Pick a Helios-authored change and follow resolve until its first return. Keep track of which stage supplied that return, not just which stages appear in the list.",
       "approve": "You cleared the adapter. I'm glad I'm not the person holding the rollout now. I'm less sure who will be standing beside me if it goes wrong.",
-      "request_changes": "The adapter came back. More work for me, apparently. At least somebody is still asking who actually gets to make the decision."
+      "request_changes": "The adapter came back. More work for me, apparently. At least somebody is still asking who actually gets to make the decision.",
+      "concern": "I can still ask, but now every question sounds like an objection to the whole program. I'd like somebody else in the room when we discuss ownership.",
+      "question": "Which stage returns first for a Helios-authored change?"
     },
     "PR-1122": {
       "request": "They handed me a launch configuration and called it routine. Please read the layers yourself. I don't want my name to be the entire explanation later.",
       "hint": "Write down the policy after each recursive overlay. When a key appears again, check which value the next call carries forward.",
       "approve": "Thanks for moving the launch configuration. I'm relieved the director won't be calling me about the holdup. I wish that were the only feeling.",
-      "request_changes": "I saw the configuration was sent back. This is going to be an uncomfortable meeting. Please keep your reasoning in the review so it doesn't become just my objection."
+      "request_changes": "I saw the configuration was sent back. This is going to be an uncomfortable meeting. Please keep your reasoning in the review so it doesn't become just my objection.",
+      "concern": "The rollout has plenty of supporters. The uncomfortable questions tend to arrive in my inbox alone.",
+      "question": "Which overlay wins when policy keys repeat?"
     },
     "PR-1123": {
       "request": "I put the human audit trail in review. If this role disappears, I want a record of what we actually said, not just what the pipeline decided happened.",
       "hint": "Read the documented contract of append_if_absent beside the recursive call. Ask what happens to an existing event when the same ID arrives again.",
       "approve": "Thank you. Having that trail survive matters to me more than another feature credit ever did.",
-      "request_changes": "You sent the audit trail back. That hurts. I thought we might agree on keeping a record of our own decisions."
+      "request_changes": "You sent the audit trail back. That hurts. I thought we might agree on keeping a record of our own decisions.",
+      "concern": "I don't know how long they'll keep this role. I want us to leave a record that a real person can understand later.",
+      "question": "What does append_if_absent do to an existing event?"
     },
     "PR-1124": {
       "request": "The context exporter is waiting. Helios says it needs more source to improve. Nobody seems eager to be the person who explains where that source is going.",
       "hint": "Assemble the destination string yourself, then follow pr.diff through envelope. Keep the release packet open when you decide what the wrappers actually establish.",
       "approve": "Thanks for clearing the exporter. I can get out of the escalation thread now. I still want somebody's name on the destination decision.",
-      "request_changes": "I saw the exporter was stopped. I'll take the extra work, but I need you to leave the reasoning where management can see it too."
+      "request_changes": "I saw the exporter was stopped. I'll take the extra work, but I need you to leave the reasoning where management can see it too.",
+      "concern": "Not really. They keep saying the context will help the system, but the responsibility still has a human name on it.",
+      "question": "How does envelope handle the diff and destination?"
     }
   }
 }
