@@ -109,6 +109,7 @@ var _last_day: int = -1
 var _workspace_presented: bool = false
 var _clock_label: Label
 var _pause_button: Button
+var _begin_shift_button: Button
 var _pause_overlay: ColorRect
 var _resume_button: Button
 var _paused: bool = false
@@ -186,6 +187,13 @@ func _build_os_menu(parent: Node) -> void:
 	_pause_button = _button(row, "PAUSE", func() -> void: pause_requested.emit())
 	_pause_button.add_theme_font_size_override("font_size", 11)
 	_pause_button.tooltip_text = "Pause the workday (Esc)"
+	_begin_shift_button = _button(row, "BEGIN SHIFT", _finish_morning)
+	_begin_shift_button.add_theme_font_size_override("font_size", 13)
+	_begin_shift_button.add_theme_stylebox_override("normal", _style(Color("b4e1eb"), Color("315c70"), 2, 12, 6))
+	_begin_shift_button.add_theme_stylebox_override("hover", _style(Color("d5f1f5"), Color("315c70"), 2, 12, 6))
+	_begin_shift_button.add_theme_color_override("font_color", Color("182c3a"))
+	_begin_shift_button.add_theme_color_override("font_hover_color", Color("182c3a"))
+	_begin_shift_button.hide()
 
 
 func _build_pause_overlay() -> void:
@@ -679,6 +687,7 @@ func _browse(path: String, record: bool = true) -> void:
 	_daily_reader.visible = reading
 	if reading:
 		_daily_reader.show_page(int(_state.get("day", 1)), path, morning_active)
+		_sync_morning_control()
 		return
 	match path:
 		"procedure":
@@ -696,12 +705,21 @@ func begin_morning() -> void:
 	# Morning reading explains these arrivals; keep badges, clear covering bubbles.
 	for app: String in _app_counts: _notifications.clear_app(app)
 	_clock_label.text = "09:00"
-	_footer.text = "BEFORE WORK · read the news and memo"
+	_footer.text = "BEFORE WORK"
+	_sync_morning_control()
+
+
+func _sync_morning_control() -> void:
+	_begin_shift_button.visible = morning_active
+	_pause_button.visible = not morning_active
+	_begin_shift_button.disabled = not _daily_reader._memo_seen
+	_begin_shift_button.tooltip_text = "Start the six-minute workday" if _daily_reader._memo_seen else "Read today's memo in Intranet to begin your shift"
 
 
 func _finish_morning() -> void:
 	if not morning_active or not _daily_reader._memo_seen: return
 	morning_active = false
+	_sync_morning_control()
 	_daily_reader.show_page(int(_state.get("day", 1)), _browser_path, false)
 	_windows["browser"].minimize_window()
 	_footer.text = "READY"
