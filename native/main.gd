@@ -35,8 +35,15 @@ func _ready() -> void:
 	intro = Intro.new()
 	intro.finished.connect(_on_intro_finished)
 	add_child(intro)
-	get_window().focus_exited.connect(_on_focus_exited)
-	get_window().focus_entered.connect(_on_focus_entered)
+
+
+func _notification(what: int) -> void:
+	# Application focus excludes our own menus and popup windows. A file picker
+	# must not pause the shift just because the main window yields to its menu.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_on_focus_exited()
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		_on_focus_entered()
 
 func _on_intro_finished() -> void:
 	if is_instance_valid(intro):

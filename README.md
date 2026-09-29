@@ -34,15 +34,15 @@ The bootstrap downloads the pinned editor and export template from Godot's offic
 
 Helios can advise you, but its scripted recommendations may be wrong. Generated comments also make confident claims: trace recursive helpers and actual values instead of taking their reassurance on trust. Consultation eases stress while increasing its authority. New policies arrive between shifts. The office loses human occupants as more machine terminals come online. The final report responds to trust, stress, and AI authority.
 
-Reading and searching never consume game time. Skip the opening with Enter, Escape, or its on-screen control. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. SYSTEM contains save/load, confirmed new-run controls, instructions, and the background-motion toggle.
+Each workday lasts six real minutes, shown as 09:00–18:00 by the desktop clock. Time runs while reading code and messages. Use PAUSE or Esc to stop it; switching away automatically pauses until you resume. The office darkens toward evening, and at closing time Helios takes unfinished reviews. Skip the opening with Enter, Escape, or its on-screen control. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. Use its file selector to inspect every changed file; approval and citations apply to the entire PR. SYSTEM contains save/load, confirmed new-run controls, instructions, and the background-motion toggle.
 
 Open an app from its desktop icon. Drag titlebars to arrange windows, drag any edge or corner to resize, or use the minimize, maximize, and close controls. Resizing stops at the screen boundaries and each app's usable minimum size. The taskbar tracks open apps; HOME reveals the desktop. With a titlebar focused, arrow keys move its window (Shift moves farther). ARRANGE restores the layout. Intranet opens company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
 
-Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. Colleagues hint at tricky code and react to your approvals or change requests. Their tone carries relationship signals; there are no visible relationship scores, stress percentages, or authority meters. Incoming messages mark conversations unread without opening them for you. Money remains explicit in payroll paperwork. Slouch is entirely fictional and local, with no connection to a real messaging service.
+Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. PRs arrive gradually as coworker messages with clickable review links. Choose a reply to acknowledge a request, ask for a trace hint, or raise a concern; colleagues respond and react to your approvals or change requests. Their tone carries relationship signals; there are no visible relationship scores, stress percentages, or authority meters. Incoming messages mark conversations unread without opening them for you. Money remains explicit in payroll paperwork. Slouch is entirely fictional and local, with no connection to a real messaging service.
 
 ## Saves
 
-Saves are explicit, use one local slot plus the previous-save backup, and do not load automatically. The v3 file is `user://review-save-v3.json`; on macOS this normally lives under `~/Library/Application Support/Godot/app_userdata/Last Review/`. Earlier review careers and workshop saves remain separate and unchanged. The revised rule progression and shift schedule require a fresh career. Starting a new run preserves the disk save until you save again.
+Saves are explicit, use one local slot plus the previous-save backup, and do not load automatically. The v4 file is `user://review-save-v4.json`; on macOS this normally lives under `~/Library/Application Support/Godot/app_userdata/Last Review/`. Earlier review careers and workshop saves remain separate and unchanged. Timed arrivals and the new action history require a fresh career; older saves are preserved. Starting a new run preserves the disk save until you save again.
 
 The bounded decision history is replayed when validating a save. Changes to scenario answers, economics, or canonical feedback require a save migration/version bump. See [simulation documentation](docs/simulation.md).
 
@@ -57,7 +57,7 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 
 - `content/` — editable JSON rules, PR packets, and daily briefings.
 - `content/chat.gd`, `content/messages.json` — authored coworker messages derived from the career's decisions.
-- `native/simulation.gd` — pure turn-based decisions and life-sim consequences.
+- `native/simulation.gd` — deterministic timed shifts, decisions, and life-sim consequences.
 - `native/interface.gd` — review desk, rule search, people, evenings, and system controls.
 - `native/desktop_window.gd` — draggable, focusable, minimizable native desktop windows.
 - `native/intro.gd` — animated terminal opening and skip controls.
@@ -69,3 +69,5 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 See [architecture](docs/architecture.md), [interface](docs/interface.md), [art pipeline](docs/art-pipeline.md), and [verification](docs/verification.md).
 
 This is an authored prototype, not a finished or procedurally generated career. There is no live code execution, real repository access, audio, multiplayer, or Windows build yet. Earlier workshop/browser prototypes remain in Git history; development continues through scoped branches/worktrees and incremental commits. Development history is hosted in the private [TravisGibbs/last-review repository](https://github.com/TravisGibbs/last-review).
+
+The same game also runs in a desktop browser. See [browser build instructions](docs/browser.md) for the Web export and local server. Native and browser saves are separate.

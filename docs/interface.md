@@ -41,3 +41,7 @@ The native interface suite covers HOME-only startup, actual icon launch signals,
 The packaged native office view was inspected with REVIEW and HANDBOOK open after pulling the monitor back. At a 1280×900 logical viewport, the monitor screen is 1040×630; application windows fit the available desktop, and HOME icons wrap to a second column when needed. The rainy city window, sill, desk, keyboard, and shaded mug remain visible around the enclosure. Bundled OFL-licensed IBM Plex Mono gives consistent local typography; code remains 14px and general text 15px. No remote fonts are required.
 
 Windows resize from all eight edges/corners with directional cursor feedback. Minimum sizes are tailored to each app; content scrolls when needed. Dragged edges stop at the desktop boundary, maximize disables resize handles, and restore retains the last user-sized rectangle.
+
+The top-right desktop clock maps each six-minute shift to 09:00–18:00. PAUSE/Esc covers the desktop and stops game time; switching away pauses until an explicit resume. Rain and office lighting follow the day without driving simulation time. Incoming PRs appear as Slouch links, and Review stays empty until a link is selected. Slouch has a per-PR question target and authored reply choices; asked questions and answers survive saving.
+
+Review's changed-file selector displays each file's own diff and remembers its caret/scroll position while switching. The first three PRs split callers from imported helpers. Citations and disposition apply to the whole PR.
