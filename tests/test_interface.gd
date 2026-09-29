@@ -19,6 +19,7 @@ func check(condition: bool, message: String) -> void:
 
 func _run() -> void:
 	root.size = Vector2i(1280, 900)
+	await _test_chat_first_open()
 	state = Simulation.initial_state()
 	ui = Interface.new()
 	ui.command_requested.connect(_command)
@@ -201,3 +202,36 @@ func _test_slouch() -> void:
 	ui.render_state(state)
 	check(ui._desktop.get_child(ui._desktop.get_child_count() - 1) == top_window, "Chat refresh must not steal native window focus")
 	check(ui._dock_buttons["chat"].text.begins_with("SLOUCH"), "Taskbar must expose Slouch with an unread dot, not a message count")
+
+func _test_chat_first_open() -> void:
+	var initial: Dictionary = Simulation.initial_state()
+	var loaded: Dictionary = initial.duplicate(true)
+	var first_packet: Dictionary = Catalog.request_at(0)
+	for id: String in first_packet.violations:
+		loaded = Simulation.dispatch(loaded, {"type": "toggle-rule", "rule_id": id})
+	loaded = Simulation.dispatch(loaded, {"type": "review", "verdict": "approve" if first_packet.violations.is_empty() else "request_changes"})
+	for snapshot: Dictionary in [initial, loaded]:
+		var first_ui = Interface.new()
+		root.add_child(first_ui)
+		first_ui.render_state(snapshot)
+		first_ui.hide()
+		for frame: int in range(8):
+			await process_frame
+		first_ui.show()
+		first_ui.focus_workspace()
+		for frame: int in range(6):
+			await process_frame
+		first_ui._open_app("chat")
+		for contact: String in ["Maya", "company", "Inez", "Theo", "Maya"]:
+			first_ui._select_chat_contact(contact)
+			for frame: int in range(8):
+				await process_frame
+			var chat = first_ui._windows["chat"]
+			check(chat.size.x <= 800.0, "First Slouch open and contact changes must retain the arranged width without a reset")
+			check(chat.get_global_rect().end.x <= root.size.x, "Slouch minimize button must remain inside the game window")
+			for node: Node in first_ui._chat_messages.find_children("*", "Label", true, false):
+				var label: Label = node as Label
+				if label.autowrap_mode != TextServer.AUTOWRAP_OFF and label.text.length() > 100:
+					check(label.get_line_count() > 1, "Long Slouch messages must wrap within the first-open viewport")
+		first_ui.queue_free()
+		await process_frame
