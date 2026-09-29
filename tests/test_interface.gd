@@ -28,9 +28,13 @@ func _run() -> void:
 	for frame in range(3):
 		await process_frame
 	ui.render_state(state)
-	check(Catalog.rules().size() == 36, "Expected all 36 authored rules")
-	check(Catalog.rules_for_day(1).size() == 30, "Day one should expose 30 rules")
-	check(Catalog.rules_for_day(3).size() == 36, "Automation rules must unlock by day three")
+	check(ui.theme.default_font is FontFile, "Interface must use the bundled terminal font")
+	check(ui.theme.default_font.resource_path.ends_with("IBMPlexMono-Regular.ttf"), "Terminal typography must not depend on installed system fonts")
+	check(ui._rule_rows.size() == Catalog.rules().size(), "Rulebook must include the authored catalog")
+	_check_active_rules(int(state.day))
+	check(ui._hud["day"].text == str(state.day), "Day display must not expose campaign length")
+	check(ui._pr_id.text == str(Catalog.request_at(0).id) + " / AWAITING REVIEW", "Request header must omit queue size and position")
+	check(not ui._footer.text.contains(" OF "), "Footer must not reveal queue totals")
 	ui._search.text = "timeout"
 	ui._filter_rules()
 	check(ui._rule_count.text.begins_with("1 shown"), "Rulebook search should find the timeout rule")
@@ -45,7 +49,8 @@ func _run() -> void:
 	check(not ui._ai_note.text.contains(str(Catalog.request_at(0).ai_note)), "AI advice must be hidden before consultation")
 	ui._consult.pressed.emit()
 	check(ui._ai_note.text.contains(str(Catalog.request_at(0).ai_note)), "Consultation must reveal authored AI advice")
-	for index in range(12):
+	var packets: Array = Catalog.requests()
+	for index in range(packets.size()):
 		var packet: Dictionary = Catalog.request_at(index)
 		for rule_id: String in packet.violations:
 			_command({"type": "toggle-rule", "rule_id": rule_id})
@@ -60,8 +65,9 @@ func _run() -> void:
 			check(ui._evening_buttons.visible, "Each shift needs an evening choice")
 			_command({"type": "next-day", "choice": "rest"})
 			office.set_story(int(state.day), int(state.autonomy))
-	check(state.phase == "complete", "All three workdays must finish")
-	check(ui._phase_detail.text.contains("12 / 12 reviews correct"), "Ending must show accurate review results")
+			_check_active_rules(int(state.day))
+	check(state.phase == "complete", "Authored campaign must finish")
+	check(ui._phase_detail.text.contains("%d correct reviews." % packets.size()), "Ending must show retrospective correctness without a queue denominator")
 	office.set_motion(false)
 	check(not office.is_processing(), "Motion setting must stop decorative animation")
 	ui.queue_free()
@@ -72,3 +78,15 @@ func _run() -> void:
 func _command(command: Dictionary) -> void:
 	state = Simulation.dispatch(state, command)
 	ui.render_state(state)
+
+func _check_active_rules(day: int) -> void:
+	var active: Array = Catalog.rules_for_day(day)
+	var previous_query: String = ui._search.text
+	ui._search.text = ""
+	ui._filter_rules()
+	for row: Dictionary in ui._rule_rows:
+		var should_show: bool = int(row.rule.introduced_day) <= day
+		check(row.panel.visible == should_show, "Rule unlock visibility must match its authored introduction day")
+	check(ui._rule_count.text.contains("%d active rules" % active.size()), "Active rule count must come from the current catalog day")
+	ui._search.text = previous_query
+	ui._filter_rules()
