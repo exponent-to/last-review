@@ -86,9 +86,14 @@ func _remove(item: Dictionary) -> void:
 func _fit() -> void:
 	if not is_inside_tree(): return
 	_stack.size.x = minf(350, maxf(200, size.x - 32))
-	await get_tree().process_frame
-	if not is_inside_tree(): return
-	await get_tree().process_frame
+	if not get_tree().process_frame.is_connected(_queue_fit_position):
+		get_tree().process_frame.connect(_queue_fit_position, CONNECT_ONE_SHOT)
+
+func _queue_fit_position() -> void:
+	if is_inside_tree() and not get_tree().process_frame.is_connected(_fit_position):
+		get_tree().process_frame.connect(_fit_position, CONNECT_ONE_SHOT)
+
+func _fit_position() -> void:
 	if not is_inside_tree(): return
 	_stack.size.y = _stack.get_combined_minimum_size().y
 	_stack.position = Vector2(size.x - _stack.size.x - 16, maxf(40, size.y - _stack.size.y - 48))

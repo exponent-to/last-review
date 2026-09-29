@@ -21,8 +21,13 @@ func _run() -> void:
 	_check(int(app.state.shift_seconds) == 0 and app.menu.visible and not app.interface.visible, "Main menu must appear before play and stop time.")
 	app.menu._new_game.pressed.emit()
 	await process_frame
+	_check(is_instance_valid(app._cold_open) and not app.interface.visible, "New Game plays the cold open before the workstation.")
+	app._tick_shift(60.0)
+	_check(int(app.state.shift_seconds) == 0, "Cold open cannot spend shift time.")
+	app._cold_open.advance_sequence(30.0)
+	await process_frame
 	_check(not app.tutorial.is_empty() and app.state.decisions.is_empty(), "New Game starts practice without career consequences.")
-	_check(app.interface.visible and not app.menu.visible, "New Game opens the workstation directly.")
+	_check(app.interface.visible and not app.menu.visible, "The signed offer hands off to the orientation workstation.")
 	var release := InputEventKey.new()
 	release.keycode = KEY_ENTER
 	release.pressed = false
@@ -53,6 +58,12 @@ func _run() -> void:
 	_check(int(app.tutorial.stage) == 7, "A complete practice review reaches the handoff.")
 	app.interface._tutorial_next.pressed.emit()
 	_check(app.tutorial.is_empty() and app.state == Main.Simulation.initial_state(), "Monday must start with fresh time, pay, relationships, and decisions.")
+	_check(app.interface.morning_active and app.interface._browser_path == "news", "Monday opens the morning news before work.")
+	app._tick_shift(60.0)
+	_check(int(app.state.shift_seconds) == 0, "Morning reading does not spend the shift.")
+	app.interface._browse("memo")
+	app.interface._finish_morning()
+	_check(not app.interface.morning_active, "Reading the memo and beginning work releases the clock.")
 	app._clock_fraction = 0.0
 	app._tick_shift(1.25)
 	app._tick_shift(0.75)
@@ -77,10 +88,21 @@ func _run() -> void:
 	var closed: Dictionary = app.state.duplicate(true)
 	app._tick_shift(120.0)
 	_check(app.state == closed, "Closed shifts must not keep charging time or wages.")
+	app._on_command({"type": "next-day", "choice": "rest"})
+	_check(int(app.state.day) == 2 and app.interface.morning_active, "Every new workday gets its own morning news and memo.")
+	app._tick_shift(60.0)
+	_check(int(app.state.shift_seconds) == 0, "Next-day reading also leaves all six minutes available.")
 	app._on_motion(false)
 	app._on_focus_exited()
 	app._on_focus_entered()
 	_check(not app.scenery.is_processing(), "Focus restore must honor disabled background motion.")
+	app._new_game()
+	var skip := InputEventKey.new()
+	skip.pressed = true
+	skip.keycode = KEY_ESCAPE
+	app._cold_open._input(skip)
+	await process_frame
+	_check(not is_instance_valid(app._cold_open) and app.interface.visible, "Escape consumes its input before the cold-open handoff removes the scene.")
 	app.free()
 	print("Native application handoff: %d failures" % failures)
 	quit(1 if failures else 0)

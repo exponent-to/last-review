@@ -16,6 +16,7 @@ const ComputerFrame = preload("res://native/computer_frame.gd")
 const Notifications = preload("res://native/desktop_notifications.gd")
 const DesktopWindow = preload("res://native/desktop_window.gd")
 const Chat = preload("res://content/chat.gd")
+const DailyReader = preload("res://native/daily_reader.gd")
 const Catalog = preload("res://content/catalog.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 const BACK: Color = Color("101824")
@@ -71,6 +72,9 @@ var _dock_buttons: Dictionary = {}
 var _last_phase: String = ""
 var _browser_address: LineEdit
 var _browser_text: Label
+var _browser_plain: ScrollContainer
+var _daily_reader: DailyReader
+var morning_active := false
 var _browser_back: Button
 var _browser_history: Array[String] = []
 var _browser_path: String = "home"
@@ -648,12 +652,19 @@ func _build_browser(page: VBoxContainer) -> void:
 	navigation.add_child(_browser_address)
 	_button(navigation, "HOME", _browse.bind("home"))
 	var links: HBoxContainer = _row(page)
+	_button(links, "NEWS", _browse.bind("news"))
 	_button(links, "PROCEDURE", _browse.bind("procedure"))
 	_button(links, "DAILY MEMO", _browse.bind("memo"))
 	_button(links, "STANDARDS", _open_app.bind("rules"))
 	_button(links, "SLOUCH", _open_app.bind("chat"))
 	var content: VBoxContainer = _scroll_column(page)
 	_browser_text = _paragraph(content, "", 15)
+	_browser_plain = content.get_parent()
+	_daily_reader = DailyReader.new()
+	page.add_child(_daily_reader)
+	_daily_reader.navigate_requested.connect(_browse)
+	_daily_reader.start_shift_requested.connect(_finish_morning)
+	_daily_reader.hide()
 	_browse("home")
 
 
@@ -663,13 +674,39 @@ func _browse(path: String, record: bool = true) -> void:
 	_browser_path = path
 	_browser_address.text = "intranet://engineering/" + path
 	_browser_back.disabled = _browser_history.is_empty()
+	var reading := path in ["news", "memo"] or path.begins_with("story/")
+	_browser_plain.visible = not reading
+	_daily_reader.visible = reading
+	if reading:
+		_daily_reader.show_page(int(_state.get("day", 1)), path, morning_active)
+		return
 	match path:
 		"procedure":
 			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. Request changes with precise citations.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
-		"memo":
-			_browser_text.text = "DAILY OPERATIONS MEMO\n\n" + Catalog.briefing(int(_state.get("day", 1)))
 		_:
-			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nOpen STANDARDS to consult the active rulebook, SLOUCH to read messages from your coworkers, or DAILY MEMO for the current instructions.\n\nExternal access restricted by company policy."
+			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nOpen STANDARDS to consult the active rulebook, SLOUCH to read messages from your coworkers, NEWS for the morning headlines, or DAILY MEMO for the current instructions.\n\nExternal access restricted by company policy."
+
+
+func begin_morning() -> void:
+	morning_active = true
+	_browser_history.clear()
+	_browse("news", false)
+	_open_app("browser")
+	if not _windows["browser"].maximized: _windows["browser"].toggle_maximize()
+	# Morning reading explains these arrivals; keep badges, clear covering bubbles.
+	for app: String in _app_counts: _notifications.clear_app(app)
+	_clock_label.text = "09:00"
+	_footer.text = "BEFORE WORK · read the news and memo"
+
+
+func _finish_morning() -> void:
+	if not morning_active or not _daily_reader._memo_seen: return
+	morning_active = false
+	_daily_reader.show_page(int(_state.get("day", 1)), _browser_path, false)
+	_windows["browser"].minimize_window()
+	_footer.text = "READY"
+	_update_dock()
+	focus_workspace()
 
 
 func _browser_go_back() -> void:
@@ -1040,8 +1077,8 @@ func render_state(state: Dictionary) -> void:
 		var briefing: String = Catalog.briefing(day)
 		_briefing_dialog.dialog_text = briefing
 		_filter_rules()
-		if _browser_path == "memo":
-			_browse("memo", false)
+		if _browser_path in ["memo", "news"] or _browser_path.begins_with("story/"):
+			_browse("news" if _browser_path.begins_with("story/") else _browser_path, false)
 	for entry: Dictionary in _rule_rows:
 		var rule: Dictionary = entry["rule"]
 		var check: CheckBox = entry["check"]
@@ -1234,8 +1271,15 @@ func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
 
 func _fit_tutorial() -> void:
 	if not is_inside_tree(): return
-	await get_tree().process_frame
-	if not is_inside_tree(): return
-	await get_tree().process_frame
+	if not get_tree().process_frame.is_connected(_queue_tutorial_fit):
+		get_tree().process_frame.connect(_queue_tutorial_fit, CONNECT_ONE_SHOT)
+
+
+func _queue_tutorial_fit() -> void:
+	if is_inside_tree() and not get_tree().process_frame.is_connected(_apply_tutorial_fit):
+		get_tree().process_frame.connect(_apply_tutorial_fit, CONNECT_ONE_SHOT)
+
+
+func _apply_tutorial_fit() -> void:
 	if is_inside_tree():
 		_tutorial_panel.size.y = _tutorial_panel.get_combined_minimum_size().y

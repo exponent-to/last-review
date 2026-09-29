@@ -26,3 +26,8 @@ Windows packaging, notarized distribution, audio, and comprehensive assistive-te
 - Desktop notifications: 22 checks cover real unread counts, duplicate suppression, conversation-specific reading, hidden future PRs, direct PR and memo routing, focus preservation, System status, dismissal, pause, and bounded bottom-right layout.
 
 Chronology regressions cover returning to an older PR, same-tick exchanges across PRs, interleaved review reactions, stable timestamps across clock ticks, and JSON save/load ordering.
+
+- Cold open: 36 checks passed for staged completion, ping buffer, readable offer wrapping, skip, focus pause, and idempotent handoff.
+- Daily press: 189 checks passed for three editions, authored articles, day-gated links, rule-derived memos, deep copies, and independence from audit answers.
+- Daily reader: 15 checks passed for clickable headlines, full articles and back navigation, memo-before-start behavior, layout at both supported sizes, and reopening during work.
+- Application integration covers the cold-open → orientation → morning-reader → shift sequence, every next-day briefing, no time spent reading before work, and safe Escape handoff.

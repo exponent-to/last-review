@@ -14,11 +14,11 @@ Call `render_state(state: Dictionary)` after state changes. After New Game revea
 
 HOME starts with all applications closed and five original pixel icons: REVIEW, HANDBOOK, SLOUCH, INTRANET, and SYSTEM. Single-clicking an icon launches its application. The taskbar lists only launched applications. HOME minimizes visible applications while retaining their taskbar entries; closing an application removes its entry. Reopening retains the application's data.
 
-REVIEW combines the current author packet and read-only diff with the sign-off controls and a delivery confirmation. HANDBOOK is an independent searchable standards window. SLOUCH contains company messages and coworker DMs. INTRANET offers local home, procedure, and daily memo pages, including back navigation and links to other apps. SYSTEM provides save/load, confirmed reset, and instructions. No browser engine, external network request, or nonfunctional chat composer is involved.
+REVIEW combines the current author packet and read-only diff with the sign-off controls and a delivery confirmation. HANDBOOK is an independent searchable standards window. SLOUCH contains company messages and coworker DMs. INTRANET offers local home, procedure, Hackerish News headlines and full stories, and daily memo pages, including back navigation and links to other apps. SYSTEM provides save/load, confirmed reset, and instructions. No browser engine, external network request, or nonfunctional chat composer is involved.
 
 Windows cascade at useful independent sizes rather than filling fixed columns. Their classic gray and blue chrome provides minimize, maximize/restore, and close controls. The player can drag a titlebar or focus it and use arrow keys, with Shift for larger moves. Titlebar clamping keeps windows reachable. Resizing the main game window fits ordinary windows to the monitor; maximized windows follow the desktop extent.
 
-`native/desktop_window.gd` owns dragging, focus, chrome, and application visibility. `launched` distinguishes closed apps from minimized apps. The interface consumes `activated`, `minimized`, and `closed` signals to keep taskbar state current. It preserves app positions and open state across ordinary simulation refreshes. Closing time marks Morgan’s conversation unread and minimizes REVIEW. Evening choices appear inside that conversation; no results window opens or steals focus. The initial render and menu handoff always leave HOME untouched.
+`native/desktop_window.gd` owns dragging, focus, chrome, and application visibility. `launched` distinguishes closed apps from minimized apps. The interface consumes `activated`, `minimized`, and `closed` signals to keep taskbar state current. It preserves app positions and open state across ordinary simulation refreshes. Closing time marks Morgan’s conversation unread and minimizes REVIEW. Evening choices appear inside that conversation; no results window opens or steals focus. The initial render and orientation handoff leave HOME untouched. Real workdays explicitly open the morning reader before the clock starts.
 
 ## Review information and consequences
 
@@ -63,3 +63,12 @@ Player messages align right in a blue bubble; coworkers align left. Newly sent q
 Coworkers begin with a single introduction. Neutral filler greetings are omitted; separate relationship messages appear only for warm or strained relationships. Conversation headers show the person or channel without storage or internal-system labels.
 
 Slouch bubbles show weekday and office-clock send time. Histories sort by saved day/time, then command-journal sequence, before clipping to the history limit. PR links retain scheduled arrival time; asking about an older PR appends the exchange chronologically. Questions and delayed answers share a send minute with a stable pair order, including untimed training. Stable message IDs prevent clock refreshes from producing new unread notifications. Existing saves derive this metadata without a schema change.
+
+
+## Cold open and morning reading
+
+New Game runs the laptop-only cold open before orientation. Load Game bypasses it. The vignette owns only presentation: rejection emails, a new Northstar offer, and an animated cursor signing it; it never submits a simulation action or moves the OS pointer. Skip completes the same guarded handoff as normal playback.
+
+At the start of each career day, INTRANET opens Hackerish News with three authored, clickable stories. Its paper-colored article pages and compact masthead share the real draggable browser window. The morning action opens Morgan's memo, which describes the day's mechanics and renders exactly the rules introduced that day from Catalog. BEGIN SHIFT releases the clock and minimizes the reader. Closing/minimizing the window alone cannot start time; reopen INTRANET and its daily memo. During work the same pages remain readable without changing the clock. Headlines cannot resolve stories from a future day.
+
+Morning state is presentation-only. A saved career at 09:00 reopens the morning reader; a midshift load resumes paused without replaying the cold open or news. The existing v4 save schema stays compatible.

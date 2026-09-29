@@ -1,0 +1,57 @@
+extends SceneTree
+const Reader = preload("res://native/daily_reader.gd")
+const UI = preload("res://native/interface.gd")
+const Simulation = preload("res://native/simulation.gd")
+const Press = preload("res://content/daily_press.gd")
+var checks := 0
+var failures := 0
+
+func _initialize() -> void: run.call_deferred()
+func check(ok: bool, message: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		push_error(message)
+
+func run() -> void:
+	root.size = Vector2i(1280, 900)
+	var ui := UI.new()
+	root.add_child(ui)
+	ui.render_state(Simulation.initial_state())
+	for frame in range(4): await process_frame
+	ui.begin_morning()
+	check(ui.morning_active and ui._windows.browser.visible and ui._browser_path == "news", "Morning opens the news in the real browser window.")
+	var links: Array = []
+	for child: Node in ui._daily_reader._content.get_children():
+		if child is RichTextLabel: links.append(child)
+	check(links.size() == 3, "The condensed front page offers three clickable stories.")
+	var first: Dictionary = Press.stories(1)[0]
+	links[0].meta_clicked.emit("story/" + str(first.id))
+	check(ui._browser_path == "story/" + str(first.id), "A front-page headline opens its full article.")
+	var body_found := false
+	for child: Node in ui._daily_reader._content.get_children():
+		if child is Label and child.text == first.body: body_found = true
+	check(body_found, "Articles show authored story text rather than a placeholder.")
+	ui._browser_go_back()
+	check(ui._browser_path == "news", "Browser back returns from an article to the front page.")
+	ui._finish_morning()
+	check(ui.morning_active, "The morning cannot finish without opening the day's memo.")
+	ui._daily_reader._action.pressed.emit()
+	check(ui._browser_path == "memo" and ui._daily_reader._action.text == "BEGIN SHIFT", "The morning action opens the memo before offering to start work.")
+	for viewport: Vector2i in [Vector2i(1280, 900), Vector2i(1120, 800)]:
+		root.size = viewport
+		for frame in range(6): await process_frame
+		check(ui._daily_reader._scroll.get_h_scroll_bar().max_value <= ui._daily_reader._scroll.size.x + 2, "Memo text wraps inside the browser at %s." % viewport)
+		check(ui._windows.browser.get_global_rect().encloses(ui._daily_reader._action.get_global_rect()), "Begin Shift remains visible outside the scrolling memo at %s." % viewport)
+	ui._browse("news")
+	check(ui._daily_reader._action.text == "BEGIN SHIFT", "After reading the memo, the player can keep browsing news and start from there.")
+	ui._daily_reader._action.pressed.emit()
+	check(not ui.morning_active and not ui._windows.browser.visible, "Beginning the shift closes the morning reader.")
+	ui._open_app("browser")
+	ui._browse("news")
+	check(not ui._daily_reader._footer.visible, "Reopening the news during work does not offer another shift start.")
+	ui._browse("memo")
+	check(ui._daily_reader._page == "memo", "The memo remains available during work.")
+	ui.free()
+	print("Daily reader: %d checks, %d failures" % [checks, failures])
+	quit(1 if failures else 0)

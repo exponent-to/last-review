@@ -11,3 +11,6 @@ sh scripts/run.sh --headless --script res://tests/test_main_menu.gd
 sh scripts/run.sh --headless --script res://tests/test_tutorial.gd
 sh scripts/run.sh --headless --script res://tests/test_manager.gd
 sh scripts/run.sh --headless --script res://tests/test_notifications.gd
+sh scripts/run.sh --headless --script res://tests/test_cold_open.gd
+sh scripts/run.sh --headless --script res://tests/test_daily_press.gd
+sh scripts/run.sh --headless --script res://tests/test_daily_reader.gd

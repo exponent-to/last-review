@@ -127,12 +127,13 @@ func _input(event: InputEvent) -> void:
 	if _completed or not is_visible_in_tree():
 		return
 	if event is InputEventKey:
+		# Consume before emitting: the parent removes this scene in the handoff.
+		get_viewport().set_input_as_handled()
 		if event.pressed and not event.echo:
 			if event.keycode == KEY_ESCAPE or (not _motion and event.keycode in [KEY_ENTER, KEY_KP_ENTER]):
 				_complete()
-			elif event.keycode == KEY_SPACE and (_skip.has_focus() or _continue.has_focus()):
+			elif event.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER] and (_skip.has_focus() or _continue.has_focus()):
 				_complete()
-		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(_event: InputEvent) -> void:
@@ -182,7 +183,16 @@ func _draw() -> void:
 	var origin := ((size - DESIGN_SIZE * scale_factor) * 0.5).floor()
 	draw_set_transform(origin, 0.0, Vector2.ONE * scale_factor)
 	var laptop := _laptop_rect()
-	# Only the laptop is visible; no room banner, floating dashboard, or scene cutaway.
+	var room_light := clampf((_elapsed - 1.6) / 0.8, 0.0, 1.0)
+	# The screen catches the desk edge and wall; the room stays mostly unlit.
+	draw_rect(Rect2(0, 0, 1120, 800), Color("060a10").lerp(Color("111c2b"), room_light * 0.35))
+	draw_rect(Rect2(0, 586, 1120, 214), Color("0c121c").lerp(Color("243447"), room_light * 0.3))
+	draw_rect(Rect2(0, 586, 1120, 2), Color("1d2a39").lerp(Color("47576a"), room_light * 0.3))
+	draw_rect(Rect2(72, 138, 162, 278), Color("080e18"))
+	draw_rect(Rect2(78, 144, 150, 266), Color("0e1724"))
+	draw_rect(Rect2(150, 144, 4, 266), Color("060b13"))
+	for light in range(6):
+		draw_rect(Rect2(90 + light * 21, 355 - (light % 3) * 25, 3, 4), Color("26374b"))
 	draw_rect(Rect2(laptop.position + Vector2(5, 7), laptop.size), Color("020407"))
 	draw_rect(laptop, Color("273443"))
 	draw_rect(Rect2(laptop.position + Vector2(2, 2), laptop.size - Vector2(4, 4)), Color("16212e"))
@@ -241,14 +251,16 @@ func _draw_mail(screen: Rect2) -> void:
 func _draw_inbox() -> void:
 	_text(Vector2(172, 65), "Inbox", 21, Color("20354b"))
 	_text(Vector2(758, 64), "NEWEST FIRST", 11, Color("50677b"))
-	var fresh := Rect2(161, 79, 785, 65)
-	draw_rect(fresh, Color("edf5f6"))
-	draw_rect(Rect2(161, 79, 4, 65), Color("467b9c"))
-	_text(Vector2(175, 99), "NORTHSTAR  /  Morgan", 15, Color("24425b"))
-	_text(Vector2(175, 120), "An offer for you", 16, Color("172c43"))
-	_text(Vector2(778, 100), "JUST NOW", 11, Color("4a6f87"))
+	var arrived := _elapsed >= 6.6
+	if arrived:
+		var fresh := Rect2(161, 79, 785, 65)
+		draw_rect(fresh, Color("edf5f6"))
+		draw_rect(Rect2(161, 79, 4, 65), Color("467b9c"))
+		_text(Vector2(175, 99), "NORTHSTAR  /  Morgan", 15, Color("24425b"))
+		_text(Vector2(175, 120), "An offer for you", 16, Color("172c43"))
+		_text(Vector2(778, 100), "JUST NOW", 11, Color("4a6f87"))
 	for index in range(REJECTIONS.size()):
-		var y := 153 + index * 73
+		var y := (153 if arrived else 79) + index * 73
 		draw_rect(Rect2(162, y + 64, 782, 1), Color("a8bac8"))
 		_text(Vector2(175, y + 15), str(REJECTIONS[index][0]), 14, Color("4d6477"))
 		_text(Vector2(175, y + 35), str(REJECTIONS[index][1]), 15, Color("314b62"))

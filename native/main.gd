@@ -5,6 +5,7 @@ const SaveStore = preload("res://native/save_store.gd")
 const GameInterface = preload("res://native/interface.gd")
 const ComputerFrame = preload("res://native/computer_frame.gd")
 const MainMenu = preload("res://native/main_menu.gd")
+const ColdOpen = preload("res://native/cold_open.gd")
 const Tutorial = preload("res://native/tutorial.gd")
 
 var state: Dictionary = {}
@@ -16,6 +17,7 @@ var _clock_fraction: float = 0.0
 var _focused: bool = true
 var menu: MainMenu
 var tutorial: Dictionary = {}
+var _cold_open: ColdOpen
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(1120, 800)
@@ -49,7 +51,19 @@ func _build_interface() -> void:
 	_render()
 
 func _new_game() -> void:
+	if is_instance_valid(_cold_open): return
 	menu.hide()
+	interface.hide()
+	_cold_open = ColdOpen.new()
+	add_child(_cold_open)
+	_cold_open.finished.connect(_start_orientation)
+	_cold_open.set_motion(motion_enabled)
+
+func _start_orientation() -> void:
+	if is_instance_valid(_cold_open):
+		remove_child(_cold_open)
+		_cold_open.queue_free()
+		_cold_open = null
 	paused = false
 	_clock_fraction = 0.0
 	tutorial = Tutorial.initial_progress()
@@ -77,7 +91,7 @@ func _tutorial_continue() -> void:
 		paused = false
 		_build_interface()
 		interface.focus_workspace()
-		interface.notify("Monday. Your first shift has begun. Incoming work arrives in SLOUCH.")
+		interface.begin_morning()
 	else:
 		_tutorial_event({"type": "welcome-start"})
 
@@ -104,7 +118,7 @@ func _process(delta: float) -> void:
 func _tick_shift(delta: float) -> void:
 	if not tutorial.is_empty() or not is_instance_valid(interface) or not interface.visible or paused or not _focused or state.get("phase") != "review":
 		return
-	if interface._confirmation.visible:
+	if interface._confirmation.visible or interface.morning_active:
 		return
 	_clock_fraction += maxf(0.0, delta)
 	var seconds := int(_clock_fraction)
@@ -137,6 +151,9 @@ func _render() -> void:
 func _on_command(command: Dictionary) -> void:
 	if paused:
 		return
+	if interface.morning_active:
+		interface.notify("Read today's memo in INTRANET, then choose BEGIN SHIFT.")
+		return
 	if not tutorial.is_empty() and command.get("type") == "review" and int(tutorial.stage) != 6:
 		interface.notify("Finish the orientation steps before sending this practice review.")
 		return
@@ -154,6 +171,8 @@ func _on_command(command: Dictionary) -> void:
 	if int(state.day) != previous_day:
 		_clock_fraction = 0.0
 	_render()
+	if int(state.day) != previous_day and state.phase == "review":
+		interface.begin_morning()
 
 func _on_save() -> void:
 	var result: Dictionary = SaveStore.save_game(state, tutorial)
@@ -173,6 +192,8 @@ func _on_load() -> void:
 	menu.hide()
 	_build_interface()
 	_set_paused(state.phase == "review")
+	if tutorial.is_empty() and state.phase == "review" and int(state.shift_seconds) == 0:
+		interface.begin_morning()
 	interface.notify(str(result.error) if not str(result.get("error", "")).is_empty() else "Saved game loaded.")
 
 func _on_reset() -> void:
@@ -181,6 +202,7 @@ func _on_reset() -> void:
 func _on_motion(enabled: bool) -> void:
 	motion_enabled = enabled
 	if is_instance_valid(menu): menu.set_motion(enabled)
+	if is_instance_valid(_cold_open): _cold_open.set_motion(enabled)
 	if is_instance_valid(scenery):
 		scenery.set_motion(enabled and _focused and not paused)
 
