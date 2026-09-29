@@ -1,33 +1,37 @@
-# Native game architecture
+# Last Review architecture
 
-Godot 4.7.2 provides the native desktop window, Control-based menus, texture rendering, input, and application export. GDScript game rules are independent of scene nodes and drawing.
+Godot 4.7.2 owns the native desktop window, Control menus, input, and texture rendering. The simulation is deterministic, turn-based GDScript. Nothing in the review loop depends on wall-clock time or animation.
 
-## Data flow
+## Boundaries
 
-Native button → command dictionary → pure state transition → update existing Control values.
+Authored JSON → Catalog → current PR and active rules → native workstation.
 
-Frame delta → bounded fixed-step clock → whole simulation ticks → pure state transition.
+Native control → command dictionary → immutable simulation transition → render existing controls.
 
-The decorative workshop receives only working/idle and motion flags. SVG sources are rasterized once into native ImageTextures at their intrinsic low resolution. Integer scaling and nearest filtering keep source pixels square. Animation never changes gameplay.
+Content contains audit answers, but the active UI never reads `violations` or `explanation`; only a submitted decision exposes them in `last_feedback`. The optional AI recommendation is scripted, not an external model call, and stays hidden until consultation. No displayed code is executed.
 
-## Timing and persistence
+The office receives only day, automation authority, and motion preference. It rasterizes hand-authored SVGs once into ImageTextures, then animates frames with nearest filtering. Human occupancy and lit terminals reflect the narrative state. Losing window focus freezes decorative movement; it cannot change a review or economic result.
 
-The clock applies simulation speed exactly once, and the core consumes whole ticks. Time accumulation stops when the game window loses focus. Long frames are bounded to prevent runaway catch-up. There is no offline progress in this milestone.
+## Content and gameplay
 
-Simulation state is plain data with a versioned schema. Save parsing reconstructs known fields, checks numeric limits and enums, and rejects malformed data before replacing the active state. The filesystem adapter writes a temporary file and retains the previous save as a backup. Files live in Godot's `user://` application-data directory, not in the source checkout. On macOS the default is `~/Library/Application Support/Godot/app_userdata/Yard/`.
+`content/rules.json` has six categories and 36 standards. Thirty begin active; six automation rules arrive over days two and three. `requests.json` contains four ordered PRs per day, including compliant changes, single-rule defects, and multi-rule defects. Every expected violation references an active rule.
 
-## Extension points
+The first loop separates technical trust from relationships. Approval can make a coworker happy even when an audit finds a defect. Stress, salary, daily expenses, and evening choices add personal stakes. The three-day ending is a prototype summary based on trust, stress, and automation authority.
 
-1. Replace the workshop state/commands with the actual simulation theme.
-2. Add pure transition tests for each player decision and invariant.
-3. Extend native menu views without putting rules in button handlers.
-4. Replace or expand SVG frame strips without coupling art to timing.
-5. Add explicit migrations before changing save schema versions.
+## Persistence
 
-If randomness is introduced, store and advance an explicit seed. Avoid wall-clock time or scene state inside deterministic rules.
+State version 2 stores a bounded journal of decisions, citations, consultations, and evening choices. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
 
-## Desktop builds
+The filesystem adapter writes a temporary file, rotates the previous save to a backup, and atomically renames the new file. Load failures preserve the active session. Saves are local to the Last Review application-data directory. There is no automatic load, autosave, or cloud storage.
 
-`export_presets.cfg` exports a native universal macOS application using a project-local official template. `scripts/build-macos.sh` produces `build/Yard.app` and its ZIP. The local build uses ad-hoc signing; public distribution would require its own signing/notarization setup. Windows export is a later packaging task unless requested.
+Because validation replays authored content and economics, incompatible changes require a migration or version bump. Do not silently change scenario outcomes while expecting old v2 saves to remain valid.
 
-Current scope: one local player, one manual disk-save slot plus backup, example economy, no audio, multiplayer, backend, or public distribution. The earlier web prototype is retained in Git history only.
+## Extending the slice
+
+- Add scenario packets and rules with explicit, non-overlapping audit criteria.
+- Generalize the current three-day/four-PR schedule in the simulation and tests when extending the campaign.
+- Add richer coworker motivations and evening events without placing rules in button handlers.
+- Keep opinion, technical quality, and automation authority as distinct consequences.
+- Add a seeded stateful generator only if procedural content becomes necessary; keep validation deterministic.
+
+Native macOS export is configured with the official universal template and local ad-hoc signing. Public distribution signing/notarization and additional platforms are separate future work.

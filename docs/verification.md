@@ -1,17 +1,15 @@
-# Framework verification
+# Review-sim verification
 
-Verified locally on Apple Silicon macOS with Godot 4.7.2.
+Verified on Apple Silicon macOS with Godot 4.7.2.
 
-- Simulation headless suite: 65 checks passed, zero failures.
-- Clock checks: frame-rate independence, speed, pause, reset, and bounded long frames passed.
-- Full project import and native startup: no script or asset errors.
-- Export: standalone universal macOS application produced using the official export template and ad-hoc signing.
-- Packaged game: all source SVGs load and rasterize correctly inside the exported app.
-- Production: starting the line decreases materials and increases finished parts.
-- Pause: tick and production counts remain fixed.
-- Transactions: dispatching 12 parts, buying 10 materials, and assigning one worker changes $240 to $254, 8 materials to 18, 12 parts to 0, and crew 1 to 2.
-- Persistence: saving, confirming a new run, and loading restores inventory, tick, production mode, and pause state.
-- Native reset dialog: readable confirmation and cancellation controls.
-- Layout: native controls fit at 1120×820 and 960×720; overflowing records use a scroll container and the clock controls remain available.
+- 154 simulation checks passed, zero failures.
+- Native-control integration completed all 12 reviews, all three evenings, and the final accuracy summary without failures.
+- Citation checkboxes, clear-citation controls, approval/rejection gating, persistent rule search, and conditional AI disclosure passed.
+- Save round trips cover every game phase; altered histories, duplicate pay, incompatible versions, and invalid citations are rejected. Native save/load and backup recovery passed in an isolated application-data namespace.
+- Full native project import and universal macOS app export completed without script or asset errors.
+- In the exported app, searching for timeout found R01; consulting AI showed its incorrect approval advice; citing R01 and requesting changes increased trust and reduced Maya's relationship. Approving the next compliant PR produced Theo's positive reaction.
+- Completing the first shift applied salary and expenses once. Socializing spent $15, improved relationships, reduced stress, and started day two with 33 active rules and fewer occupied desks. Saving and loading the resulting career succeeded in the exported app.
+- Office assets load from the packaged app. Scene tests verify day-dependent occupancy, automation indicators, parameter clamping, and decorative-motion controls.
+- Headless layout checks at 1280×900 and 1120×800 found no visible button extending beyond the window's right edge. Code, packet, rules, decisions, and secondary pages have native scroll containers.
 
-Windows export, public distribution signing/notarization, audio, and accessibility through assistive technologies have not been validated in this milestone. Native keyboard focus uses Godot's standard Control navigation.
+Windows export, distribution notarization, assistive-technology support, audio, and a campaign longer than three days are not covered by this milestone.

@@ -45,6 +45,7 @@ var _phase_feedback: Label
 var _pr_id: Label
 var _pr_title: Label
 var _pr_context: Label
+var _packet_scroll: ScrollContainer
 var _file_label: Label
 var _diff: CodeEdit
 var _search: LineEdit
@@ -286,6 +287,7 @@ func _build_review(page: VBoxContainer) -> void:
 	_label(title_row, "DIFF / READ ONLY", 11, DIM)
 	_pr_title = _paragraph(code, "", 17)
 	var packet_scroll: ScrollContainer = ScrollContainer.new()
+	_packet_scroll = packet_scroll
 	packet_scroll.custom_minimum_size.y = 84
 	packet_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	packet_scroll.follow_focus = true
@@ -490,6 +492,7 @@ func render_state(state: Dictionary) -> void:
 			_diff.text = str(request.get("diff", ""))
 			_diff.scroll_vertical = 0
 			_diff.scroll_horizontal = 0
+			_packet_scroll.scroll_vertical = 0
 		_ai_note.text = "Consult cost: stress -2; AI authority +4. Advice may be wrong."
 		if consulted:
 			_ai_note.text = "AI: %s\n%s" % [str(request.get("ai_verdict", "")).replace("_", " ").to_upper(), str(request.get("ai_note", ""))]
