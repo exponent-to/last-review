@@ -2,7 +2,7 @@
 
 `native/simulation.gd` implements a deterministic, turn-based three-day review career. Its static `initial_state`, `dispatch`, `advance`, `validate_save`, and `serialize_save` methods are independent of scenes, clocks, and storage. Transitions deeply copy input dictionaries. `advance` always returns an unchanged copy: reading a diff or rulebook never costs time or resources.
 
-Each day contains four ordered PRs from `content/catalog.gd`. Active rules come from `rules_for_day(day)`. Commands are dictionaries:
+The catalog authors the shift schedule: the current campaign contains three, five, and four ordered PRs. `campaign_days()` and `requests_for_day(day)` expose internal scheduling metadata; the interface must not announce queue totals. Boundaries and final completion follow request day labels and catalog exhaustion, including nonconsecutive day labels. Active rules come from `rules_for_day(day)`: day one has R01, S01, S02, and R05; day two adds R02, D02, D03, and A01; day three adds S06, D05, O05, A04, and A05. Other standards remain future-dated and unavailable in this campaign. Commands are dictionaries:
 
 | `type` | Additional fields | Valid phase |
 | --- | --- | --- |
@@ -28,20 +28,26 @@ Coworker approval and technical correctness intentionally differ. Consultation r
 
 ## Shift boundaries
 
-The fourth submitted review enters debrief and applies pay of `80 + 10 × correct reviews`, living expenses of 90, and 12 automation reliance exactly once. `last_debrief` records the shift's audit, pay, expenses, and pre-evening balance.
+The last authored review for the current day enters debrief and applies pay of `80 + 10 × correct reviews`, living expenses of 90, and 12 automation reliance exactly once. `last_debrief` records the shift's audit, pay, expenses, and pre-evening balance.
 
 Rest removes 18 stress. Socializing costs 15 credits, adds four to every coworker relationship, and removes eight stress. Studying adds four trust and four stress. `next-day` applies the evening choice and starts the next shift. The third day's evening choice still applies before phase becomes `complete`; no further commands have effects. There is no wall-clock progression or randomness.
 
 ## State and save validation
 
-State version 2 follows `docs/review-sim-contract.md`. Each decision journal entry contains `pr_id`, `verdict`, `cited_rules`, `consulted`, and `correct`. The last decision of a shift gains `evening_choice` once that evening is completed. This captures the entire economic and review history without hidden state.
+State version 3 retains the field structure of `docs/review-sim-contract.md`. Each decision journal entry contains `pr_id`, `verdict`, `cited_rules`, `consulted`, and `correct`. The last decision of a shift gains `evening_choice` once that evening is completed. This captures the entire economic and review history without hidden state.
 
 `validate_save(value)` returns `{ok, state, error}`. It validates types, bounds, active and unique rule IDs, and the catalog's request order. It then replays the bounded journal and compares the complete resulting state, including feedback, debrief, logs, relationships, and resources. This rejects impossible phases, changed audit results, repeated pay, missing evening choices, and edited balances. Integral JSON float numbers are accepted and normalized to native integers. Valid state is reconstructed independently. Unknown fields and altered canonical logs are rejected. Because replay depends on catalog content and rules, future content changes require an explicit save migration or version bump.
 
-`serialize_save(state)` returns validated JSON or an empty string. Version 1 workshop saves receive a helpful incompatibility error.
+`serialize_save(state)` returns validated JSON or an empty string. Earlier review and workshop saves receive an explanatory incompatibility error. Version 3 is necessary because both the authored schedule and canonical feedback changed; replaying a prior journal would reinterpret its shift boundaries.
 
-`native/save_store.gd` uses `user://review-save-v2.json`, isolated from old workshop saves. It validates, writes and flushes a temporary file, rotates the previous save to `.bak`, then renames the temporary file. A failed final rename attempts rollback. Loading limits files to 100,000 bytes, parses JSON, validates the journal, and recovers a valid backup when possible. A recovered primary returns `ok: true` with an explanatory `error` notice. Callers replace in-memory state only on successful load. Render all content and imported feedback as plain text.
+`native/save_store.gd` uses `user://review-save-v3.json`, isolated from both old review and workshop saves. Earlier files are preserved. When only a v2 file exists, loading explains that a new career is required. It validates, writes and flushes a temporary file, rotates the previous save to `.bak`, then renames the temporary file. A failed final rename attempts rollback. Loading limits files to 100,000 bytes, parses JSON, validates the journal, and recovers a valid backup when possible. A recovered primary returns `ok: true` with an explanatory `error` notice. Callers replace in-memory state only on successful load. Render all content and imported feedback as plain text.
 
 ## Verification
 
 Run `godot --headless --path . --script res://tests/test_simulation.gd`. No testing plugin is needed. The script exits nonzero on failed checks and covers all three shifts, exact citations, wrong AI advice, separate relationship/audit consequences, pause-free reading, deep immutability, one-time economy, evenings, final completion, JSON round trips at every stage, corrupt histories, and invalid-save rejection before filesystem writes.
+
+## Authored difficulty and comments
+
+Every PR now includes recursive helper logic and fictional HELIOS annotations. Comments can misdescribe control flow, transformations, or stopping conditions. They are in-world claims, not executable behavior or audit exemptions. Each complete changed helper is shown; there is no hidden middleware that repairs a defect. Clean PRs remain clean even when their comments make false claims. Defects are traceable through concrete values: a filtered timeout, an unchanged credential under an alias, a tenant dropped from a key, a same-release schema removal, retry/deadline arithmetic, an early self-approval return, a later policy override, or an unchanged export payload on a plain-HTTP URL.
+
+A04 applies to the approving reviewer recorded on a machine-authored decision; A05 separately governs disabling the review gate. This avoids double-counting an absent gate as a self-approval decision. The packet texts document enough context to determine complete citation sets. The opening briefing and ongoing logs do not reveal upcoming review totals; debrief counts describe completed work only.
