@@ -12,6 +12,7 @@ func _initialize() -> void:
 	_test_timeout_history()
 	_test_save_replay()
 	_test_replies()
+	_test_mixed_action_history()
 	print("Shift clock checks: %d passed, %d failed." % [checks - failures, failures])
 	quit(1 if failures else 0)
 
@@ -147,3 +148,31 @@ func _test_replies() -> void:
 	wrong = command.duplicate(true)
 	wrong.reply_id = "invented"
 	_check(Simulation.dispatch(state, wrong) == state, "Unknown reply options must be rejected.")
+
+func _test_mixed_action_history() -> void:
+	var state: Dictionary = Simulation.initial_state()
+	for day: int in Catalog.campaign_days():
+		state = Simulation.advance(state, 280)
+		var pending: Array = Simulation.available_requests(state)
+		pending.reverse()
+		for request: Dictionary in pending:
+			state = _select(state, request.id)
+			state = Simulation.dispatch(state, {"type": "consult-ai"})
+			for reply_id: String in ["acknowledge", "clarify", "concern"]:
+				state = Simulation.dispatch(state, {"type": "chat-reply", "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
+			_round_trip(state)
+			# Leave the final shift's consulted work unsigned: replay must retain
+			# those consultation/reply effects without inventing review decisions.
+			if day != int(Catalog.campaign_days()[-1]):
+				state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
+				_round_trip(state)
+		state = Simulation.advance(state, 79)
+		_check(state.phase == "review" and state.shift_seconds == 359, "An empty or waiting inbox must still leave the shift open until the bell.")
+		_round_trip(state)
+		state = Simulation.advance(state, 1)
+		_check(state.last_debrief.timed_out == (day == int(Catalog.campaign_days()[-1])), "Only unsigned work should mark the closing debrief as a timeout.")
+		_round_trip(state)
+		state = Simulation.dispatch(state, {"type": "next-day", "choice": "study"})
+		_round_trip(state)
+	_check(state.phase == "complete" and state.chat_replies.size() == Catalog.requests().size() * 3, "The largest authored reply history must remain valid through campaign completion.")
+	_check(state.log.size() <= Simulation.LOG_LIMIT, "Clock and consultation histories must preserve bounded activity logs.")
