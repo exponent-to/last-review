@@ -1,7 +1,7 @@
 [
   {
     "day": 1,
-    "text": "MONDAY / Your first review shift. Start with outbound timeouts, bound SQL parameters, secret-free logs, and empty collections. Read the implementation before trusting its annotations: HELIOS comments are generated claims, not evidence. Approve compliant changes or cite every violated active rule. Take the time you need."
+    "text": "MONDAY / Your first review shift. Start with outbound timeouts, bound SQL parameters, secret-free logs, and empty collections. All changed helpers are shown. Review behavior, not assurances. Approve compliant changes or cite every violated active rule. Take the time you need."
   },
   {
     "day": 2,
@@ -9,6 +9,6 @@
   },
   {
     "day": 3,
-    "text": "WEDNESDAY / New standards protect independent approval, the human gate, audit history, authorized source export, and encrypted outbound traffic. HELIOS wants authority over its own review process. A confident annotation does not grant an exemption. Your coworkers still need someone willing to sign their own judgment."
+    "text": "WEDNESDAY / New standards protect independent approval, the human gate, audit history, authorized source export, and encrypted outbound traffic. HELIOS wants authority over its own review process. Rules still apply when the deadline comes from above. Your coworkers still need someone willing to sign their own judgment."
   }
 ]
