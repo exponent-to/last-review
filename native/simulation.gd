@@ -1,8 +1,12 @@
 extends RefCounted
-## Turn-based review rules. Catalog answers are used only to audit submitted decisions.
+## Deterministic timed review rules. Catalog answers are used only to audit submitted decisions.
 
 const Catalog = preload("res://content/catalog.gd")
-const SAVE_VERSION: int = 3
+const Chat = preload("res://content/chat.gd")
+const SAVE_VERSION: int = 4
+const SHIFT_SECONDS: int = 360
+const START_MINUTE: int = 540
+const END_MINUTE: int = 1080
 const LOG_LIMIT: int = 40
 const AUTHORS: Array = ["Maya", "Theo", "Inez"]
 const EVENINGS: Array = ["rest", "socialize", "study"]
@@ -14,12 +18,68 @@ static func initial_state() -> Dictionary:
 		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
 		"coworkers": {"Maya": 50, "Theo": 50, "Inez": 50},
 		"selected_rules": [], "consulted": false, "decisions": [],
-		"log": [{"day": first_day, "message": "Your review shift begins. Read carefully; there is no timer."}],
+		"shift_seconds": 0, "active_request_id": "", "consulted_requests": [],
+		"actions": [], "shift_history": [], "chat_replies": [],
+		"log": [{"day": first_day, "message": "Your review shift begins. Incoming work will arrive in team chat."}],
 		"last_feedback": {}, "last_debrief": {},
 	}
 
-static func advance(state: Dictionary, _ticks: int = 1) -> Dictionary:
-	return state.duplicate(true)
+static func clock_minutes(state: Dictionary) -> int:
+	return START_MINUTE + floori(float(state.shift_seconds) * float(END_MINUTE - START_MINUTE) / float(SHIFT_SECONDS))
+
+static func advance(state: Dictionary, seconds: int = 1) -> Dictionary:
+	var next: Dictionary = state.duplicate(true)
+	if next.phase != "review" or seconds <= 0:
+		return next
+	next.shift_seconds = mini(SHIFT_SECONDS, int(next.shift_seconds) + mini(seconds, SHIFT_SECONDS))
+	if next.shift_seconds == SHIFT_SECONDS:
+		next.actions.append({"type": "timeout", "day": next.day, "shift_seconds": SHIFT_SECONDS})
+		_debrief(next)
+	return next
+
+static func _reviewed(state: Dictionary, request_id: String) -> bool:
+	for decision: Dictionary in state.decisions:
+		if decision.pr_id == request_id:
+			return true
+	return false
+
+static func _public_request(request: Dictionary, consulted: bool = false) -> Dictionary:
+	var public: Dictionary = request.duplicate(true)
+	public.erase("violations")
+	public.erase("explanation")
+	if not consulted:
+		public.erase("ai_verdict")
+		public.erase("ai_note")
+	return public
+
+## Arrived, still-pending requests for this shift, in authored order.
+static func available_requests(state: Dictionary) -> Array:
+	var result: Array = []
+	if state.phase != "review":
+		return result
+	for request: Dictionary in Catalog.requests_for_day(int(state.day)):
+		if Catalog.arrival_seconds(request.id) <= int(state.shift_seconds) and not _reviewed(state, request.id):
+			result.append(_public_request(request, request.id in state.consulted_requests))
+	return result
+
+## Explicit selection only: arrivals never silently open code on the player's desk.
+static func active_request(state: Dictionary) -> Dictionary:
+	for request: Dictionary in available_requests(state):
+		if request.id == state.active_request_id:
+			return request
+	return {}
+
+static func _update_request_index(state: Dictionary) -> void:
+	var requests: Array = Catalog.requests()
+	state.request_index = requests.size()
+	for index in range(requests.size()):
+		if int(requests[index].day) < int(state.day):
+			continue
+		if state.phase != "review" and int(requests[index].day) == int(state.day):
+			continue
+		if not _reviewed(state, requests[index].id):
+			state.request_index = index
+			return
 
 static func _record(state: Dictionary, message: String) -> void:
 	state.log.append({"day": state.day, "message": message})
@@ -44,13 +104,44 @@ static func _same_rules(left: Array, right: Array) -> bool:
 static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
 	var kind: Variant = command.get("type", "")
+	var event: Dictionary = {"type": kind, "day": state.day, "shift_seconds": state.shift_seconds}
 	if next.phase == "complete":
 		return next
 	if kind == "next-day":
 		if next.phase == "debrief" and command.get("choice") in EVENINGS:
+			event.choice = command.choice
+			next.actions.append(event)
 			_evening(next, command.choice)
 		return next
 	if next.phase != "review":
+		return next
+	if kind == "select-request":
+		var requested: Variant = command.get("request_id", command.get("pr_id", ""))
+		if typeof(requested) != TYPE_STRING:
+			return next
+		var allowed: bool = requested.is_empty()
+		for request: Dictionary in available_requests(next):
+			allowed = allowed or request.id == requested
+		if allowed and next.active_request_id != requested:
+			next.active_request_id = requested
+			next.selected_rules = []
+			next.consulted = requested in next.consulted_requests
+		return next
+	if kind == "chat-reply":
+		var contact: Variant = command.get("contact")
+		if typeof(contact) != TYPE_STRING:
+			return next
+		for option: Dictionary in Chat.reply_options(next, contact):
+			if option.id == command.get("reply_id") and option.pr_id == command.get("pr_id"):
+				event.contact = contact
+				event.reply_id = option.id
+				event.pr_id = option.pr_id
+				next.chat_replies.append({"day": next.day, "shift_seconds": next.shift_seconds, "pr_id": option.pr_id, "contact": contact, "reply_id": option.id})
+				next.actions.append(event)
+				break
+		return next
+	var active: Dictionary = active_request(next)
+	if active.is_empty():
 		return next
 	match kind:
 		"toggle-rule":
@@ -64,20 +155,31 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 		"consult-ai":
 			if not next.consulted:
 				next.consulted = true
+				next.consulted_requests.append(active.id)
 				next.autonomy = clampi(int(next.autonomy) + 4, 0, 100)
 				next.stress = clampi(int(next.stress) - 2, 0, 100)
 				_record(next, "You asked the assistant to assess this PR. Automation reliance +4; stress -2.")
+				event.pr_id = active.id
+				next.actions.append(event)
 		"review":
 			var verdict: Variant = command.get("verdict")
 			if verdict not in ["approve", "request_changes"]:
 				return next
 			if (verdict == "approve" and not next.selected_rules.is_empty()) or (verdict == "request_changes" and next.selected_rules.is_empty()):
 				return next
+			event.pr_id = active.id
+			event.verdict = verdict
+			event.cited_rules = next.selected_rules.duplicate()
+			next.actions.append(event)
 			_review(next, verdict)
 	return next
 
 static func _review(state: Dictionary, verdict: String) -> void:
-	var request: Dictionary = Catalog.request_at(int(state.request_index))
+	var request: Dictionary = {}
+	for packet: Dictionary in Catalog.requests():
+		if packet.id == state.active_request_id:
+			request = packet
+			break
 	var expected: Array = request.violations
 	var correct: bool = expected.is_empty() if verdict == "approve" else _same_rules(state.selected_rules, expected)
 	var relationship_change: int = (4 if correct else 6) if verdict == "approve" else (-2 if correct else -7)
@@ -90,7 +192,7 @@ static func _review(state: Dictionary, verdict: String) -> void:
 	state.stress = clampi(int(state.stress) + stress_change, 0, 100)
 	state.decisions.append({
 		"pr_id": request.id, "verdict": verdict, "cited_rules": state.selected_rules.duplicate(),
-		"consulted": state.consulted, "correct": correct,
+		"consulted": state.consulted, "correct": correct, "shift_seconds": state.shift_seconds,
 	})
 	var response: String
 	if verdict == "approve":
@@ -105,32 +207,44 @@ static func _review(state: Dictionary, verdict: String) -> void:
 		"trust_delta": int(state.trust) - previous_trust,
 	}
 	_record(state, "%s: %s. %s" % [request.id, "audit passed" if correct else "audit failed", response])
-	state.request_index += 1
+	state.active_request_id = ""
 	state.selected_rules = []
 	state.consulted = false
-	var upcoming: Dictionary = Catalog.request_at(int(state.request_index))
-	if upcoming.is_empty() or int(upcoming.day) != int(state.day):
-		_debrief(state)
+	_update_request_index(state)
 
 static func _debrief(state: Dictionary) -> void:
 	state.phase = "debrief"
 	var correct: int = 0
-	var reviewed: int = Catalog.requests_for_day(int(state.day)).size()
-	for index in range(int(state.request_index) - reviewed, int(state.request_index)):
-		if state.decisions[index].correct:
-			correct += 1
+	var reviewed: int = 0
+	var shift_ids: Array = []
+	for request: Dictionary in Catalog.requests_for_day(int(state.day)):
+		shift_ids.append(request.id)
+	for decision: Dictionary in state.decisions:
+		if decision.pr_id in shift_ids:
+			reviewed += 1
+			if decision.correct:
+				correct += 1
+	var handed_off: int = shift_ids.size() - reviewed
 	var pay: int = 80 + 10 * correct
 	state.credits = clampi(int(state.credits) + pay - 90, -9999, 9999)
-	state.autonomy = clampi(int(state.autonomy) + 12, 0, 100)
+	state.autonomy = clampi(int(state.autonomy) + 12 + 6 * handed_off, 0, 100)
+	var message: String = "The shift has ended. Your signed reviews are recorded, and payroll has been settled."
+	if handed_off > 0:
+		message = "Closing bell. Unsigned work has been handed to Helios; it earns no review bonus. Management is expanding the assistant's authority."
 	state.last_debrief = {
 		"day": state.day, "reviewed": reviewed, "correct": correct, "pay": pay,
-		"expenses": 90, "balance": state.credits,
-		"message": "Shift audited: %d correct decisions. Pay %d, living expenses 90. Management expands the assistant's authority; automation reliance +12." % [correct, pay],
+		"expenses": 90, "balance": state.credits, "message": message,
+		"timed_out": handed_off > 0, "handed_off": handed_off, "shift_seconds": state.shift_seconds,
 	}
-	_record(state, state.last_debrief.message)
+	state.shift_history.append({"day": state.day, "shift_seconds": state.shift_seconds, "reviewed": reviewed, "handed_off": handed_off})
+	state.active_request_id = ""
+	state.selected_rules = []
+	state.consulted = false
+	_update_request_index(state)
+	_record(state, message)
 
 static func _evening(state: Dictionary, choice: String) -> void:
-	state.decisions[-1].evening_choice = choice
+	state.shift_history[-1].evening_choice = choice
 	match choice:
 		"rest":
 			state.stress = clampi(int(state.stress) - 18, 0, 100)
@@ -151,6 +265,8 @@ static func _evening(state: Dictionary, choice: String) -> void:
 	else:
 		state.day = int(Catalog.request_at(int(state.request_index)).day)
 		state.phase = "review"
+		state.shift_seconds = 0
+		_update_request_index(state)
 		_record(state, "Day %d begins. Read the updated rulebook before reviewing." % state.day)
 
 static func _invalid(reason: String) -> Dictionary:
@@ -199,58 +315,66 @@ static func validate_save(value: Variant) -> Dictionary:
 	if typeof(value) != TYPE_DICTIONARY:
 		return _invalid("game state must be an object.")
 	if not _integer(value.get("version"), SAVE_VERSION, SAVE_VERSION):
-		return _invalid("this campaign requires version 3. Earlier review schedules and workshop saves are incompatible; their files are preserved. Start a new review career.")
+		return _invalid("timed arrivals require version 4. Earlier review and workshop saves are preserved, but their untimed histories cannot be safely replayed. Start a new career.")
 	var days: Array = Catalog.campaign_days()
 	var campaign_size: int = Catalog.requests().size()
-	for field: String in ["day", "request_index", "credits", "trust", "stress", "autonomy"]:
+	for field: String in ["day", "request_index", "credits", "trust", "stress", "autonomy", "shift_seconds"]:
 		var minimum: int = -9999 if field == "credits" else (int(days[0]) if field == "day" else 0)
-		var maximum: int = 9999 if field == "credits" else (int(days[-1]) if field == "day" else (campaign_size if field == "request_index" else 100))
+		var maximum: int = 9999 if field == "credits" else (int(days[-1]) if field == "day" else (campaign_size if field == "request_index" else (SHIFT_SECONDS if field == "shift_seconds" else 100)))
 		if not _integer(value.get(field), minimum, maximum):
 			return _invalid("%s has an invalid integer value." % field)
-	if int(value.day) not in days:
-		return _invalid("day is not part of this campaign.")
+	if int(value.day) not in days or typeof(value.get("active_request_id")) != TYPE_STRING:
+		return _invalid("invalid day or active request.")
 	if value.get("phase") not in ["review", "debrief", "complete"] or typeof(value.get("consulted")) != TYPE_BOOL:
 		return _invalid("invalid phase or consultation flag.")
 	if not _rule_list(value.get("selected_rules"), int(value.day)):
 		return _invalid("selected rules must be unique active rule IDs.")
-	if typeof(value.get("coworkers")) != TYPE_DICTIONARY or value.coworkers.size() != 3:
-		return _invalid("coworker relationships are missing.")
-	for author: String in AUTHORS:
-		if not _integer(value.coworkers.get(author), 0, 100):
-			return _invalid("invalid relationship with " + author + ".")
-	if typeof(value.get("decisions")) != TYPE_ARRAY or value.decisions.size() != int(value.request_index):
-		return _invalid("decision history does not match the request index.")
-	if typeof(value.get("log")) != TYPE_ARRAY or value.log.size() > LOG_LIMIT or typeof(value.get("last_feedback")) != TYPE_DICTIONARY or typeof(value.get("last_debrief")) != TYPE_DICTIONARY:
-		return _invalid("invalid activity or feedback data.")
-	# Replay the bounded journal to verify resources, phases, audits, and one-time pay.
+	if typeof(value.get("actions")) != TYPE_ARRAY or value.actions.size() > campaign_size * 8 + days.size() * 2:
+		return _invalid("invalid or oversized action history.")
 	var replay: Dictionary = initial_state()
-	for index in range(value.decisions.size()):
-		var decision: Variant = value.decisions[index]
-		if typeof(decision) != TYPE_DICTIONARY or replay.phase != "review":
-			return _invalid("decision %d occurs outside a review shift." % index)
-		if decision.get("pr_id") != Catalog.request_at(index).id or decision.get("verdict") not in ["approve", "request_changes"]:
-			return _invalid("decision %d has an invalid request or verdict." % index)
-		if typeof(decision.get("consulted")) != TYPE_BOOL or typeof(decision.get("correct")) != TYPE_BOOL or not _rule_list(decision.get("cited_rules"), int(replay.day)):
-			return _invalid("decision %d has invalid citations or flags." % index)
-		for rule_id: String in decision.cited_rules:
-			replay = dispatch(replay, {"type": "toggle-rule", "rule_id": rule_id})
-		if decision.consulted:
-			replay = dispatch(replay, {"type": "consult-ai"})
-		replay = dispatch(replay, {"type": "review", "verdict": decision.verdict})
-		if replay.request_index != index + 1:
-			return _invalid("decision %d could not be submitted." % index)
-		if decision.has("evening_choice"):
-			if replay.phase != "debrief" or decision.evening_choice not in EVENINGS:
-				return _invalid("evening choice occurs outside a completed shift.")
-			replay = dispatch(replay, {"type": "next-day", "choice": decision.evening_choice})
-		if not _matches(replay.decisions[index], decision):
-			return _invalid("decision %d does not match its audit." % index)
+	for index in range(value.actions.size()):
+		var event: Variant = value.actions[index]
+		if typeof(event) != TYPE_DICTIONARY or not _integer(event.get("day"), int(replay.day), int(replay.day)) or not _integer(event.get("shift_seconds"), int(replay.shift_seconds), SHIFT_SECONDS):
+			return _invalid("action %d has an invalid day or timestamp." % index)
+		var kind: Variant = event.get("type")
+		if kind not in ["timeout", "next-day", "consult-ai", "review", "chat-reply"]:
+			return _invalid("unknown action in history.")
+		if kind == "timeout":
+			if replay.phase != "review" or int(event.shift_seconds) != SHIFT_SECONDS:
+				return _invalid("shift closure is outside its deadline.")
+			replay = advance(replay, SHIFT_SECONDS - int(replay.shift_seconds))
+		else:
+			if replay.phase == "review" and int(event.shift_seconds) == SHIFT_SECONDS:
+				return _invalid("a work action occurs at or after the closing bell.")
+			replay = advance(replay, int(event.shift_seconds) - int(replay.shift_seconds))
+			var command: Dictionary = event.duplicate(true)
+			if kind in ["consult-ai", "review"]:
+				if typeof(event.get("pr_id")) != TYPE_STRING:
+					return _invalid("action is missing its request identity.")
+				replay = dispatch(replay, {"type": "select-request", "request_id": event.pr_id})
+				if replay.active_request_id != event.pr_id:
+					return _invalid("action targets an unavailable or already reviewed request.")
+				if kind == "review":
+					if not _rule_list(event.get("cited_rules"), int(replay.day)):
+						return _invalid("review contains invalid citations.")
+					replay.selected_rules = []
+					for rule_id: String in event.cited_rules:
+						replay = dispatch(replay, {"type": "toggle-rule", "rule_id": rule_id})
+				command.erase("cited_rules")
+			command.erase("day")
+			command.erase("shift_seconds")
+			replay = dispatch(replay, command)
+		if replay.actions.size() != index + 1 or not _matches(replay.actions[index], event):
+			return _invalid("action %d cannot occur in this history." % index)
+	if int(value.day) != int(replay.day) or int(value.shift_seconds) < int(replay.shift_seconds):
+		return _invalid("current clock precedes its action history.")
+	replay = advance(replay, int(value.shift_seconds) - int(replay.shift_seconds))
+	replay = dispatch(replay, {"type": "select-request", "request_id": value.active_request_id})
+	replay.selected_rules = []
 	for rule_id: String in value.selected_rules:
 		replay = dispatch(replay, {"type": "toggle-rule", "rule_id": rule_id})
-	if value.consulted:
-		replay = dispatch(replay, {"type": "consult-ai"})
 	if not _matches(replay, value):
-		return _invalid("state does not match its decision history, phase, or earned resources.")
+		return _invalid("state does not match its timed actions, arrivals, or earned resources.")
 	return {"ok": true, "state": replay, "error": ""}
 
 static func serialize_save(state: Dictionary) -> String:

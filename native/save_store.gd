@@ -2,9 +2,9 @@ extends RefCounted
 ## Native user-data persistence; simulation stays independent of filesystem APIs.
 
 const Simulation = preload("res://native/simulation.gd")
-const SAVE_PATH: String = "user://review-save-v3.json"
-const TEMP_PATH: String = "user://review-save-v3.json.tmp"
-const BACKUP_PATH: String = "user://review-save-v3.json.bak"
+const SAVE_PATH: String = "user://review-save-v4.json"
+const TEMP_PATH: String = "user://review-save-v4.json.tmp"
+const BACKUP_PATH: String = "user://review-save-v4.json.bak"
 const MAX_SAVE_BYTES: int = 100000
 
 static func _failure(message: String) -> Dictionary:
@@ -46,8 +46,10 @@ static func load_game() -> Dictionary:
 	if not FileAccess.file_exists(SAVE_PATH):
 		if FileAccess.file_exists(BACKUP_PATH):
 			return _load_path(BACKUP_PATH)
+		if FileAccess.file_exists("user://review-save-v3.json"):
+			return _failure("Your earlier untimed career is preserved. Timed shifts and incoming requests require a new career; new saves use version 4.")
 		if FileAccess.file_exists("user://review-save-v2.json"):
-			return _failure("An earlier review save is preserved, but its schedule is incompatible with this campaign. Start a new career to create a version 3 save.")
+			return _failure("An earlier review save is preserved, but its schedule is incompatible with this campaign. Start a new career to create a version 4 save.")
 		return _failure("No saved review career found.")
 	var result: Dictionary = _load_path(SAVE_PATH)
 	if result.ok:
