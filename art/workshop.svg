@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120" shape-rendering="crispEdges">
+  <!-- The scene is drawn on a 320 × 120 integer grid. Flat colors only. -->
+  <path fill="#d8e2d5" d="M0 0h320v120H0z"/>
+  <path fill="#adbdae" d="M0 56h11v-6h13v-7h14v-6h13v-4h14v5h12v6h17v7h21v-4h14v-8h17v-7h21v-4h17v5h13v7h16v6h24v-7h13v-4h21v-5h18v7h15v8h16v10h10v65H0z"/>
+  <path fill="#8daca0" d="M0 64h17v-5h18v-4h22v6h17v4h20v-7h22v-5h17v6h19v6h31v-5h25v-7h22v6h14v5h23v-5h21v3h32v58H0z"/>
+  <!-- Pine line, built from small horizontal tiers. -->
+  <path fill="#59776d" d="M8 43h2v5h2v5h3v5h-2v5h4v5H3v-5h4v-5H5v-5h2v-5h1zm22 10h2v5h2v5h3v5h-2v5h4v5H23v-5h4v-5h-2v-5h3v-5h2zm260-9h2v6h2v5h3v6h-2v5h4v6h-16v-6h4v-5h-2v-6h3v-5h2zm18 11h2v5h2v5h3v6h-2v5h4v6h-16v-6h4v-5h-2v-6h3v-5h2z"/>
+  <path fill="#6b8871" d="M0 78h320v42H0z"/>
+  <path fill="#899777" d="M0 89h320v31H0z"/>
+  <!-- Yard and road. -->
+  <path fill="#b7b096" d="M0 103h320v17H0zM34 98h245v7H34z"/>
+  <path fill="#c9c0a2" d="M0 112h320v8H0zM102 106h136v4H102z"/>
+  <path fill="#a59f85" d="M9 108h9v1H9zm29 8h12v1H38zm49-5h5v1h-5zm173 2h14v1h-14zm38-6h8v1h-8z"/>
+  <!-- Main workshop: cream masonry, weathered brick-red roof. -->
+  <path fill="#656c5c" d="M130 99h112v5H130z"/>
+  <path fill="#a29473" d="M217 29h9v25h-9z"/>
+  <path fill="#686958" d="M216 27h11v4h-11z"/>
+  <path fill="#d8c9a4" d="M137 48h99v51h-99z"/>
+  <path fill="#b5a583" d="M223 48h13v51h-13z"/>
+  <path fill="#885348" d="M133 47h6v-5h7v-5h79v5h7v5h8v6H133z"/>
+  <path fill="#ae6e53" d="M144 42h84v3h-84z"/>
+  <path fill="#754a41" d="M133 50h107v4H133z"/>
+  <path fill="#baa987" d="M137 58h99v2h-99zM137 92h99v7h-99z"/>
+  <!-- Long upper window and hand-painted sign board. -->
+  <path fill="#7b8675" d="M148 64h33v15h-33zm47 0h28v15h-28z"/>
+  <path fill="#415c56" d="M150 66h29v11h-29zm47 0h24v11h-24z"/>
+  <path fill="#aac5b4" d="M151 67h11v4h-11zm15 0h12v4h-12zm32 0h9v4h-9zm12 0h10v4h-10z"/>
+  <path fill="#d3c5a1" d="M163 65h2v14h-2zm44 0h2v14h-2z"/>
+  <path fill="#a99673" d="M147 79h35v2h-35zm47 0h30v2h-30z"/>
+  <path fill="#5d6d5d" d="M151 54h65v7h-65z"/>
+  <path fill="#c9c7a7" d="M156 57h12v1h-12zm15 0h22v1h-22zm25 0h15v1h-15z"/>
+  <path fill="#4a5c51" d="M169 85h29v14h-29z"/>
+  <path fill="#697566" d="M171 86h25v2h-25zm0 4h25v1h-25zm0 3h25v1h-25z"/>
+  <path fill="#364b43" d="M181 89h15v10h-15z"/>
+  <!-- Low packing shed with an open loading bay. -->
+  <path fill="#666e59" d="M50 100h78v4H50z"/>
+  <path fill="#c6b88e" d="M56 73h66v28H56z"/>
+  <path fill="#a89970" d="M111 73h11v28h-11z"/>
+  <path fill="#68776a" d="M52 69h75v7H52z"/>
+  <path fill="#88907a" d="M57 65h65v5H57z"/>
+  <path fill="#41584b" d="M72 80h31v21H72z"/>
+  <path fill="#304b42" d="M77 85h21v16H77z"/>
+  <path fill="#a89970" d="M69 79h3v22h-3zm34 0h3v22h-3z"/>
+  <path fill="#decda5" d="M58 80h8v10h-8z"/>
+  <path fill="#61796b" d="M59 81h6v7h-6z"/>
+  <path fill="#ccad6e" d="M79 94h10v7H79zm11-5h10v12H90z"/>
+  <path fill="#a7814d" d="M80 96h8v1h-8zm11-4h8v1h-8zm3-3h1v12h-1z"/>
+  <!-- Pole light, crates and fence add small foreground silhouettes. -->
+  <path fill="#526358" d="M42 72h2v31h-2zm1-2h12v2H43zm11 0h2v5h-2z"/>
+  <path fill="#dcca92" d="M51 74h7v2h-7z"/>
+  <path fill="#586951" d="M10 95h29v2H10zm2-5h2v13h-2zm12 0h2v13h-2zm12 0h2v13h-2z"/>
+  <path fill="#7d704e" d="M116 99h21v4h-21z"/>
+  <path fill="#c9a86a" d="M116 91h10v10h-10zm11 2h11v8h-11zm-7-10h10v8h-10z"/>
+  <path fill="#a17d4d" d="M117 93h8v1h-8zm4-8h8v1h-8zm7 10h9v1h-9zm-8-2h1v8h-1zm4-8h1v6h-1zm7 10h1v6h-1z"/>
+  <!-- Delivery truck. -->
+  <path fill="#6b755f" d="M253 102h49v3h-49z"/>
+  <path fill="#57645b" d="M251 83h29v19h-29z"/>
+  <path fill="#9eae98" d="M252 83h26v16h-26z"/>
+  <path fill="#b5c2a6" d="M253 84h24v3h-24z"/>
+  <path fill="#819780" d="M256 89h2v9h-2zm8 0h2v9h-2zm8 0h2v9h-2z"/>
+  <path fill="#bf9a5a" d="M280 89h11v4h6v4h3v6h-20z"/>
+  <path fill="#ead39a" d="M281 89h9v3h-9z"/>
+  <path fill="#415c56" d="M282 93h7v5h-7zm8 1h3v4h-3z"/>
+  <path fill="#8e784d" d="M279 99h18v3h-18z"/>
+  <path fill="#344d43" d="M257 100h7v6h-7zm25 0h7v6h-7z"/>
+  <path fill="#aeb09a" d="M259 102h3v2h-3zm25 0h3v2h-3z"/>
+  <path fill="#e3d9b3" d="M297 98h3v2h-3z"/>
+  <path fill="#566c54" d="M5 99h2v4H5zm3-2h2v6H8zm230 2h2v4h-2zm3-3h2v7h-2zm62 5h2v3h-2zm4-4h2v7h-2z"/>
+</svg>
