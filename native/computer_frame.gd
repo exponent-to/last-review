@@ -122,18 +122,7 @@ func _draw_room() -> void:
 	draw_rect(Rect2(15, 11, room_size.x - 30, window_bottom - 5), Color("607681"))
 	draw_rect(Rect2(18, 14, room_size.x - 36, window_bottom - 12), Color("273d4c"))
 	draw_rect(glass, _sky_color())
-	# Skyline is clipped geometrically to the glass; the wall below stays indoors.
-	for building in range(20):
-		var x := building * 37 - 12
-		var roof := 28 + (building * 17) % 59
-		_room_rect(Rect2(x, roof, 27, maxf(0, glass.end.y - roof)), glass, Color("293f52"))
-		for floor_index in range(25):
-			if (building + floor_index) % 3 == 0:
-				_room_rect(Rect2(x + 5, roof + 5 + floor_index * 9, 3, 2), glass, Color("738a98").lerp(Color("e0c795"), clampf(float(_day_minutes - 840) / 240.0, 0, 1)))
-	for building in range(9):
-		var x := building * 83 + 9
-		var roof := 96 + (building * 23) % 47
-		_room_rect(Rect2(x, roof, 39, maxf(0, glass.end.y - roof)), glass, Color("203446"))
+	_draw_city(glass)
 	_draw_window_rain(glass)
 	# Inner seals, mullions and the underside of the upper reveal.
 	draw_rect(Rect2(21, 14, room_size.x - 42, 3), Color("142734"))
@@ -207,6 +196,57 @@ func _draw_room() -> void:
 		draw_rect(Rect2(room_size.x - 79, room_size.y - 36 + row * 4, 36 - row * 5, 1), Color("5d7386"))
 	draw_rect(Rect2(room_size.x - 26, room_size.y - 35, 2, 25), Color("162638"))
 	draw_set_transform(Vector2.ZERO)
+
+
+func _draw_city(glass: Rect2) -> void:
+	var evening := clampf(float(_day_minutes - 780) / 300.0, 0.0, 1.0)
+	# The far blocks sit in rain haze; their rooflines and equipment remain visible
+	# above the monitor. Stable patterns keep lights from flickering on redraw.
+	for building in range(20):
+		var x := glass.position.x - 18 + building * 37
+		var roof := 27 + (building * 17) % 55
+		var width := 25 + (building % 3) * 4
+		var facade := Color("435e70").lerp(Color("263c52"), evening)
+		_city_rect(Rect2(x, roof, width, glass.end.y - roof), glass, facade)
+		_city_rect(Rect2(x + width - 5, roof, 5, glass.end.y - roof), glass, Color("30485c"))
+		_city_rect(Rect2(x - 1, roof, width + 2, 2), glass, Color("6c8490").lerp(Color("42586d"), evening))
+		_city_rect(Rect2(x + 5, roof - 5, 9, 5), glass, Color("344c5f"))
+		for floor_index in range(32):
+			var y := roof + 6 + floor_index * 12
+			for column in range(3):
+				var lit := (building * 11 + floor_index * 7 + column * 3) % 7 < 1
+				var tint := Color("6d8594").lerp(Color("d0b98d"), evening) if lit else Color("30495e").lerp(Color("182b40"), evening)
+				_city_rect(Rect2(x + 4 + column * 7, y, 3, 4), glass, tint)
+	# Nearby buildings are anchored at the exposed sides, so their detail isn't
+	# lost behind the monitor when the window changes size.
+	_draw_neighbor(glass.position.x - 7, 102, 56, glass, false, evening)
+	_draw_neighbor(glass.end.x - 49, 118, 58, glass, true, evening)
+
+
+func _draw_neighbor(x: float, roof: float, width: float, glass: Rect2, modern: bool, evening: float) -> void:
+	var face := Color("304a5d") if modern else Color("3b5262")
+	face = face.lerp(Color("1e3349"), evening * 0.7)
+	_city_rect(Rect2(x, roof, width, glass.end.y - roof), glass, face)
+	_city_rect(Rect2(x + width - 9, roof, 9, glass.end.y - roof), glass, Color("1c3043"))
+	# A roof lip and shaded return provide depth without busy rooftop clutter.
+	_city_rect(Rect2(x - 1, roof, width + 2, 2), glass, Color("5b7382").lerp(Color("3e556a"), evening))
+	_city_rect(Rect2(x, roof + 2, width, 2), glass, Color("243b4c"))
+	for floor_index in range(30):
+		var y := roof + 11 + floor_index * 18
+		if y >= glass.end.y: break
+		for column in range(3):
+			var wx := x + 6 + column * 13
+			var lit := (floor_index * 5 + column * 3 + (2 if modern else 0)) % 11 < 2
+			var tint := Color("647f90").lerp(Color("a79776"), evening) if lit else Color("2a4255").lerp(Color("192d40"), evening)
+			_city_rect(Rect2(wx, y, 6, 8), glass, tint)
+			_city_rect(Rect2(wx, y + 8, 6, 1), glass, Color("475f70"))
+
+
+func _city_rect(rect: Rect2, glass: Rect2, color: Color) -> void:
+	# Avoid thousands of invisible facade details behind the opaque monitor.
+	var screen := get_screen_rect(size)
+	var occlusion := Rect2((screen.position - Vector2(12, 12)) * 0.5, (screen.size + Vector2(24, 48)) * 0.5)
+	if not occlusion.encloses(rect): _room_rect(rect, glass, color)
 
 
 func _room_rect(rect: Rect2, bounds: Rect2, color: Color) -> void:
