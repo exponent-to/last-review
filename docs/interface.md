@@ -67,7 +67,7 @@ Slouch bubbles show weekday and office-clock send time. Histories sort by saved 
 
 ## Cold open and morning reading
 
-New Game runs the laptop-only cold open before orientation. Load Game bypasses it. The vignette owns only presentation: rejection emails, a new Northstar offer, and an animated cursor signing it; it never submits a simulation action or moves the OS pointer. Skip completes the same guarded handoff as normal playback.
+New Game runs the laptop-only cold open before orientation. Load Game bypasses it. The vignette owns only presentation: rejection emails, a new Northstar offer, and a player-controlled inbox with clickable emails and signature; it never submits a simulation action or moves the OS pointer. Skip completes the same guarded handoff as normal playback.
 
 At the start of each career day, INTRANET opens Hackerish News with three authored, clickable stories. Its paper-colored article pages and compact masthead share the real draggable browser window. The morning action opens Morgan's memo, which describes the day's mechanics and renders exactly the rules introduced that day from Catalog. BEGIN SHIFT releases the clock and minimizes the reader. Closing/minimizing the window alone cannot start time; reopen INTRANET and its daily memo. During work the same pages remain readable without changing the clock. Headlines cannot resolve stories from a future day.
 

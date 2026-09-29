@@ -25,6 +25,9 @@ func _run() -> void:
 	app._tick_shift(60.0)
 	_check(int(app.state.shift_seconds) == 0, "Cold open cannot spend shift time.")
 	app._cold_open.advance_sequence(30.0)
+	app._cold_open._open_mail(-1)
+	app._cold_open._sign_offer()
+	app._cold_open.advance_sequence(2.0)
 	await process_frame
 	_check(not app.tutorial.is_empty() and app.state.decisions.is_empty(), "New Game starts practice without career consequences.")
 	_check(app.interface.visible and not app.menu.visible, "The signed offer hands off to the orientation workstation.")

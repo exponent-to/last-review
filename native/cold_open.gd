@@ -1,9 +1,10 @@
 extends Control
-## A staged local fiction. The animated pointer never moves the real system cursor.
+## A laptop wake-up followed by a player-controlled fictional inbox.
 
 signal finished
 
-const LENGTH := 23.0
+const ARRIVAL_TIME := 6.6
+const SIGN_HOLD := 1.2
 const DESIGN_SIZE := Vector2(1120, 800)
 const OFFER := "Hi,\n\nWe enjoyed your conversation with our recruiting assistant. Northstar would like to offer you the role of Junior Software Engineer.\n\nAnnual salary: $38,000\nLocation: on site. Start: Monday.\n\nYou'll review changes, work with the team, and help us build the future of human-centered automation. Our assistant, Helios, will handle the routine parts.\n\nWe know you have options. This offer expires tonight.\n\nMorgan\nEngineering Manager, Northstar"
 const REJECTIONS := [
@@ -22,7 +23,12 @@ var _completed := false
 var _pinged := false
 var _font: Font
 var _skip: Button
-var _continue: Button
+var _mail_buttons: Array[Button] = []
+var _inbox_button: Button
+var _sign_button: Button
+var _selected_mail := -2 # -2: inbox, -1: offer, 0+: rejection.
+var _signed := false
+var _signed_elapsed := 0.0
 var _ping: AudioStreamPlayer
 
 
@@ -36,10 +42,14 @@ func _ready() -> void:
 	_skip = _make_button("SKIP  [ESC]")
 	_skip.pressed.connect(_complete)
 	add_child(_skip)
-	_continue = _make_button("CONTINUE  [ENTER]")
-	_continue.pressed.connect(_complete)
-	add_child(_continue)
-	_continue.visible = not _motion
+	for index in range(-1, REJECTIONS.size()):
+		var button := _mail_hit_button("Open Northstar offer" if index == -1 else "Open " + str(REJECTIONS[index][0]))
+		button.pressed.connect(_open_mail.bind(index))
+		_mail_buttons.append(button)
+	_inbox_button = _mail_hit_button("Back to Inbox")
+	_inbox_button.pressed.connect(_open_mail.bind(-2))
+	_sign_button = _mail_hit_button("Accept and sign offer")
+	_sign_button.pressed.connect(_sign_offer)
 	_ping = AudioStreamPlayer.new()
 	_ping.stream = _ping_sound()
 	_ping.volume_db = -20.0
@@ -63,18 +73,15 @@ func set_paused(paused: bool) -> void:
 func set_motion(enabled: bool) -> void:
 	_motion = enabled
 	if not enabled:
-		_elapsed = 12.0
+		_elapsed = ARRIVAL_TIME
 		_pinged = true
-	if is_instance_valid(_continue):
-		_continue.visible = not enabled
-		if not enabled:
-			_continue.grab_focus()
+	if is_node_ready(): _layout()
 	_sync_processing()
 	queue_redraw()
 
 
 func _sync_processing() -> void:
-	set_process(not _completed and _motion and not _paused and _focused)
+	set_process(not _completed and (_motion or _signed) and not _paused and _focused)
 
 
 func _on_focus_entered() -> void:
@@ -95,16 +102,42 @@ func _process(delta: float) -> void:
 
 ## Deterministic progression for a replay or test. Application focus gates _process.
 func advance_sequence(delta: float) -> void:
-	if _completed or _paused or not _motion or delta <= 0.0:
+	if _completed or _paused or delta <= 0.0:
 		return
-	_elapsed = minf(LENGTH, _elapsed + delta)
+	if _signed:
+		_signed_elapsed += delta
+		if _signed_elapsed >= SIGN_HOLD: _complete()
+		return
+	if not _motion: return
+	var was_ready := _elapsed >= ARRIVAL_TIME
+	_elapsed = minf(ARRIVAL_TIME, _elapsed + delta)
 	if _elapsed >= 1.6 and not _pinged:
 		_pinged = true
 		if is_instance_valid(_ping) and _focused:
 			_ping.play()
+	if not was_ready and _elapsed >= ARRIVAL_TIME:
+		_layout()
+		_mail_buttons[0].grab_focus()
 	queue_redraw()
-	if _elapsed >= LENGTH:
-		_complete()
+
+
+func _open_mail(index: int) -> void:
+	if _completed or _paused or _signed or _elapsed < ARRIVAL_TIME: return
+	if index < -2 or index >= REJECTIONS.size(): return
+	_selected_mail = index
+	_layout()
+	if index == -1: _sign_button.grab_focus()
+	elif index >= 0: _inbox_button.grab_focus()
+	else: _mail_buttons[0].grab_focus()
+	queue_redraw()
+
+
+func _sign_offer() -> void:
+	if _completed or _paused or _signed or _selected_mail != -1 or _elapsed < ARRIVAL_TIME: return
+	_signed = true
+	_layout()
+	_sync_processing()
+	queue_redraw()
 
 
 func _complete() -> void:
@@ -118,22 +151,19 @@ func _complete() -> void:
 		_ping.stop()
 	if is_instance_valid(_skip):
 		_skip.disabled = true
-	if is_instance_valid(_continue):
-		_continue.disabled = true
+	for button in _mail_buttons: button.disabled = true
+	_sign_button.disabled = true
+	_inbox_button.disabled = true
 	finished.emit()
 
 
 func _input(event: InputEvent) -> void:
 	if _completed or not is_visible_in_tree():
 		return
-	if event is InputEventKey:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		# Consume before emitting: the parent removes this scene in the handoff.
 		get_viewport().set_input_as_handled()
-		if event.pressed and not event.echo:
-			if event.keycode == KEY_ESCAPE or (not _motion and event.keycode in [KEY_ENTER, KEY_KP_ENTER]):
-				_complete()
-			elif event.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER] and (_skip.has_focus() or _continue.has_focus()):
-				_complete()
+		_complete()
 
 
 func _unhandled_input(_event: InputEvent) -> void:
@@ -144,9 +174,44 @@ func _unhandled_input(_event: InputEvent) -> void:
 func _layout() -> void:
 	_skip.position = Vector2(maxf(12, size.x - 174), 14)
 	_skip.size = Vector2(160, 36)
-	_continue.position = Vector2(maxf(12, size.x - 236), maxf(54, size.y - 52))
-	_continue.size = Vector2(222, 36)
+	if not is_instance_valid(_sign_button): return
+	var ready_for_mail := _elapsed >= ARRIVAL_TIME and not _signed
+	for index in range(_mail_buttons.size()):
+		var button := _mail_buttons[index]
+		button.visible = ready_for_mail and _selected_mail == -2
+		_place_mail_button(button, Rect2(161, 79 if index == 0 else 153 + (index - 1) * 73, 785, 65))
+	_inbox_button.visible = ready_for_mail and _selected_mail != -2
+	_place_mail_button(_inbox_button, Rect2(8, 82, 136, 32))
+	_sign_button.visible = ready_for_mail and _selected_mail == -1
+	_place_mail_button(_sign_button, Rect2(175, 496, 286, 42))
 	queue_redraw()
+
+
+func _place_mail_button(button: Button, rect: Rect2) -> void:
+	var view_scale := minf(size.x / DESIGN_SIZE.x, size.y / DESIGN_SIZE.y)
+	var origin := ((size - DESIGN_SIZE * view_scale) * 0.5).floor()
+	var laptop := _laptop_rect()
+	var mail_scale := (laptop.size.x - 36) / 956.0
+	button.position = origin + (laptop.position + Vector2(18, 18) + rect.position * mail_scale) * view_scale
+	button.size = rect.size * mail_scale * view_scale
+
+
+func _mail_hit_button(label: String) -> Button:
+	var button := Button.new()
+	button.tooltip_text = label
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color(0.2, 0.4, 0.6, 0.12)
+	button.add_theme_stylebox_override("hover", hover)
+	var focus := StyleBoxFlat.new()
+	focus.bg_color = Color.TRANSPARENT
+	focus.border_color = Color("467b9c")
+	focus.set_border_width_all(2)
+	button.add_theme_stylebox_override("focus", focus)
+	add_child(button)
+	return button
 
 
 func _make_button(caption: String) -> Button:
@@ -218,8 +283,6 @@ func _draw() -> void:
 		var notification := Rect2(laptop.position.x + 82, laptop.position.y - 42, laptop.size.x - 164, 30)
 		draw_rect(notification, Color("273b4d"))
 		_text(notification.position + Vector2(12, 20), "New mail — Northstar", 13, Color("d4e5eb"))
-	if _elapsed >= 8.4 and _elapsed < 21.2:
-		_draw_pointer(screen)
 	draw_set_transform(Vector2.ZERO)
 
 
@@ -241,17 +304,19 @@ func _draw_mail(screen: Rect2) -> void:
 	_text(Vector2(18, 141), "Sent", 14, Color("425c72"))
 	_text(Vector2(18, 175), "Drafts", 14, Color("425c72"))
 	_text(Vector2(18, 209), "Trash", 14, Color("425c72"))
-	if _elapsed < 10.3:
+	if _selected_mail == -2:
 		_draw_inbox()
-	else:
+	elif _selected_mail == -1:
 		_draw_offer()
+	else:
+		_draw_rejection()
 	draw_set_transform(origin, 0.0, Vector2.ONE * view_scale)
 
 
 func _draw_inbox() -> void:
 	_text(Vector2(172, 65), "Inbox", 21, Color("20354b"))
 	_text(Vector2(758, 64), "NEWEST FIRST", 11, Color("50677b"))
-	var arrived := _elapsed >= 6.6
+	var arrived := _elapsed >= ARRIVAL_TIME
 	if arrived:
 		var fresh := Rect2(161, 79, 785, 65)
 		draw_rect(fresh, Color("edf5f6"))
@@ -274,7 +339,7 @@ func _draw_offer() -> void:
 	var lines := _wrapped_lines(OFFER, 752, 14)
 	for index in range(lines.size()):
 		_text(Vector2(175, 128 + index * 18), str(lines[index]), 14, Color("293f54"))
-	var signed := _elapsed >= 20.1
+	var signed := _signed
 	draw_rect(Rect2(175, 496, 286, 42), Color("526d7c") if signed else Color("315f7e"))
 	_text(Vector2(190, 522), "SIGNED — YOU" if signed else "ACCEPT & SIGN OFFER", 15, Color("e7f0f3"))
 	if signed:
@@ -283,19 +348,14 @@ func _draw_offer() -> void:
 		_text(Vector2(485, 522), "Electronic signature", 12, Color("607687"))
 
 
-func _draw_pointer(screen: Rect2) -> void:
-	var mail_scale := screen.size.x / 956.0
-	var progress := clampf((_elapsed - 8.4) / 1.7, 0, 1)
-	var point := Vector2(750, 420).lerp(Vector2(345, 113), progress * progress * (3 - 2 * progress))
-	if _elapsed >= 10.3:
-		point = Vector2(746, 422)
-	if _elapsed >= 18.4:
-		progress = clampf((_elapsed - 18.4) / 1.5, 0, 1)
-		point = Vector2(746, 422).lerp(Vector2(343, 512), progress * progress * (3 - 2 * progress))
-	point = screen.position + point * mail_scale
-	var cursor := PackedVector2Array([point, point + Vector2(0, 17), point + Vector2(5, 12), point + Vector2(9, 20), point + Vector2(12, 18), point + Vector2(8, 10), point + Vector2(15, 10)])
-	draw_colored_polygon(cursor, Color("f1f5f7"))
-	draw_polyline(PackedVector2Array([cursor[0], cursor[1], cursor[2], cursor[3], cursor[4], cursor[5], cursor[6], cursor[0]]), Color("152537"), 1.0)
+func _draw_rejection() -> void:
+	var mail: Array = REJECTIONS[_selected_mail]
+	_text(Vector2(172, 64), str(mail[1]), 22, Color("20354b"))
+	_text(Vector2(173, 90), str(mail[0]) + " / Recruiting", 13, Color("536b80"))
+	draw_rect(Rect2(173, 104, 757, 1), Color("9db1bf"))
+	var lines := _wrapped_lines("Hi,\n\n" + str(mail[2]) + "\n\nThanks for your interest.\n" + str(mail[0]), 752, 14)
+	for index in range(lines.size()):
+		_text(Vector2(175, 128 + index * 18), lines[index], 14, Color("293f54"))
 
 
 func _text(at: Vector2, value: String, font_size: int, color: Color) -> void:
