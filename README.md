@@ -2,7 +2,7 @@
 
 A native software-engineering life sim built with Godot 4.7.2. You review pull requests at a company handing more authority to an AGI assistant. Technical correctness, coworker approval, and your own ability to cope do not always align.
 
-The playable slice opens at a main menu with New Game and Load Game. New games begin with an animated terminal opening and an untimed orientation day, then enter a computer desktop inside a large physical monitor. Launch Review, Handbook, Slouch, Intranet, or System from the home-screen icons. The windowed desktop uses bundled IBM Plex Mono and hand-authored pixel art, with a rainy room visible around the monitor. The rulebook starts small and expands as management issues new policies. Last Review is a working title.
+The playable slice opens at a main menu with New Game and Load Game. New Game opens directly into an untimed orientation on a computer desktop inside a large physical monitor. Launch Review, Handbook, Slouch, Intranet, or System from the home-screen icons. The windowed desktop uses bundled IBM Plex Mono and hand-authored pixel art, with a rainy room visible around the monitor. The rulebook starts small and expands as management issues new policies. Last Review is a working title.
 
 ## Play
 
@@ -36,9 +36,9 @@ The bootstrap downloads the pinned editor and export template from Godot's offic
 
 Helios can advise you, but its scripted recommendations may be wrong. Generated comments also make confident claims: trace recursive helpers and actual values instead of taking their reassurance on trust. Consultation eases stress while increasing its authority. New policies arrive between shifts. The office loses human occupants as more machine terminals come online. Morgan’s final message reflects trust, stress, and AI authority.
 
-Each workday lasts six real minutes, shown as 09:00–18:00 by the desktop clock. Time runs while reading code and messages. Use PAUSE or Esc to stop it; switching away automatically pauses until you resume. The office darkens toward evening, and at closing time Helios takes unfinished reviews. Skip the opening with Enter, Escape, or its on-screen control. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. Use its file selector to inspect every changed file; approval and citations apply to the entire PR. SYSTEM contains save/load, confirmed new-run controls, instructions, and the background-motion toggle.
+Each workday lasts six real minutes, shown as 09:00–18:00 by the desktop clock. Time runs while reading code and messages. Use PAUSE or Esc to stop it; switching away automatically pauses until you resume. The office darkens toward evening, and at closing time Helios takes unfinished reviews. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. Use its file selector to inspect every changed file; approval and citations apply to the entire PR. SYSTEM contains save/load, confirmed new-run controls, instructions, and the background-motion toggle.
 
-Open an app from its desktop icon. Drag titlebars to arrange windows, drag any edge or corner to resize, or use the minimize, maximize, and close controls. Resizing stops at the screen boundaries and each app's usable minimum size. The taskbar tracks open apps; HOME reveals the desktop. With a titlebar focused, arrow keys move its window (Shift moves farther). ARRANGE restores the layout. Intranet opens company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
+Open an app from its desktop icon. Drag titlebars to arrange windows, drag any edge or corner to resize, or use the minimize, maximize, and close controls. Resizing stops at the screen boundaries and each app's usable minimum size. The taskbar tracks open apps; HOME reveals the desktop. With a titlebar focused, arrow keys move its window (Shift moves farther). Intranet opens company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
 
 Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. PRs arrive gradually as coworker messages with clickable review links. Choose a reply to acknowledge a request, ask for a trace hint, or raise a concern; colleagues respond and react to your approvals or change requests. Their tone carries relationship signals; there are no visible relationship scores, stress percentages, or authority meters. Incoming messages mark conversations unread without opening them for you. Morgan’s evening messages communicate consequences without scores, rule answers, or payroll tables. Slouch is entirely fictional and local, with no connection to a real messaging service.
 
@@ -55,7 +55,7 @@ sh scripts/check.sh
 sh scripts/build-macos.sh
 ```
 
-The simulation suite covers the authored career, precise citations, AI mistakes, relationship and audit consequences, one-time pay, evening choices, immutability, and malformed saves. The native-interface test drives actual rule/decision controls through the campaign and manager follow-up. Menu and tutorial checks cover untimed practice, retries, lesson progress, save compatibility, and the fresh-career handoff. The intro suite checks completion, skipping, reduced motion, and pause behavior. All run headlessly without test plugins.
+The simulation suite covers the authored career, precise citations, AI mistakes, relationship and audit consequences, one-time pay, evening choices, immutability, and malformed saves. The native-interface test drives actual rule/decision controls through the campaign and manager follow-up. Menu and tutorial checks cover untimed practice, retries, lesson progress, save compatibility, and the fresh-career handoff. All run headlessly without test plugins.
 
 - `content/` — editable JSON rules, PR packets, and daily briefings.
 - `content/chat.gd`, `content/messages.json` — authored coworker messages derived from the career's decisions.
@@ -63,7 +63,6 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 - `native/interface.gd` — review desk, rule search, people, evenings, and system controls.
 - `native/desktop_window.gd` — draggable, focusable, minimizable native desktop windows.
 - `native/main_menu.gd`, `native/tutorial.gd` — start/load menu and guided practice.
-- `native/intro.gd` — animated terminal opening and skip controls.
 - `native/office_scene.gd`, `art/` — rasterized SVG office scenery and animation.
 - `native/computer_frame.gd` — physical monitor and animated rainy room around the desktop.
 - `native/save_store.gd`, `native/main.gd` — persistence and application wiring.

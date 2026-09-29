@@ -14,8 +14,7 @@
     #loader { position: fixed; inset: 0; display: grid; place-items: center; padding: 28px; background: #101722; }
     .terminal { width: min(580px, 100%); }
     .machine { margin: 0 0 44px; color: #899baa; font-size: 11px; letter-spacing: .12em; }
-    h1 { margin: 0; font-size: clamp(30px, 7vw, 44px); font-weight: 400; line-height: 1.3; letter-spacing: .04em; }
-    .subtitle { margin: 12px 0 38px; color: #899baa; }
+    h1 { margin: 0; font-size: clamp(30px, 7vw, 44px); font-weight: 400; line-height: 1.3; margin-bottom: 38px; letter-spacing: .04em; }
     .divider { border: 0; border-top: 1px solid #3c4d5e; margin: 0 0 28px; }
     #status { margin: 0 0 16px; min-height: 24px; }
     #status::before { content: '> '; color: #99c4cd; }
@@ -33,7 +32,7 @@
     noscript { position: fixed; inset: auto 28px 24px; z-index: 2; color: #d2a6a1; text-align: center; }
     @keyframes standby { 50% { opacity: .4; } }
     @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; } }
-    @media (max-height: 500px) { #loader { overflow-y: auto; place-items: start center; } .machine { margin-bottom: 18px; } .subtitle { margin-bottom: 18px; } }
+    @media (max-height: 500px) { #loader { overflow-y: auto; place-items: start center; } .machine { margin-bottom: 18px; } }
   </style>
   $GODOT_HEAD_INCLUDE
   <script src="$GODOT_URL" defer></script>
@@ -44,7 +43,6 @@
     <section class="terminal" aria-labelledby="title">
       <p class="machine">NORTHSTAR SYSTEMS / WORKSTATION N-7</p>
       <h1 id="title">LAST REVIEW</h1>
-      <p class="subtitle">A software engineering life sim.</p>
       <hr class="divider">
       <p id="status" role="status" aria-live="polite">Loading workstation files…</p>
       <progress id="progress" aria-label="Game download"></progress>

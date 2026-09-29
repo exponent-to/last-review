@@ -555,9 +555,6 @@ func _build_dock(parent: Node) -> void:
 		button.add_theme_font_size_override("font_size", 12)
 		_dock_buttons[id] = button
 	_spacer(dock)
-	var arrange: Button = _button(dock, "ARRANGE", _arrange_windows)
-	arrange.tooltip_text = "Reset window positions. Drag titlebars or focus one and use the arrow keys."
-	arrange.add_theme_font_size_override("font_size", 12)
 
 
 func _show_home() -> void:

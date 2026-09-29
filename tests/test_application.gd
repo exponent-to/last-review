@@ -22,26 +22,17 @@ func _run() -> void:
 	app.menu._new_game.pressed.emit()
 	await process_frame
 	_check(not app.tutorial.is_empty() and app.state.decisions.is_empty(), "New Game starts practice without career consequences.")
-	_check(app.intro.visible and not app.interface.visible, "Opening must isolate the workstation from input.")
-	app._on_focus_exited()
-	_check(not app.intro.is_processing() and not app.scenery.is_processing(), "Focus loss must pause decorative animation.")
-	app._on_focus_entered()
-	var skip := InputEventKey.new()
-	skip.pressed = true
-	skip.keycode = KEY_ENTER
-	root.push_input(skip)
-	await process_frame
+	_check(app.interface.visible and not app.menu.visible, "New Game opens the workstation directly.")
 	var release := InputEventKey.new()
 	release.keycode = KEY_ENTER
 	release.pressed = false
 	root.push_input(release)
 	await process_frame
-	_check(app.interface.visible and not is_instance_valid(app.intro), "Skipping must reveal the workstation and dispose the intro.")
 	for window: Control in app.interface._windows.values():
 		_check(not window.visible, "The opening must arrive at HOME with applications closed.")
-	_check(app.state.request_index == 0 and app.state.decisions.is_empty(), "Skipping must not approve the first PR.")
+	_check(app.state.request_index == 0 and app.state.decisions.is_empty(), "New Game key release must not approve the first PR.")
 	_check(root.gui_get_focus_owner() == app.interface, "Workstation handoff must focus a neutral surface.")
-	_check(not app.interface._briefing_dialog.visible, "Skip key release must not open an unrelated control.")
+	_check(not app.interface._briefing_dialog.visible, "New Game key release must not open an unrelated control.")
 	for frame in range(4): await process_frame
 	_check(app.interface._tutorial_panel.size.y < 250, "Orientation instructions must fit a compact panel after text wraps.")
 	app._tick_shift(999.0)

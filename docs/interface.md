@@ -6,7 +6,7 @@
 
 Connect `command_requested(Dictionary)`, `save_requested`, `load_requested`, `reset_requested`, and `motion_changed(bool)`. Mount `native/computer_frame.gd` inside the public full-viewport `scene_host`; it retains `set_motion` and `set_story` for the parent application. The frame supplies the exact interior screen rectangle.
 
-Call `render_state(state: Dictionary)` after state changes. After an intro reveals the interface, call `focus_workspace()` to focus the non-actionable root and settle the initial diff scroll. This never launches an application. Later calls preserve the reading position. The hidden briefing dialog remains for application-test compatibility, but no exterior briefing control is rendered.
+Call `render_state(state: Dictionary)` after state changes. After New Game reveals the interface, call `focus_workspace()` to focus the non-actionable root and settle the initial diff scroll. This never launches an application. Later calls preserve the reading position. The hidden briefing dialog remains for application-test compatibility, but no exterior briefing control is rendered.
 
 `notify(message, is_error)` uses an in-monitor notification panel. Generation tracking prevents older timers from hiding new messages. Save serialization, disk paths, game-state transitions, and reset policy remain parent responsibilities. New-run requests require native confirmation.
 
@@ -16,9 +16,9 @@ HOME starts with all applications closed and five original pixel icons: REVIEW, 
 
 REVIEW combines the current author packet and read-only diff with the sign-off controls and a delivery confirmation. HANDBOOK is an independent searchable standards window. SLOUCH contains company messages and coworker DMs. INTRANET offers local home, procedure, and daily memo pages, including back navigation and links to other apps. SYSTEM provides save/load, confirmed reset, motion settings, and instructions. No browser engine, external network request, or nonfunctional chat composer is involved.
 
-Windows cascade at useful independent sizes rather than filling fixed columns. Their classic gray and blue chrome provides minimize, maximize/restore, and close controls. The player can drag a titlebar or focus it and use arrow keys, with Shift for larger moves. Titlebar clamping keeps windows reachable. ARRANGE restores default positions. Resizing the main game window fits ordinary windows to the monitor; maximized windows follow the desktop extent.
+Windows cascade at useful independent sizes rather than filling fixed columns. Their classic gray and blue chrome provides minimize, maximize/restore, and close controls. The player can drag a titlebar or focus it and use arrow keys, with Shift for larger moves. Titlebar clamping keeps windows reachable. Resizing the main game window fits ordinary windows to the monitor; maximized windows follow the desktop extent.
 
-`native/desktop_window.gd` owns dragging, focus, chrome, and application visibility. `launched` distinguishes closed apps from minimized apps. The interface consumes `activated`, `minimized`, and `closed` signals to keep taskbar state current. It preserves app positions and open state across ordinary simulation refreshes. Closing time marks Morgan’s conversation unread and minimizes REVIEW. Evening choices appear inside that conversation; no results window opens or steals focus. The initial render and intro handoff always leave HOME untouched.
+`native/desktop_window.gd` owns dragging, focus, chrome, and application visibility. `launched` distinguishes closed apps from minimized apps. The interface consumes `activated`, `minimized`, and `closed` signals to keep taskbar state current. It preserves app positions and open state across ordinary simulation refreshes. Closing time marks Morgan’s conversation unread and minimizes REVIEW. Evening choices appear inside that conversation; no results window opens or steals focus. The initial render and menu handoff always leave HOME untouched.
 
 ## Review information and consequences
 
@@ -36,7 +36,7 @@ Opening a conversation clears its dot. New messages follow the bottom only when 
 
 ## Verification
 
-The native interface suite covers HOME-only startup, actual icon launch signals, taskbar launch/minimize/close lifecycle, both supported resolutions, dominant monitor sizing, dragging and keyboard movement, focus ordering, intro handoff, local-browser navigation, and the complete authored review flow. Slouch checks reproduce hidden intro → reveal → first open without an arrangement reset, including loaded progress and repeated contact changes; they assert bounded window width and wrapped long messages.
+The native interface suite covers HOME-only startup, actual icon launch signals, taskbar launch/minimize/close lifecycle, both supported resolutions, dominant monitor sizing, dragging and keyboard movement, focus ordering, menu handoff, local-browser navigation, and the complete authored review flow. Slouch checks reproduce hidden workstation → reveal → first open without an arrangement reset, including loaded progress and repeated contact changes; they assert bounded window width and wrapped long messages.
 
 The packaged native office view was inspected with REVIEW and HANDBOOK open after pulling the monitor back. At a 1280×900 logical viewport, the monitor screen is 1040×630; application windows fit the available desktop, and HOME icons wrap to a second column when needed. The rainy city window, sill, desk, keyboard, and shaded mug remain visible around the enclosure. Bundled OFL-licensed IBM Plex Mono gives consistent local typography; code remains 14px and general text 15px. No remote fonts are required.
 
@@ -48,6 +48,6 @@ Review's changed-file selector displays each file's own diff and remembers its c
 
 ## Main menu and orientation
 
-Startup displays New Game and Load Game inside the monitor. Load is disabled when neither a current save nor its backup exists. New Game plays the intro and opens an untimed orientation with a compact, collapsible instruction panel. Players ask Maya a question, follow her PR link, inspect both changed files, consult the handbook, and submit a practice change request. Mistakes can be retried; practice is discarded before Monday.
+Startup displays New Game and Load Game inside the monitor. Load is disabled when neither a current save nor its backup exists. New Game opens directly into an untimed orientation with a compact, collapsible instruction panel. Players ask Maya a question, follow her PR link, inspect both changed files, consult the handbook, and submit a practice change request. Mistakes can be retried; practice is discarded before Monday.
 
 SYSTEM and the pause screen offer SAVE AND MAIN MENU. Loading resumes paused, including the current orientation step when applicable. Morgan’s final conversation offers a return to the menu.

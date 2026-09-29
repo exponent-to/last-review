@@ -16,7 +16,7 @@ The workstation is a local fictional computer whose monitor fills most of the vi
 
 Slouch is another native desktop window. Its company channel and coworker conversations derive authored messages from the existing decision history and current career state. Emotional tone conveys relationship changes instead of exposing numeric scores. PR hints are written separately from audit answers, and future requests cannot appear before they reach the player's desk. Read/unread presentation is session-local; it does not mutate the career or contact a messaging service.
 
-The opening sequence hides the workstation until skipped or acknowledged. The handoff focuses a neutral surface so releasing Enter cannot activate a review control. Keyboard shortcuts, reduced motion, and focus pause apply to the opening independently of the simulation.
+New Game goes directly from the menu to the tutorial workstation. The handoff focuses a neutral surface so releasing Enter cannot activate a review control. The main menu contains only the title and game actions.
 
 ## Content and gameplay
 
@@ -47,3 +47,5 @@ Native macOS export is configured with the official universal template and local
 `main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real v4 simulation state. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. A lesson recognizes questions asked early so one-shot replies cannot strand progress.
 
 `save_store.gd` accepts existing raw v4 careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.
+
+The window rain combines three depths of independently moving rainfall, stationary glass beads, and slow rivulets with fading trails. It uses deterministic decoration seeds, respects pause/reduced motion, and is drawn behind the window frame and monitor. No gameplay randomness is consumed.

@@ -6,13 +6,11 @@ const GameInterface = preload("res://native/interface.gd")
 const ComputerFrame = preload("res://native/computer_frame.gd")
 const MainMenu = preload("res://native/main_menu.gd")
 const Tutorial = preload("res://native/tutorial.gd")
-const Intro = preload("res://native/intro.gd")
 
 var state: Dictionary = {}
 var interface: GameInterface
 var scenery: ComputerFrame
 var motion_enabled: bool = true
-var intro: Intro
 var paused: bool = false
 var _clock_fraction: float = 0.0
 var _focused: bool = true
@@ -57,11 +55,7 @@ func _new_game() -> void:
 	tutorial = Tutorial.initial_progress()
 	state = Tutorial.initial_practice_state()
 	_build_interface()
-	interface.hide()
-	intro = Intro.new()
-	intro.finished.connect(_on_intro_finished)
-	add_child(intro)
-	intro.set_motion(motion_enabled)
+	interface.focus_workspace()
 
 func _return_to_menu() -> void:
 	var result := SaveStore.save_game(state, tutorial)
@@ -103,12 +97,6 @@ func _notification(what: int) -> void:
 		_on_focus_exited()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
 		_on_focus_entered()
-
-func _on_intro_finished() -> void:
-	if is_instance_valid(intro):
-		intro.queue_free()
-	interface.show()
-	interface.focus_workspace()
 
 func _process(delta: float) -> void:
 	_tick_shift(delta)
@@ -195,21 +183,15 @@ func _on_motion(enabled: bool) -> void:
 	if is_instance_valid(menu): menu.set_motion(enabled)
 	if is_instance_valid(scenery):
 		scenery.set_motion(enabled and _focused and not paused)
-	if is_instance_valid(intro):
-		intro.set_motion(enabled)
 
 func _on_focus_exited() -> void:
 	_focused = false
 	if is_instance_valid(interface) and interface.visible and state.get("phase") == "review":
 		_set_paused(true)
-	if is_instance_valid(intro):
-		intro.set_paused(true)
 	if is_instance_valid(scenery):
 		scenery.set_motion(false)
 
 func _on_focus_entered() -> void:
 	_focused = true
-	if is_instance_valid(intro):
-		intro.set_paused(false)
 	if is_instance_valid(scenery):
 		scenery.set_motion(motion_enabled and not paused)

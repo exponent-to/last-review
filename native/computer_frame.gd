@@ -125,13 +125,7 @@ func _draw_room() -> void:
 		var x := building * 83 + 9
 		var roof := 96 + (building * 23) % 47
 		draw_rect(Rect2(x, roof, 39, maxf(0, desk_y - roof)), Color("203446"))
-	var travel := int(floorf(_elapsed * 21.0))
-	for index in range(70):
-		var x := 16 + (index * 47) % maxi(1, int(room_size.x - 32))
-		var y := 12 + (index * 29 + travel) % maxi(1, int(desk_y - 26))
-		draw_rect(Rect2(x, y, 1, 4 + index % 6), Color("a6bac3").lerp(Color("627f98"), float(_day_minutes - 540) / 540.0))
-		if index % 4 == 0:
-			draw_rect(Rect2(x - 1, y + 1, 1, 2), Color("567a90"))
+	_draw_window_rain(Rect2(14, 14, room_size.x - 30, desk_y - 24))
 	# Substantial window frame and sill establish an office around the screen.
 	for x: float in [12.0, room_size.x * 0.5, room_size.x - 18.0]:
 		draw_rect(Rect2(x, 8, 6, desk_y - 12), Color("111f2b"))
@@ -171,3 +165,55 @@ func _draw_room() -> void:
 		draw_rect(Rect2(room_size.x - 79, room_size.y - 36 + row * 4, 36 - row * 5, 1), Color("5d7386"))
 	draw_rect(Rect2(room_size.x - 26, room_size.y - 35, 2, 25), Color("162638"))
 	draw_set_transform(Vector2.ZERO)
+
+
+static func _rain_seed(index: int, salt: int) -> float:
+	# Stable droplets across frames and resizing, without touching gameplay RNG.
+	return fposmod(sin(float(index) * 127.1 + float(salt) * 311.7) * 43758.5453, 1.0)
+
+
+func _draw_window_rain(glass: Rect2) -> void:
+	if glass.size.x <= 0 or glass.size.y <= 0: return
+	var light := Color("c5dbe2").lerp(Color("7e9fb9"), float(_day_minutes - 540) / 540.0)
+	var wind := 0.13 + sin(_elapsed * 0.19) * 0.05
+	# Distant rain is fine and faint; nearer rain is faster and longer. Each
+	# streak has its own phase and speed, so the field never moves as one sheet.
+	for layer in range(3):
+		for index in range(65):
+			var seed_index := index + layer * 71
+			var speed := (42.0 + layer * 44.0) * lerpf(0.7, 1.35, _rain_seed(seed_index, 1))
+			var length := lerpf(2.0, 6.0, _rain_seed(seed_index, 2)) + layer * 3.0
+			var y := fposmod(_rain_seed(seed_index, 3) * glass.size.y + _elapsed * speed, glass.size.y)
+			var x := fposmod(_rain_seed(seed_index, 4) * glass.size.x - _elapsed * speed * wind, glass.size.x)
+			var head := glass.position + Vector2(x, y)
+			var tail := head + Vector2(length * wind, -length)
+			tail.x = clampf(tail.x, glass.position.x, glass.end.x)
+			tail.y = maxf(glass.position.y, tail.y)
+			var tint := light
+			tint.a = (0.09 + layer * 0.055) * lerpf(0.6, 1.0, _rain_seed(seed_index, 5))
+			draw_line(tail, head, tint, 0.45 + layer * 0.18, true)
+	# Beads stuck to the glass have a dark refracted edge and a small sky glint.
+	for index in range(100):
+		var bead := glass.position + Vector2(_rain_seed(index, 8), _rain_seed(index, 9)) * glass.size
+		var radius := lerpf(0.35, 0.95, _rain_seed(index, 10))
+		draw_circle(bead, radius + 0.4, Color(0.05, 0.12, 0.18, 0.25), true, -1, true)
+		draw_circle(bead + Vector2(-0.2, -0.3), radius * 0.55, Color(light, 0.42), true, -1, true)
+	# Slow rivulets accelerate and hesitate, leaving narrow, fading wet trails.
+	for index in range(22):
+		var rate := lerpf(3.0, 9.0, _rain_seed(index, 12))
+		var phase := _elapsed * 0.65 + _rain_seed(index, 13) * TAU
+		var fall := _elapsed * rate + sin(phase) * rate
+		var y := glass.position.y + fposmod(_rain_seed(index, 14) * glass.size.y + fall, glass.size.y)
+		var base_x := glass.position.x + 3.0 + _rain_seed(index, 15) * maxf(1, glass.size.x - 6)
+		var trail := lerpf(12.0, 34.0, _rain_seed(index, 16))
+		var previous := Vector2(base_x + sin(y * 0.07 + index) * 0.8, y)
+		for segment in range(1, 9):
+			var trail_y := maxf(glass.position.y, y - trail * float(segment) / 8.0)
+			var point := Vector2(base_x + sin(trail_y * 0.07 + index) * 0.8, trail_y)
+			var opacity := 0.20 * (1.0 - float(segment) / 9.0)
+			draw_line(previous, point, Color(0.06, 0.14, 0.22, opacity), 1.8, true)
+			draw_line(previous + Vector2(0.6, 0), point + Vector2(0.6, 0), Color(light, opacity), 0.6, true)
+			previous = point
+		var head := Vector2(base_x + sin(y * 0.07 + index) * 0.8, y)
+		draw_circle(head, 1.2, Color(0.06, 0.14, 0.22, 0.4), true, -1, true)
+		draw_line(head + Vector2(-0.4, -1.1), head + Vector2(-0.4, 0.2), Color(light, 0.65), 0.65, true)
