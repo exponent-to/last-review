@@ -49,3 +49,5 @@ Native macOS export is configured with the official universal template and local
 `save_store.gd` accepts existing raw v4 careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.
 
 The window rain uses three depths of independently moving, angled rainfall outside, without beads or trails on the glass. It uses deterministic decoration seeds, respects pause/reduced motion, and is drawn behind the window frame and monitor. No gameplay randomness is consumed.
+
+The office frame separates exterior glass from the interior wall: skyline and angled rain are clipped to the recessed glazing, above a projecting sill, radiator, outlet, and cable. The desktop has a back lip, light plane, front fascia, and stand shadow. Monitor bounds and cup geometry remain unchanged.
