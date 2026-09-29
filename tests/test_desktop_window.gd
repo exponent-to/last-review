@@ -17,12 +17,13 @@ func _check(condition: bool, message: String) -> void:
 		push_error(message)
 
 
-func _button(point: Vector2, pressed: bool) -> void:
+func _button(point: Vector2, pressed: bool, double_click: bool = false) -> void:
 	var event := InputEventMouseButton.new()
 	event.position = point
 	event.global_position = point
 	event.button_index = MOUSE_BUTTON_LEFT
 	event.pressed = pressed
+	event.double_click = double_click
 	event.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
 	root.push_input(event, true)
 
@@ -53,6 +54,9 @@ func _run() -> void:
 	neighbor.position = Vector2(500, 100)
 	neighbor.size = Vector2(270, 260)
 	desktop.add_child(neighbor)
+	_check(not window.launched and not window.visible, "New windows must remain unlaunched on the desktop.")
+	window.restore_window(false)
+	neighbor.restore_window(false)
 	for frame in range(3):
 		await process_frame
 
@@ -92,6 +96,61 @@ func _run() -> void:
 	_motion(start, Vector2(-1200, -900), false)
 	_check(window.position == released and not window._dragging, "An offscreen release must stop dragging permanently.")
 
+	# Exercise titlebar controls through actual viewport input, retaining app state.
+	window.position = Vector2(40, 30)
+	window.size = Vector2(340, 240)
+	var editor := LineEdit.new()
+	editor.text = "unsent coworker draft"
+	window.body.add_child(editor)
+	await process_frame
+	var normal_rect := Rect2(window.position, window.size)
+	start = window.title_button.get_global_transform_with_canvas() * Vector2(35, 16)
+	_button(start, true, true)
+	_button(start, false)
+	await process_frame
+	_check(window.maximized and window.position == Vector2(6, 6), "Double-clicking the title must maximize within desktop margins.")
+	_check(window.size.is_equal_approx(desktop.size - Vector2(12, 12)), "Maximized frame must fit the parent desktop, including transformed desktops.")
+	var max_rect := Rect2(window.position, window.size)
+	start = window.title_button.get_global_transform_with_canvas() * Vector2(35, 16)
+	_button(start, true)
+	_motion(start + Vector2(50, 40), start)
+	_button(start + Vector2(50, 40), false)
+	window.move_window(Vector2(80, 80))
+	_check(not window._dragging and Rect2(window.position, window.size) == max_rect, "Maximized windows must ignore drag and arrow movement until restored.")
+	window.minimize_window()
+	_check(window.launched and not window.visible and window.maximized, "Minimizing retains the launched app and maximized layout.")
+	window.restore_window(false)
+	_check(window.visible and window.launched and window.maximized, "Taskbar restore reopens a minimized maximized window.")
+	start = window.title_button.get_global_transform_with_canvas() * Vector2(35, 16)
+	_button(start, true, true)
+	_button(start, false)
+	await process_frame
+	_check(not window.maximized and Rect2(window.position, window.size) == normal_rect, "A second title double-click must restore the original rectangle.")
+	var max_button_point: Vector2 = window.maximize_button.get_global_transform_with_canvas() * (window.maximize_button.size * 0.5)
+	_button(max_button_point, true)
+	_button(max_button_point, false)
+	await process_frame
+	_check(window.maximized, "The maximize chrome button must respond to real pointer input.")
+	# Content minimums belong inside a scrollable body, not outside the monitor.
+	editor.custom_minimum_size = Vector2(1100, 800)
+	desktop.size = Vector2(480, 320)
+	for frame in range(3):
+		await process_frame
+	_check(window.position == Vector2(6, 6) and window.size.is_equal_approx(Vector2(468, 308)), "Maximized windows must fit after desktop shrink despite oversized content minimums.")
+	_check(editor.size.x >= 1100, "Clipping the frame must preserve content minimum size inside scrolling.")
+	var closed_ids: Array[String] = []
+	window.closed.connect(func(id: String) -> void: closed_ids.append(id))
+	var close_point: Vector2 = window.close_button.get_global_transform_with_canvas() * (window.close_button.size * 0.5)
+	_button(close_point, true)
+	_button(close_point, false)
+	_check(not window.visible and not window.launched and closed_ids == ["review"], "Close must hide, clear taskbar launch state, and emit the app identity.")
+	_check(is_instance_valid(editor) and editor.text == "unsent coworker draft", "Closing must preserve app content and input state.")
+	window.restore_window(false)
+	_check(window.visible and window.launched and editor.text == "unsent coworker draft", "Reopening an icon must restore the same app content.")
+	window.toggle_maximize()
+	await process_frame
+	_check(not window.maximized and window.position.y >= 0 and window.position.x <= desktop.size.x - 140, "Restoring after a desktop shrink must keep the title reachable.")
+
 	desktop.free()
-	print("Desktop pointer checks: %d passed, %d failed." % [checks - failures, failures])
+	print("Desktop window checks: %d passed, %d failed." % [checks - failures, failures])
 	quit(1 if failures else 0)
