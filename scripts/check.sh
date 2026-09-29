@@ -14,3 +14,4 @@ sh scripts/run.sh --headless --script res://tests/test_notifications.gd
 sh scripts/run.sh --headless --script res://tests/test_cold_open.gd
 sh scripts/run.sh --headless --script res://tests/test_daily_press.gd
 sh scripts/run.sh --headless --script res://tests/test_daily_reader.gd
+sh scripts/run.sh --headless --script res://tests/test_save_slots.gd
