@@ -1,28 +1,31 @@
-# Native desktop interface
+# Native review workstation
 
-`native/interface.gd` extends Godot `Control` and constructs a stable native scene tree using containers, buttons, labels, and flat style boxes. It does not embed a browser or load web assets. The interface creates no simulation timer and does not own game state or storage.
+`native/interface.gd` is a Godot `Control` tree, with no browser or external font/image requests. Its cool midnight palette uses slate outlines, near-white text, cyan operational labels, and restrained red/green decision and diff colors. It reads authored packets through `content/catalog.gd`; the simulation and disk persistence remain separate.
 
-## Integration contract
+## Application boundary
 
-Instantiate the script, connect its signals, and add it to the scene tree. `_ready()` builds the interface. After that, the public `scene_host: Control` is available for mounting the decorative renderer, and `render_state(state: Dictionary)` updates the displayed state.
+Connect `command_requested(Dictionary)`, `save_requested`, `load_requested`, `reset_requested`, and `motion_changed(bool)`. Add the interface to the scene tree, mount the decorative renderer inside the public `scene_host`, and call `render_state(state: Dictionary)` after each state change. `scene_host` has a 640×144 minimum for the office renderer's integer scaling. Motion defaults on and the checkbox emits explicit changes.
 
-Signals:
+`notify(message: String, is_error: bool = false)` displays a footer message for eight seconds. A generation counter keeps an older timer from dismissing a newer message. New-run requests require a native confirmation dialog. Save, load, serialization, and reset policy belong to the parent application.
 
-- `command_requested(command: Dictionary)` forwards production, purchase, dispatch, hiring, and speed commands.
-- `save_requested` and `load_requested` ask the application to manage its local save.
-- `reset_requested` fires only after the player confirms in a Godot `ConfirmationDialog`.
-- `motion_changed(enabled: bool)` controls decorative movement separately from simulation speed. Background motion defaults on; the checkbox emits on explicit user changes.
+## Review procedure
 
-`notify(message: String, is_error: bool = false)` shows a status message above the footer for eight seconds. New messages replace prior ones; older timers cannot dismiss newer messages. Use it for save/load success and errors. Storage paths and serialization remain application concerns.
+REVIEW has three dense columns: the current author packet and read-only diff; a searchable categorized rulebook; and disposition controls, optional AI advice, and the previous audit. CodeEdit provides selectable monospaced code, line numbers, independent scrolling, and a native diff highlighter. Additions are green, removals red, and hunk markers cyan. The author packet scrolls separately so long prose cannot consume the code area. The header briefing has a compact preview and a button that opens its full text in a native dialog.
 
-## Layout and state
+Rule controls are built once. Search checks IDs, titles, and text, with an optional category filter. Rules introduced after the current day stay hidden. State updates synchronize checked citations without rebuilding the list, resetting search, or replacing controls. Clearing citations sends one toggle command per selected rule. The approve button requires no citations; requesting changes requires at least one. Core simulation validation is still authoritative.
 
-The interface follows a restrained bureaucratic control-desk direction: charcoal/olive background, tan records, rust status labels, monospaced system text, and hard edges. Compact typography prioritizes operational data, with 15px native default text and smaller secondary labels. Buttons retain keyboard focus styles and provide disabled-state explanations through tooltips. SystemFont uses locally available Menlo, Courier New, or monospace; no fonts are downloaded.
+The active PR view deliberately never reads the request's audit-only `violations` or `explanation`. AI recommendation fields are displayed only after consultation. The consultation's stress -2 and AI authority +4 effects are shown before use, and the interface warns that advice can be wrong. The previous audit names its PR and author and displays correctness, required rule IDs, explanation, and relationship/trust consequences, so it cannot be mistaken for the new PR's answer.
 
-The top resource ticker and inset exterior scene remain visible above CONTROL, RECORDS, and SYSTEM tabs. CONTROL contains production orders and recent dispatch records. RECORDS contains the inventory statement and longer activity register. SYSTEM contains disk save/load, reset, and motion controls. Each tab scrolls vertically as needed while the scene and clock footer remain visible. `scene_host` has a 640×240 minimum; the renderer should fill its actual control size and preserve its intended pixel-art proportions.
+## Days, relationships, and endings
 
-State keys match the simulation dictionary: `credits`, `materials`, `goods`, `workers`, `tick`, `speed`, `production`, and `log`. Rendering updates existing controls and only rewrites log text when the log changes. No player strings are parsed as rich text. The footer displays elapsed ticks without assuming a relationship to calendar days.
+Debrief replaces the active review desk after four reviews. It shows earned pay, expenses, correct reviews, balance, colleague relationships, the final audit, and the three evening choices with exact effects: rest lowers stress by 18; socializing costs $15, improves all relationships by 4, and lowers stress by 8; studying raises trust and stress by 4. The simulation decides when the next day or completion begins.
 
-The sample economy uses $30 for ten materials, $12 per finished part, $100 per additional worker, and a six-worker capacity. The UI disables unaffordable/unavailable actions; the simulation must independently enforce those same rules. Inventory sale value is current goods multiplied by $12, not cumulative revenue.
+Completion shows accuracy, money, trust, stress, automation authority, and relationships. A short prototype ending reacts to high automation authority, low trust, and high stress. It marks the end of the playable slice without presenting unimplemented future play as available.
 
-No web fonts, HTML, CSS, browser runtime, generated images, or remote resources are required by this interface. Rename YARD and replace workshop copy as the game's theme becomes concrete.
+PEOPLE shows Maya, Theo, and Inez separately from system trust and the workplace log. SYSTEM contains disk save/load, confirmed reset, decorative-motion settings, and review instructions. The top metrics and office remain visible across tabs. The footer explicitly states that reading costs no game time.
+
+## Layout and verification
+
+The native layout targets 1280×900 with a 1120×800 minimum. Main columns are stable; code, author packet, rulebook, disposition, and long secondary pages scroll independently. SystemFont uses local Menlo, Consolas, Courier New, or a monospace fallback. Body text is 15px; code is 14px, and secondary field labels are compact. Focus rings and disabled explanations remain visible.
+
+A headless Godot 4.7.2 instantiation check exercised sample review, debrief, and complete states. Layout checks at both target dimensions found no visible button crossing the window's right edge. Full application testing remains responsible for actual simulation transitions, disk persistence, scene rendering, and exported app validation.
