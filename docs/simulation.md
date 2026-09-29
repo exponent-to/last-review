@@ -1,41 +1,47 @@
-# Native simulation core
+# Last Review simulation
 
-`native/simulation.gd` is a pure GDScript `RefCounted` module with static methods. It has no scene, timer, rendering, or filesystem dependencies. Call `initial_state()`, apply player actions with `dispatch(state, command)`, and replace the current dictionary with the result. Both `dispatch` and `advance` deeply copy their inputs, including activity entries.
+`native/simulation.gd` implements a deterministic, turn-based three-day review career. Its static `initial_state`, `dispatch`, `advance`, `validate_save`, and `serialize_save` methods are independent of scenes, clocks, and storage. Transitions deeply copy input dictionaries. `advance` always returns an unchanged copy: reading a diff or rulebook never costs time or resources.
 
-The workshop starts with 240 credits, 20 materials, zero goods, one worker, idle production, and normal speed. Buying adds 10 materials for 30 credits. Hiring costs 100 credits, up to six workers. Each parts-production tick consumes one material and makes one good per worker, limited by available materials. Selling clears all goods for 12 credits each. There are no wages or offline progression in this foundation.
+Each day contains four ordered PRs from `content/catalog.gd`. Active rules come from `rules_for_day(day)`. Commands are dictionaries:
 
-## Time integration
+| `type` | Additional fields | Valid phase |
+| --- | --- | --- |
+| `toggle-rule` | `rule_id`: an active rule ID | review |
+| `consult-ai` | None; once per PR | review |
+| `review` | `verdict`: `approve` or `request_changes` | review |
+| `next-day` | `choice`: `rest`, `socialize`, or `study` | debrief |
 
-`advance(state, ticks = 1)` processes explicit fixed ticks. Speed zero pauses time and production. Other speeds are metadata for the outer clock: schedule more ticks at 2x or 4x, since this function never multiplies its argument. The UI owns wall-clock accumulation and tick duration. Negative tick batches, batches above 10,000, or overflowing tick counts return an unchanged deep copy.
+Approval requires zero citations. Rejection requires at least one citation; it is correct only when the selected set exactly equals the actual violations. Extra citations fail the audit. Invalid commands leave the state unchanged. A submitted review immediately advances the request index and preserves its audit in `last_feedback`; hidden answers are only disclosed there after submission. The UI must not reveal active requests' `violations` or `explanation`.
 
-Splitting a batch into individual ticks yields identical state, including logs. Production remains selected after materials run out; buying supplies resumes it on the next tick. Player actions work while paused. Failed transactions preserve balances and append feedback. The activity log retains the most recent 40 entries.
+## People, audits, and automation
 
-## Commands
+Starting resources are 120 credits, 70 trust, 20 stress, 10 automation reliance (`autonomy`), and 50 relationship points for Maya, Theo, and Inez.
 
-Commands are dictionaries with a `type` key:
+| Review outcome | Author relationship | System trust | Stress, including review cost |
+| --- | --- | --- | --- |
+| Correct approval | +4 | +3 | +3 |
+| Incorrect approval | +6 | -12 | +11 |
+| Correct rejection | -2 | +5 | +3 |
+| Incorrect rejection | -7 | -7 | +9 |
 
-| Type | Extra field |
-| --- | --- |
-| `set-speed` | `speed`: integer 0, 1, 2, or 4 |
-| `set-production` | `production`: `idle` or `parts` |
-| `buy-materials` | None |
-| `sell-goods` | None |
-| `hire-worker` | None |
+Coworker approval and technical correctness intentionally differ. Consultation reduces stress by two and adds four automation reliance, once per PR. Recommendations can be wrong and never override the player's decision. Feedback explains the audit, the coworker's response, and consequences in fewer than 600 characters. Trust, stress, reliance, and relationships clamp to 0–100; credits clamp to -9,999–9,999.
 
-Unknown commands and invalid setting values leave state unchanged. Simulation calls assume valid typed game data; pass every imported state through validation first.
+## Shift boundaries
 
-## Validation and native persistence
+The fourth submitted review enters debrief and applies pay of `80 + 10 × correct reviews`, living expenses of 90, and 12 automation reliance exactly once. `last_debrief` records the shift's audit, pay, expenses, and pre-evening balance.
 
-`validate_save(value)` returns `{ok, state, error}`. Valid saves normalize integral JSON float numbers into integers and reconstruct only recognized properties. Version 1 requires nonnegative safe-integer ticks and balances, one to six workers, known production and speed settings, and chronological logs whose ticks do not exceed the current tick. Log messages must contain 1–240 characters. Integers cannot exceed 9,007,199,254,740,991 to preserve JSON round trips. Incompatible versions need an explicit future migration and currently return a clear error.
+Rest removes 18 stress. Socializing costs 15 credits, adds four to every coworker relationship, and removes eight stress. Studying adds four trust and four stress. `next-day` applies the evening choice and starts the next shift. The third day's evening choice still applies before phase becomes `complete`; no further commands have effects. There is no wall-clock progression or randomness.
 
-`serialize_save(state)` returns validated JSON, or an empty string if invalid. Use `validate_save` for the error details.
+## State and save validation
 
-`native/save_store.gd` stores `user://workshop-save.json` in the operating system's Godot application-data location. `save_game(state)` returns `{ok, error}`. It validates first, flushes a temporary file, rotates the previous save to `.bak`, then renames the temporary file into place. A final rename failure attempts to restore the previous file. This is recoverable replacement, not a promise of crash-proof filesystem transactions.
+State version 2 follows `docs/review-sim-contract.md`. Each decision journal entry contains `pr_id`, `verdict`, `cited_rules`, `consulted`, and `correct`. The last decision of a shift gains `evening_choice` once that evening is completed. This captures the entire economic and review history without hidden state.
 
-`load_game()` returns `{ok, state, error}`. It rejects files above 100,000 bytes, reports malformed JSON or validation failures, and tries the backup when the primary is absent or invalid. Successful recovery from a corrupt primary has `ok: true` and an explanatory `error` string that the UI may show as a notice. Loading never mutates the current in-memory game; replace it only after success.
+`validate_save(value)` returns `{ok, state, error}`. It validates types, bounds, active and unique rule IDs, and the catalog's request order. It then replays the bounded journal and compares the complete resulting state, including feedback, debrief, logs, relationships, and resources. This rejects impossible phases, changed audit results, repeated pay, missing evening choices, and edited balances. Integral JSON float numbers are accepted and normalized to native integers. Valid state is reconstructed independently. Unknown fields and altered canonical logs are rejected. Because replay depends on catalog content and rules, future content changes require an explicit save migration or version bump.
 
-Render log messages as plain text and disable rich-text markup for imported activity.
+`serialize_save(state)` returns validated JSON or an empty string. Version 1 workshop saves receive a helpful incompatibility error.
+
+`native/save_store.gd` uses `user://review-save-v2.json`, isolated from old workshop saves. It validates, writes and flushes a temporary file, rotates the previous save to `.bak`, then renames the temporary file. A failed final rename attempts rollback. Loading limits files to 100,000 bytes, parses JSON, validates the journal, and recovers a valid backup when possible. A recovered primary returns `ok: true` with an explanatory `error` notice. Callers replace in-memory state only on successful load. Render all content and imported feedback as plain text.
 
 ## Verification
 
-Run `godot --headless --path . --script res://tests/test_simulation.gd` (substitute the installed Godot executable). The script needs no test plugin, reports its assertion count, and exits nonzero on failure. It covers deterministic ticks, pause/speed behavior, depletion/recovery, transaction prices and caps, deep immutability, integer overflow, JSON round trips, incompatible/corrupt saves, and validation before filesystem writes. It does not touch real save files.
+Run `godot --headless --path . --script res://tests/test_simulation.gd`. No testing plugin is needed. The script exits nonzero on failed checks and covers all three shifts, exact citations, wrong AI advice, separate relationship/audit consequences, pause-free reading, deep immutability, one-time economy, evenings, final completion, JSON round trips at every stage, corrupt histories, and invalid-save rejection before filesystem writes.

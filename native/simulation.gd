@@ -1,128 +1,249 @@
 extends RefCounted
-## Pure workshop rules. The outer application owns time and storage.
+## Turn-based review rules. Catalog answers are used only to audit submitted decisions.
 
-const MAX_VALUE: int = 9007199254740991
+const Catalog = preload("res://content/catalog.gd")
 const LOG_LIMIT: int = 40
-const MAX_BATCH_TICKS: int = 10000
+const AUTHORS: Array = ["Maya", "Theo", "Inez"]
+const EVENINGS: Array = ["rest", "socialize", "study"]
 
 static func initial_state() -> Dictionary:
 	return {
-		"version": 1, "tick": 0, "credits": 240, "materials": 20,
-		"goods": 0, "workers": 1, "production": "idle", "speed": 1,
-		"log": [{"tick": 0, "message": "Workshop ready. Select parts production to begin."}],
+		"version": 2, "day": 1, "request_index": 0, "phase": "review",
+		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
+		"coworkers": {"Maya": 50, "Theo": 50, "Inez": 50},
+		"selected_rules": [], "consulted": false, "decisions": [],
+		"log": [{"day": 1, "message": "Your review shift begins. Read carefully; there is no timer."}],
+		"last_feedback": {}, "last_debrief": {},
 	}
 
-static func _record(state: Dictionary, message: String) -> Dictionary:
-	state.log.append({"tick": state.tick, "message": message})
+static func advance(state: Dictionary, _ticks: int = 1) -> Dictionary:
+	return state.duplicate(true)
+
+static func _record(state: Dictionary, message: String) -> void:
+	state.log.append({"day": state.day, "message": message})
 	while state.log.size() > LOG_LIMIT:
 		state.log.pop_front()
-	return state
 
-static func advance(state: Dictionary, ticks: int = 1) -> Dictionary:
-	var next: Dictionary = state.duplicate(true)
-	if ticks < 0 or ticks > MAX_BATCH_TICKS or next.speed == 0:
-		return next
-	if next.tick > MAX_VALUE - ticks:
-		return next
-	for _step in range(ticks):
-		var produced: int = 0
-		if next.production == "parts":
-			produced = mini(int(next.workers), mini(int(next.materials), MAX_VALUE - int(next.goods)))
-		next.tick += 1
-		next.materials -= produced
-		next.goods += produced
-		if produced > 0 and next.materials == 0:
-			_record(next, "Materials depleted. Buy supplies to resume production.")
-	return next
+static func _active_rule(rule_id: Variant, day: int) -> bool:
+	if typeof(rule_id) != TYPE_STRING:
+		return false
+	for rule: Dictionary in Catalog.rules_for_day(day):
+		if rule.id == rule_id:
+			return true
+	return false
+
+static func _same_rules(left: Array, right: Array) -> bool:
+	var a: Array = left.duplicate()
+	var b: Array = right.duplicate()
+	a.sort()
+	b.sort()
+	return a == b
 
 static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
-	match command.get("type", ""):
-		"set-speed":
-			var speed: Variant = command.get("speed")
-			if typeof(speed) != TYPE_INT or speed not in [0, 1, 2, 4] or speed == next.speed:
+	var kind: Variant = command.get("type", "")
+	if next.phase == "complete":
+		return next
+	if kind == "next-day":
+		if next.phase == "debrief" and command.get("choice") in EVENINGS:
+			_evening(next, command.choice)
+		return next
+	if next.phase != "review":
+		return next
+	match kind:
+		"toggle-rule":
+			var rule_id: Variant = command.get("rule_id")
+			if not _active_rule(rule_id, int(next.day)):
 				return next
-			next.speed = speed
-			return _record(next, "Simulation paused." if speed == 0 else "Simulation running at %dx speed." % speed)
-		"set-production":
-			var production: Variant = command.get("production")
-			if production not in ["idle", "parts"] or production == next.production:
+			if rule_id in next.selected_rules:
+				next.selected_rules.erase(rule_id)
+			else:
+				next.selected_rules.append(rule_id)
+		"consult-ai":
+			if not next.consulted:
+				next.consulted = true
+				next.autonomy = clampi(int(next.autonomy) + 4, 0, 100)
+				next.stress = clampi(int(next.stress) - 2, 0, 100)
+				_record(next, "You asked the assistant to assess this PR. Automation reliance +4; stress -2.")
+		"review":
+			var verdict: Variant = command.get("verdict")
+			if verdict not in ["approve", "request_changes"]:
 				return next
-			next.production = production
-			return _record(next, "Parts production selected." if production == "parts" else "Production set to idle.")
-		"buy-materials":
-			if next.credits < 30:
-				return _record(next, "Need 30 credits to buy 10 materials.")
-			if next.materials > MAX_VALUE - 10:
-				return _record(next, "Material storage limit reached.")
-			next.credits -= 30
-			next.materials += 10
-			return _record(next, "Bought 10 materials for 30 credits.")
-		"sell-goods":
-			if next.goods == 0:
-				return _record(next, "No finished goods to sell.")
-			if next.goods > (MAX_VALUE - int(next.credits)) / 12:
-				return _record(next, "Credit limit reached. Goods were not sold.")
-			var revenue: int = int(next.goods) * 12
-			var count: int = int(next.goods)
-			next.credits += revenue
-			next.goods = 0
-			return _record(next, "Sold %d goods for %d credits." % [count, revenue])
-		"hire-worker":
-			if next.workers >= 6:
-				return _record(next, "Workshop is fully staffed at 6 workers.")
-			if next.credits < 100:
-				return _record(next, "Need 100 credits to hire a worker.")
-			next.credits -= 100
-			next.workers += 1
-			return _record(next, "Hired a worker for 100 credits.")
+			if (verdict == "approve" and not next.selected_rules.is_empty()) or (verdict == "request_changes" and next.selected_rules.is_empty()):
+				return next
+			_review(next, verdict)
 	return next
+
+static func _review(state: Dictionary, verdict: String) -> void:
+	var request: Dictionary = Catalog.request_at(int(state.request_index))
+	var expected: Array = request.violations
+	var correct: bool = expected.is_empty() if verdict == "approve" else _same_rules(state.selected_rules, expected)
+	var relationship_change: int = (4 if correct else 6) if verdict == "approve" else (-2 if correct else -7)
+	var trust_change: int = (3 if correct else -12) if verdict == "approve" else (5 if correct else -7)
+	var stress_change: int = 3 + (0 if correct else (8 if verdict == "approve" else 6))
+	var previous_relationship: int = int(state.coworkers[request.author])
+	var previous_trust: int = int(state.trust)
+	state.coworkers[request.author] = clampi(previous_relationship + relationship_change, 0, 100)
+	state.trust = clampi(previous_trust + trust_change, 0, 100)
+	state.stress = clampi(int(state.stress) + stress_change, 0, 100)
+	state.decisions.append({
+		"pr_id": request.id, "verdict": verdict, "cited_rules": state.selected_rules.duplicate(),
+		"consulted": state.consulted, "correct": correct,
+	})
+	var response: String
+	if verdict == "approve":
+		response = "%s appreciates the approval." % request.author if correct else "%s is relieved you let it through, but the audit flags the risk." % request.author
+	else:
+		response = "%s accepts the fix but resents the extra work." % request.author if correct else "%s pushes back against an unsupported or incomplete review." % request.author
+	var message: String = "%s %s Trust %+d; relationship %+d; stress +%d." % [str(request.explanation).left(280), response, int(state.trust) - previous_trust, int(state.coworkers[request.author]) - previous_relationship, stress_change]
+	state.last_feedback = {
+		"pr_id": request.id, "author": request.author, "correct": correct, "verdict": verdict,
+		"message": message.left(599), "expected_rules": expected.duplicate(),
+		"relationship_delta": int(state.coworkers[request.author]) - previous_relationship,
+		"trust_delta": int(state.trust) - previous_trust,
+	}
+	_record(state, "%s: %s. %s" % [request.id, "audit passed" if correct else "audit failed", response])
+	state.request_index += 1
+	state.selected_rules = []
+	state.consulted = false
+	if int(state.request_index) % 4 == 0:
+		_debrief(state)
+
+static func _debrief(state: Dictionary) -> void:
+	state.phase = "debrief"
+	var correct: int = 0
+	for index in range(int(state.request_index) - 4, int(state.request_index)):
+		if state.decisions[index].correct:
+			correct += 1
+	var pay: int = 80 + 10 * correct
+	state.credits = clampi(int(state.credits) + pay - 90, -9999, 9999)
+	state.autonomy = clampi(int(state.autonomy) + 12, 0, 100)
+	state.last_debrief = {
+		"day": state.day, "reviewed": 4, "correct": correct, "pay": pay,
+		"expenses": 90, "balance": state.credits,
+		"message": "Shift audited: %d of 4 correct. Pay %d, living expenses 90. Management expands the assistant's authority; automation reliance +12." % [correct, pay],
+	}
+	_record(state, state.last_debrief.message)
+
+static func _evening(state: Dictionary, choice: String) -> void:
+	state.decisions[-1].evening_choice = choice
+	match choice:
+		"rest":
+			state.stress = clampi(int(state.stress) - 18, 0, 100)
+			_record(state, "You go home and rest. Stress -18.")
+		"socialize":
+			state.credits = clampi(int(state.credits) - 15, -9999, 9999)
+			state.stress = clampi(int(state.stress) - 8, 0, 100)
+			for author: String in AUTHORS:
+				state.coworkers[author] = clampi(int(state.coworkers[author]) + 4, 0, 100)
+			_record(state, "Dinner with the team costs 15. Relationships +4; stress -8.")
+		"study":
+			state.trust = clampi(int(state.trust) + 4, 0, 100)
+			state.stress = clampi(int(state.stress) + 4, 0, 100)
+			_record(state, "You spend the evening studying the rulebook. Trust +4; stress +4.")
+	if state.day == 3:
+		state.phase = "complete"
+		_record(state, "Three shifts complete. The assistant has more authority; your decisions still have human consequences.")
+	else:
+		state.day += 1
+		state.phase = "review"
+		_record(state, "Day %d begins. Read the updated rulebook before reviewing." % state.day)
 
 static func _invalid(reason: String) -> Dictionary:
 	return {"ok": false, "state": {}, "error": "Invalid save: " + reason}
 
-static func _integer(value: Variant, minimum: int = 0, maximum: int = MAX_VALUE) -> bool:
+static func _integer(value: Variant, minimum: int, maximum: int) -> bool:
 	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
 		return false
 	if typeof(value) == TYPE_FLOAT and (not is_finite(value) or value != floor(value)):
 		return false
 	return value >= minimum and value <= maximum
 
+static func _rule_list(value: Variant, day: int) -> bool:
+	if typeof(value) != TYPE_ARRAY or value.size() > Catalog.rules_for_day(day).size():
+		return false
+	var seen: Array = []
+	for rule_id: Variant in value:
+		if not _active_rule(rule_id, day) or rule_id in seen:
+			return false
+		seen.append(rule_id)
+	return true
+
+static func _matches(expected: Variant, candidate: Variant) -> bool:
+	# JSON parses numbers as floats; compare exact integral values, never booleans.
+	if typeof(expected) == TYPE_INT:
+		return _integer(candidate, expected, expected)
+	if typeof(expected) != typeof(candidate):
+		return false
+	if typeof(expected) == TYPE_DICTIONARY:
+		if expected.size() != candidate.size():
+			return false
+		for key: Variant in expected:
+			if not candidate.has(key) or not _matches(expected[key], candidate[key]):
+				return false
+		return true
+	if typeof(expected) == TYPE_ARRAY:
+		if expected.size() != candidate.size():
+			return false
+		for index in range(expected.size()):
+			if not _matches(expected[index], candidate[index]):
+				return false
+		return true
+	return expected == candidate
+
 static func validate_save(value: Variant) -> Dictionary:
 	if typeof(value) != TYPE_DICTIONARY:
 		return _invalid("game state must be an object.")
-	if not _integer(value.get("version"), 1, 1):
-		return _invalid("unsupported save version; expected version 1.")
-	var state: Dictionary = {"version": 1}
-	for key: String in ["tick", "credits", "materials", "goods", "workers"]:
-		var minimum: int = 1 if key == "workers" else 0
-		var maximum: int = 6 if key == "workers" else MAX_VALUE
-		if not _integer(value.get(key), minimum, maximum):
-			return _invalid("%s must be an integer between %d and %d." % [key, minimum, maximum])
-		state[key] = int(value[key])
-	if value.get("production") not in ["idle", "parts"]:
-		return _invalid("unknown production mode.")
-	state.production = value.production
-	if not _integer(value.get("speed"), 0, 4) or int(value.speed) not in [0, 1, 2, 4]:
-		return _invalid("unknown simulation speed.")
-	state.speed = int(value.speed)
-	var activity: Variant = value.get("log")
-	if typeof(activity) != TYPE_ARRAY or activity.size() > LOG_LIMIT:
-		return _invalid("log must be an array with at most %d entries." % LOG_LIMIT)
-	state.log = []
-	var previous_tick: int = 0
-	for index in range(activity.size()):
-		var entry: Variant = activity[index]
-		if typeof(entry) != TYPE_DICTIONARY:
-			return _invalid("log entry %d must be an object." % index)
-		if not _integer(entry.get("tick"), previous_tick, int(state.tick)):
-			return _invalid("log entry %d has an invalid or nonchronological tick." % index)
-		var message: Variant = entry.get("message")
-		if typeof(message) != TYPE_STRING or message.strip_edges().is_empty() or message.length() > 240:
-			return _invalid("log entry %d message must contain 1-240 characters." % index)
-		previous_tick = int(entry.tick)
-		state.log.append({"tick": previous_tick, "message": message})
-	return {"ok": true, "state": state, "error": ""}
+	if not _integer(value.get("version"), 2, 2):
+		return _invalid("this is not a Last Review version 2 save. Old workshop saves cannot be loaded; start a new review career.")
+	for field: String in ["day", "request_index", "credits", "trust", "stress", "autonomy"]:
+		var minimum: int = -9999 if field == "credits" else (1 if field == "day" else 0)
+		var maximum: int = 9999 if field == "credits" else (3 if field == "day" else (12 if field == "request_index" else 100))
+		if not _integer(value.get(field), minimum, maximum):
+			return _invalid("%s has an invalid integer value." % field)
+	if value.get("phase") not in ["review", "debrief", "complete"] or typeof(value.get("consulted")) != TYPE_BOOL:
+		return _invalid("invalid phase or consultation flag.")
+	if not _rule_list(value.get("selected_rules"), int(value.day)):
+		return _invalid("selected rules must be unique active rule IDs.")
+	if typeof(value.get("coworkers")) != TYPE_DICTIONARY or value.coworkers.size() != 3:
+		return _invalid("coworker relationships are missing.")
+	for author: String in AUTHORS:
+		if not _integer(value.coworkers.get(author), 0, 100):
+			return _invalid("invalid relationship with " + author + ".")
+	if typeof(value.get("decisions")) != TYPE_ARRAY or value.decisions.size() != int(value.request_index):
+		return _invalid("decision history does not match the request index.")
+	if typeof(value.get("log")) != TYPE_ARRAY or value.log.size() > LOG_LIMIT or typeof(value.get("last_feedback")) != TYPE_DICTIONARY or typeof(value.get("last_debrief")) != TYPE_DICTIONARY:
+		return _invalid("invalid activity or feedback data.")
+	# Replay the bounded journal to verify resources, phases, audits, and one-time pay.
+	var replay: Dictionary = initial_state()
+	for index in range(value.decisions.size()):
+		var decision: Variant = value.decisions[index]
+		if typeof(decision) != TYPE_DICTIONARY or replay.phase != "review":
+			return _invalid("decision %d occurs outside a review shift." % index)
+		if decision.get("pr_id") != Catalog.request_at(index).id or decision.get("verdict") not in ["approve", "request_changes"]:
+			return _invalid("decision %d has an invalid request or verdict." % index)
+		if typeof(decision.get("consulted")) != TYPE_BOOL or typeof(decision.get("correct")) != TYPE_BOOL or not _rule_list(decision.get("cited_rules"), int(replay.day)):
+			return _invalid("decision %d has invalid citations or flags." % index)
+		for rule_id: String in decision.cited_rules:
+			replay = dispatch(replay, {"type": "toggle-rule", "rule_id": rule_id})
+		if decision.consulted:
+			replay = dispatch(replay, {"type": "consult-ai"})
+		replay = dispatch(replay, {"type": "review", "verdict": decision.verdict})
+		if replay.request_index != index + 1:
+			return _invalid("decision %d could not be submitted." % index)
+		if decision.has("evening_choice"):
+			if replay.phase != "debrief" or decision.evening_choice not in EVENINGS:
+				return _invalid("evening choice occurs outside a completed shift.")
+			replay = dispatch(replay, {"type": "next-day", "choice": decision.evening_choice})
+		if not _matches(replay.decisions[index], decision):
+			return _invalid("decision %d does not match its audit." % index)
+	for rule_id: String in value.selected_rules:
+		replay = dispatch(replay, {"type": "toggle-rule", "rule_id": rule_id})
+	if value.consulted:
+		replay = dispatch(replay, {"type": "consult-ai"})
+	if not _matches(replay, value):
+		return _invalid("state does not match its decision history, phase, or earned resources.")
+	return {"ok": true, "state": replay, "error": ""}
 
 static func serialize_save(state: Dictionary) -> String:
 	var result: Dictionary = validate_save(state)
