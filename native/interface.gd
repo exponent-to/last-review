@@ -763,7 +763,6 @@ func _build_chat(page: VBoxContainer) -> void:
 	var conversation: VBoxContainer = _column(columns, 8)
 	conversation.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_chat_heading = _label(conversation, "#engineering", 16, TEXT)
-	_label(conversation, "Internal conversation · retained locally", 11, DIM)
 	_chat_scroll = ScrollContainer.new()
 	# Hidden message rows must not propagate their pre-wrap width into the window.
 	_chat_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER

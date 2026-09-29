@@ -59,3 +59,5 @@ Every app has a notification source: arrived PRs for REVIEW, team messages for S
 `native/desktop_notifications.gd` stacks up to three clickable bubbles above the bottom-right taskbar. They coalesce by app and target, expire after nine seconds, and wait while paused or hovered. Clicking opens the corresponding PR, conversation, memo, or app. Dismissing a bubble leaves its unread badge intact. Notifications do not steal focus.
 
 Player messages align right in a blue bubble; coworkers align left. Newly sent questions show a typing indicator for 2.4 active seconds, with further response choices hidden until the answer arrives. Pending answers do not enter unread counts early; pause freezes delivery. Saved conversation history is immediately available after loading.
+
+Coworkers begin with a single introduction. Neutral filler greetings are omitted; separate relationship messages appear only for warm or strained relationships. Conversation headers show the person or channel without storage or internal-system labels.

@@ -139,7 +139,8 @@ static func messages(state: Dictionary, contact: String) -> Array:
 		_append(history, contact, str(person.get("intro", "")), "intro")
 		var relationship := int(state.get("coworkers", {}).get(contact, 50))
 		var tone := "warm" if relationship >= 65 else ("distant" if relationship <= 35 else "neutral")
-		_append(history, contact, str(person.get(tone, "")), "ambient")
+		if tone != "neutral":
+			_append(history, contact, str(person.get(tone, "")), "ambient")
 		for request: Dictionary in Catalog.requests():
 			if request.author == contact and _arrived(state, request):
 				_request_history(history, state, contact, request)

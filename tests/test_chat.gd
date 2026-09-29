@@ -69,6 +69,9 @@ func _save_choice(state: Dictionary, request: Dictionary, reply_id: String) -> D
 func _test_delivery() -> void:
 	var first: Dictionary = Catalog.request_at(0)
 	var waiting := _state(int(first.day), 0)
+	for coworker: String in ["Maya", "Theo", "Inez"]:
+		var greetings := Chat.messages(waiting, coworker)
+		_check(greetings.size() == 1 and greetings[0].kind == "intro", "Each coworker starts with one introduction, without a second filler message.")
 	for contact: String in Chat.CONTACTS:
 		_check(_kind(Chat.messages(waiting, contact), "request").is_empty(), "Shift opening must not announce any undelivered PR.")
 		_check(Chat.reply_options(waiting, contact).is_empty(), "An undelivered PR cannot offer replies.")
