@@ -169,6 +169,28 @@ static func _rule_list(value: Variant, day: int) -> bool:
 		seen.append(rule_id)
 	return true
 
+static func _matches(expected: Variant, candidate: Variant) -> bool:
+	# JSON parses numbers as floats; compare exact integral values, never booleans.
+	if typeof(expected) == TYPE_INT:
+		return _integer(candidate, expected, expected)
+	if typeof(expected) != typeof(candidate):
+		return false
+	if typeof(expected) == TYPE_DICTIONARY:
+		if expected.size() != candidate.size():
+			return false
+		for key: Variant in expected:
+			if not candidate.has(key) or not _matches(expected[key], candidate[key]):
+				return false
+		return true
+	if typeof(expected) == TYPE_ARRAY:
+		if expected.size() != candidate.size():
+			return false
+		for index in range(expected.size()):
+			if not _matches(expected[index], candidate[index]):
+				return false
+		return true
+	return expected == candidate
+
 static func validate_save(value: Variant) -> Dictionary:
 	if typeof(value) != TYPE_DICTIONARY:
 		return _invalid("game state must be an object.")
@@ -213,13 +235,13 @@ static func validate_save(value: Variant) -> Dictionary:
 			if replay.phase != "debrief" or decision.evening_choice not in EVENINGS:
 				return _invalid("evening choice occurs outside a completed shift.")
 			replay = dispatch(replay, {"type": "next-day", "choice": decision.evening_choice})
-		if replay.decisions[index] != decision:
+		if not _matches(replay.decisions[index], decision):
 			return _invalid("decision %d does not match its audit." % index)
 	for rule_id: String in value.selected_rules:
 		replay = dispatch(replay, {"type": "toggle-rule", "rule_id": rule_id})
 	if value.consulted:
 		replay = dispatch(replay, {"type": "consult-ai"})
-	if replay != value:
+	if not _matches(replay, value):
 		return _invalid("state does not match its decision history, phase, or earned resources.")
 	return {"ok": true, "state": replay, "error": ""}
 
