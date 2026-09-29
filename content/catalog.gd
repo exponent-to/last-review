@@ -58,3 +58,14 @@ static func requests_for_day(day: int) -> Array:
 		if int(request.day) == day:
 			packets.append(request)
 	return packets
+
+## Deterministic in-world inbox delivery; queue size remains private scheduling data.
+static func arrival_seconds(request_id: String) -> int:
+	for request: Dictionary in requests():
+		if request.id != request_id:
+			continue
+		var shift: Array = requests_for_day(int(request.day))
+		for index in range(shift.size()):
+			if shift[index].id == request_id:
+				return 20 + floori(float(index) * 260.0 / maxf(1.0, float(shift.size() - 1)))
+	return -1
