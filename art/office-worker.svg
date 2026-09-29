@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="27" viewBox="0 0 32 27" shape-rendering="crispEdges">
+  <!-- Two seated typing poses; each frame is 16 × 27. -->
+  <g>
+    <path fill="#8c9ba4" d="M5 2h6v7H5z"/>
+    <path fill="#162231" d="M4 1h7v3H4zm0 2h2v4H4z"/>
+    <path fill="#1b2b3b" d="M10 4h1v1h-1z"/>
+    <path fill="#526b80" d="M4 9h6v11H4zM3 11h2v9H3zM9 12h3v4H9z"/>
+    <path fill="#7793a3" d="M6 10h2v8H6z"/>
+    <path fill="#a9b8bf" d="M10 15h5v2h-5z"/>
+    <path fill="#1c2c3e" d="M5 19h8v3H5zM11 21h3v5h-3z"/>
+    <path fill="#0d1824" d="M11 25h5v2h-5z"/>
+  </g>
+  <g transform="translate(16 0)">
+    <path fill="#8c9ba4" d="M5 2h6v7H5z"/>
+    <path fill="#162231" d="M4 1h7v3H4zm0 2h2v4H4z"/>
+    <path fill="#1b2b3b" d="M10 4h1v1h-1z"/>
+    <path fill="#526b80" d="M4 9h6v11H4zM3 11h2v9H3zM9 12h3v4H9z"/>
+    <path fill="#7793a3" d="M6 10h2v8H6z"/>
+    <path fill="#a9b8bf" d="M10 14h5v2h-5z"/>
+    <path fill="#1c2c3e" d="M5 19h8v3H5zM11 21h3v5h-3z"/>
+    <path fill="#0d1824" d="M11 25h5v2h-5z"/>
+  </g>
+</svg>
