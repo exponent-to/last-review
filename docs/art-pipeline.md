@@ -11,7 +11,7 @@ The workshop is a provisional theme demonstrating a replaceable presentation lay
 | `art/smoke.svg` | 7 × 5 | Three chimney puffs while the workshop is working |
 | `art/worker.svg` | 32 × 22 | Two horizontal 16 × 22 worker frames, left foot then right foot |
 
-Use integer coordinates and axis-aligned steps to preserve the pixel grid. The palette uses sage and blue-gray scenery, warm cream masonry, ochre details, and brick-red roofing. Sprite backgrounds are transparent. Keep edits inside each declared viewBox; change source dimensions and `ASSET_SIZES` in the renderer together.
+Use integer coordinates and axis-aligned steps to preserve the pixel grid. The palette uses gray-green scenery, concrete and tan masonry, subdued ochre details, and dark desaturated brick roofing, matching the utilitarian olive-and-charcoal menus. Sprite backgrounds are transparent. Keep edits inside each declared viewBox; change source dimensions and `ASSET_SIZES` in the renderer together.
 
 The adjacent `.svg.import` files set `importer="keep"`, corresponding to Godot's **Keep File (exported as is)** setting. Commit these metadata files: runtime SVG loading needs the original source text preserved in exported builds. They deliberately bypass texture import because this renderer performs its own rasterization. See Godot's [FileAccess documentation](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html).
 

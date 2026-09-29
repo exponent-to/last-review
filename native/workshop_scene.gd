@@ -67,7 +67,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("899777"))
+	draw_rect(Rect2(Vector2.ZERO, size), Color("818971"))
 	if _asset_error:
 		draw_string(get_theme_default_font(), Vector2(16, 28),
 			"Workshop illustration could not be loaded.", HORIZONTAL_ALIGNMENT_LEFT,
