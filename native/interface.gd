@@ -377,6 +377,7 @@ func _new_window(id: String, title: String) -> DesktopWindow:
 	var window: DesktopWindow = DesktopWindow.new()
 	window.window_id = id
 	window.window_title = title
+	window.resize_minimum_size = {"review": Vector2(650, 390), "rules": Vector2(340, 320), "chat": Vector2(520, 300)}.get(id, Vector2(420, 280))
 	window.activated.connect(_focus_app)
 	window.minimized.connect(func(_id: String) -> void: _update_dock())
 	window.closed.connect(func(_id: String) -> void: _update_dock())

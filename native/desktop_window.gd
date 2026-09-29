@@ -16,6 +16,12 @@ var maximize_button: Button
 var close_button: Button
 var launched: bool = false
 var maximized: bool = false
+var resize_minimum_size := Vector2(300, 200)
+var _resize_overlay: Control
+var _resize_handles: Array[Control] = []
+var _resize_edge := Vector2i.ZERO
+var _resize_origin := Vector2.ZERO
+var _resize_rect: Rect2
 var _normal_rect: Rect2
 var _normal_minimum: Vector2
 var _chrome_buttons: Array[Button] = []
@@ -81,6 +87,7 @@ func _ready() -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 8)
 	content_scroll.add_child(body)
+	_build_resize_handles()
 	set_active(false)
 	var desktop: Control = get_parent() as Control
 	if desktop != null:
@@ -131,6 +138,7 @@ func focus_window() -> void:
 
 func minimize_window() -> void:
 	_dragging = false
+	_resize_edge = Vector2i.ZERO
 	hide()
 	minimized.emit(window_id)
 
@@ -146,6 +154,7 @@ func restore_window(keyboard_focus: bool = true) -> void:
 
 func close_window() -> void:
 	_dragging = false
+	_resize_edge = Vector2i.ZERO
 	launched = false
 	hide()
 	closed.emit(window_id)
@@ -153,6 +162,7 @@ func close_window() -> void:
 
 func toggle_maximize() -> void:
 	_dragging = false
+	_resize_edge = Vector2i.ZERO
 	if maximized:
 		maximized = false
 		custom_minimum_size = _normal_minimum
@@ -165,6 +175,7 @@ func toggle_maximize() -> void:
 		maximized = true
 	maximize_button.text = "↙" if maximized else "□"
 	maximize_button.tooltip_text = ("Restore " if maximized else "Maximize ") + window_title
+	_resize_overlay.visible = not maximized
 	clamp_to_desktop()
 	focus_window()
 
@@ -222,16 +233,85 @@ func _title_input(event: InputEvent) -> void:
 func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree():
 		_dragging = false
+		_resize_edge = Vector2i.ZERO
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if not event.pressed:
 			_dragging = false
+			_resize_edge = Vector2i.ZERO
 		elif _contains_viewport_point(self, event.position) and _is_top_window_at_pointer(event.position):
 			focus_window()
+	elif event is InputEventMouseMotion and _resize_edge != Vector2i.ZERO:
+		_resize_to(_desktop_point(event.position))
+		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and _dragging:
 		# Use the delivered motion coordinates, not the separately polled OS cursor.
 		position = _desktop_point(event.position) - _drag_offset
 		clamp_to_desktop()
+
+
+func _build_resize_handles() -> void:
+	_resize_overlay = Control.new()
+	_resize_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_resize_overlay)
+	var edges := [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1),
+		Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)]
+	for edge: Vector2i in edges:
+		var handle := Control.new()
+		handle.mouse_filter = Control.MOUSE_FILTER_STOP
+		handle.mouse_default_cursor_shape = Control.CURSOR_HSIZE if edge.y == 0 else Control.CURSOR_VSIZE if edge.x == 0 else Control.CURSOR_FDIAGSIZE if edge.x == edge.y else Control.CURSOR_BDIAGSIZE
+		handle.tooltip_text = "Drag to resize " + window_title
+		handle.set_meta("edge", edge)
+		handle.gui_input.connect(_resize_input.bind(edge, handle))
+		_resize_overlay.add_child(handle)
+		_resize_handles.append(handle)
+	_resize_overlay.resized.connect(_layout_resize_handles)
+	_layout_resize_handles.call_deferred()
+
+
+func _layout_resize_handles() -> void:
+	var extent := _resize_overlay.size
+	for handle: Control in _resize_handles:
+		var edge: Vector2i = handle.get_meta("edge")
+		if edge.y == 0:
+			handle.position = Vector2(-3 if edge.x < 0 else extent.x - 5, 9)
+			handle.size = Vector2(8, maxf(0, extent.y - 18))
+		elif edge.x == 0:
+			handle.position = Vector2(9, -3 if edge.y < 0 else extent.y - 5)
+			handle.size = Vector2(maxf(0, extent.x - 18), 8)
+		else:
+			handle.position = Vector2(-3 if edge.x < 0 else extent.x - 9, -3 if edge.y < 0 else extent.y - 9)
+			handle.size = Vector2(12, 12)
+
+
+func _resize_input(event: InputEvent, edge: Vector2i, handle: Control) -> void:
+	if maximized:
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		focus_window()
+		_dragging = false
+		_resize_edge = edge
+		_resize_origin = _desktop_point(handle.get_global_transform_with_canvas() * event.position)
+		_resize_rect = Rect2(position, size)
+		handle.accept_event()
+
+
+func _resize_to(pointer: Vector2) -> void:
+	var desktop := get_parent() as Control
+	var minimum := get_combined_minimum_size().max(resize_minimum_size).min(desktop.size)
+	var delta := pointer - _resize_origin
+	var start := _resize_rect.position.max(Vector2.ZERO).min((desktop.size - minimum).max(Vector2.ZERO))
+	var finish := _resize_rect.end.max(start + minimum).min(desktop.size)
+	if _resize_edge.x < 0:
+		start.x = clampf(_resize_rect.position.x + delta.x, 0, finish.x - minimum.x)
+	elif _resize_edge.x > 0:
+		finish.x = clampf(_resize_rect.end.x + delta.x, start.x + minimum.x, desktop.size.x)
+	if _resize_edge.y < 0:
+		start.y = clampf(_resize_rect.position.y + delta.y, 0, finish.y - minimum.y)
+	elif _resize_edge.y > 0:
+		finish.y = clampf(_resize_rect.end.y + delta.y, start.y + minimum.y, desktop.size.y)
+	position = start
+	size = finish - start
 
 
 func _desktop_point(viewport_point: Vector2) -> Vector2:

@@ -96,6 +96,42 @@ func _run() -> void:
 	_motion(start, Vector2(-1200, -900), false)
 	_check(window.position == released and not window._dragging, "An offscreen release must stop dragging permanently.")
 
+	# Resize through all eight real GUI hit regions on the scaled desktop.
+	for edge: Vector2i in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)]:
+		window.position = Vector2(140, 120)
+		window.size = Vector2(360, 260)
+		await process_frame
+		var local_point := Vector2(1 if edge.x < 0 else window.size.x - 1 if edge.x > 0 else window.size.x * 0.5,
+			1 if edge.y < 0 else window.size.y - 1 if edge.y > 0 else window.size.y * 0.5)
+		start = window.get_global_transform_with_canvas() * local_point
+		_button(start, true)
+		_check(window._resize_edge == edge and not window._dragging, "Each edge/corner must capture resizing without dragging: %s" % edge)
+		var local_delta := Vector2(edge) * Vector2(36, 24)
+		moved = start + local_delta * desktop.scale
+		_motion(moved, start)
+		_button(moved, false)
+		await process_frame
+		_check(window.size.is_equal_approx(Vector2(360 + absi(edge.x) * 36, 260 + absi(edge.y) * 24)), "Resize must use desktop-local pointer deltas: %s" % edge)
+		_check(window.position.is_equal_approx(Vector2(140 - (36 if edge.x < 0 else 0), 120 - (24 if edge.y < 0 else 0))), "Resizing must anchor the opposite edge: %s" % edge)
+		var resized_rect := Rect2(window.position, window.size)
+		_motion(start, moved, false)
+		_check(Rect2(window.position, window.size) == resized_rect, "Pointer release must stop resizing: %s" % edge)
+	window.position = Vector2(100, 80)
+	window.size = Vector2(360, 260)
+	await process_frame
+	start = window.get_global_transform_with_canvas() * (window.size - Vector2.ONE)
+	_button(start, true)
+	_motion(start - Vector2(2000, 2000), start)
+	_check(window.size.is_equal_approx(window.resize_minimum_size), "Shrinking must respect the usable minimum size.")
+	_motion(start + Vector2(2000, 2000), start)
+	_check((window.position + window.size).is_equal_approx(desktop.size), "Growing must stop at the monitor desktop boundary.")
+	_button(start + Vector2(2000, 2000), false)
+	var user_rect := Rect2(window.position, window.size)
+	window.toggle_maximize()
+	_check(not window._resize_overlay.visible, "Maximized windows must hide resize handles.")
+	window.toggle_maximize()
+	_check(window._resize_overlay.visible and Rect2(window.position, window.size) == user_rect, "Restore must remember the user's resized rectangle.")
+
 	# Exercise titlebar controls through actual viewport input, retaining app state.
 	window.position = Vector2(40, 30)
 	window.size = Vector2(340, 240)
