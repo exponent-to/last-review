@@ -14,5 +14,7 @@ mkdir -p build/web
 touch build/.gdignore
 sh scripts/run.sh --headless --editor --import
 sh scripts/run.sh --headless --export-release Web "$PWD/build/web/index.html"
+cp art/fonts/IBMPlexMono-Regular.ttf build/web/loader-font.ttf
+cp art/fonts/OFL.txt build/web/loader-font-LICENSE.txt
 echo "Built $PWD/build/web/index.html"
 echo "Run locally: python3 scripts/serve-web.py"

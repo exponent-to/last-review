@@ -39,3 +39,9 @@ The Godot 4.7.2 release export completed successfully with `GODOT_THREADS_ENABLE
 The integrated browser build was playtested at 1280×900: intro handoff, advancing clock, manual pause/resume, timed Slouch arrival, contextual question and coworker response, PR link navigation, multi-file dropdown and helper diff, and Save → reload → Load. The loaded clock and conversation were preserved. In-game popup menus no longer trigger focus-loss pause; only application focus loss does.
 
 Implementation references: [Godot Web export documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html) and the [Godot 4.7.2 Web template selection code](https://github.com/godotengine/godot/blob/4.7.2-stable/platform/web/export/export_plugin.h).
+
+## Startup screen
+
+`web/shell.html` is the custom Godot HTML shell. It displays a Northstar terminal with bundled IBM Plex Mono while the real engine download progresses, then hands off immediately to the main menu. Failed downloads and unsupported browsers show a readable error and Retry Startup. Motion follows the browser’s reduced-motion preference. The native boot splash also omits the default Godot logo.
+
+The Web build copies `loader-font.ttf` and its OFL license beside the export; deploy these with the other generated files. No remote fonts or artificial loading delay are used. See [Godot’s custom HTML shell documentation](https://docs.godotengine.org/en/stable/tutorials/platform/web/customizing_html5_shell.html).

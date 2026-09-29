@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101722">
+  <title>$GODOT_PROJECT_NAME</title>
+  <style>
+    @font-face { font-family: Plex; src: url('loader-font.ttf') format('truetype'); font-display: swap; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; background: #101722; color: #c3ccd4; }
+    body { overflow: hidden; font: 14px/1.7 Plex, 'Courier New', monospace; }
+    #canvas { display: block; border: 0; outline: none; }
+    #loader { position: fixed; inset: 0; display: grid; place-items: center; padding: 28px; background: #101722; }
+    .terminal { width: min(580px, 100%); }
+    .machine { margin: 0 0 44px; color: #899baa; font-size: 11px; letter-spacing: .12em; }
+    h1 { margin: 0; font-size: clamp(30px, 7vw, 44px); font-weight: 400; line-height: 1.3; letter-spacing: .04em; }
+    .subtitle { margin: 12px 0 38px; color: #899baa; }
+    .divider { border: 0; border-top: 1px solid #3c4d5e; margin: 0 0 28px; }
+    #status { margin: 0 0 16px; min-height: 24px; }
+    #status::before { content: '> '; color: #99c4cd; }
+    progress { display: block; width: 100%; height: 10px; border: 1px solid #526776; border-radius: 0; background: #1c2937; appearance: none; accent-color: #99c4cd; }
+    progress::-webkit-progress-bar { background: #1c2937; }
+    progress::-webkit-progress-value { background: #99c4cd; }
+    progress::-moz-progress-bar { background: #99c4cd; }
+    progress:not([value]) { animation: standby 1.5s steps(2, end) infinite; }
+    .footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 24px; color: #899baa; font-size: 11px; }
+    .cursor { color: #99c4cd; animation: standby 1.2s steps(2, end) infinite; }
+    #failure { white-space: pre-wrap; overflow-wrap: anywhere; color: #d2a6a1; max-height: 30vh; overflow-y: auto; }
+    #retry { margin: 20px 0 0; padding: 10px 24px; color: #c3ccd4; background: #1c2937; border: 1px solid #526776; font: inherit; cursor: pointer; }
+    #retry:hover, #retry:focus-visible { border-color: #99c4cd; outline: 1px solid #99c4cd; outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    noscript { position: fixed; inset: auto 28px 24px; z-index: 2; color: #d2a6a1; text-align: center; }
+    @keyframes standby { 50% { opacity: .4; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; } }
+    @media (max-height: 500px) { #loader { overflow-y: auto; place-items: start center; } .machine { margin-bottom: 18px; } .subtitle { margin-bottom: 18px; } }
+  </style>
+  $GODOT_HEAD_INCLUDE
+  <script src="$GODOT_URL" defer></script>
+</head>
+<body>
+  <canvas id="canvas" aria-label="Last Review game">This game requires a browser with canvas support.</canvas>
+  <main id="loader" aria-busy="true">
+    <section class="terminal" aria-labelledby="title">
+      <p class="machine">NORTHSTAR SYSTEMS / WORKSTATION N-7</p>
+      <h1 id="title">LAST REVIEW</h1>
+      <p class="subtitle">A software engineering life sim.</p>
+      <hr class="divider">
+      <p id="status" role="status" aria-live="polite">Loading workstation files…</p>
+      <progress id="progress" aria-label="Game download"></progress>
+      <p id="failure" role="alert" hidden></p>
+      <button id="retry" type="button" hidden>RETRY STARTUP</button>
+      <div class="footer"><span>LOCAL SESSION / HUMAN OPERATOR</span><span class="cursor" aria-hidden="true">▌</span></div>
+    </section>
+  </main>
+  <noscript>Enable JavaScript to start Last Review.</noscript>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const loader = document.getElementById('loader');
+      const status = document.getElementById('status');
+      const progress = document.getElementById('progress');
+      const failure = document.getElementById('failure');
+      const retry = document.getElementById('retry');
+      retry.addEventListener('click', () => window.location.reload());
+      try {
+        if (typeof Engine === 'undefined') throw new Error('The game could not be downloaded. Check your connection and retry.');
+        const missing = Engine.getMissingFeatures({ threads: $GODOT_THREADS_ENABLED });
+        if (missing.length) throw new Error('This browser cannot start the game. Try an up-to-date desktop browser with WebGL 2 enabled.\n\nMissing support: ' + missing.join(', '));
+        const engine = new Engine($GODOT_CONFIG);
+        await engine.startGame({ onProgress(current, total) {
+          if (total > 0) {
+            progress.max = total;
+            progress.value = Math.min(current, total);
+            if (current >= total) status.textContent = 'Starting workstation…';
+          } else {
+            progress.removeAttribute('value');
+          }
+        } });
+        loader.remove();
+      } catch (error) {
+        console.error(error);
+        loader.setAttribute('aria-busy', 'false');
+        status.textContent = 'Startup interrupted.';
+        progress.hidden = true;
+        failure.textContent = error instanceof Error ? error.message : String(error);
+        failure.hidden = false;
+        retry.hidden = false;
+      }
+    });
+  </script>
+</body>
+</html>
