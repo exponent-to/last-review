@@ -8,6 +8,7 @@ signal reset_requested
 signal motion_changed(enabled: bool)
 
 const Catalog = preload("res://content/catalog.gd")
+const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 const BACK: Color = Color("101824")
 const SURFACE: Color = Color("192637")
 const INSET: Color = Color("0d1520")
@@ -114,9 +115,7 @@ func _ready() -> void:
 
 func _build_theme() -> Theme:
 	var result: Theme = Theme.new()
-	var font: SystemFont = SystemFont.new()
-	font.font_names = PackedStringArray(["Menlo", "Consolas", "Courier New", "monospace"])
-	result.default_font = font
+	result.default_font = TerminalFont
 	result.default_font_size = 15
 	for type_name: String in ["Label", "Button", "CheckBox", "OptionButton", "LineEdit", "TextEdit", "CodeEdit", "PopupMenu"]:
 		result.set_color("font_color", type_name, TEXT)
@@ -336,7 +335,7 @@ func _build_rulebook(parent: Node) -> void:
 	_category.custom_minimum_size.y = 34
 	_category.item_selected.connect(func(_index: int) -> void: _filter_rules())
 	column.add_child(_category)
-	_rule_count = _label(column, "", 12, DIM)
+	_rule_count = _paragraph(column, "", 12, DIM)
 	var rules_body: VBoxContainer = _scroll_column(column)
 	var categories: Array[String] = []
 	var all_rules: Array = Catalog.rules()
@@ -409,7 +408,7 @@ func _build_system(page: VBoxContainer) -> void:
 	content.add_child(motion)
 	_paragraph(content, "Disable decorative animation without changing the review simulation.", 14, DIM)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Read the previous-review audit before moving on.\n\nAI advice is optional and fallible. Daily pay and personal choices happen after four reviews.", 14, DIM)
+	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Read the previous-review audit before moving on.\n\nAI advice is optional and fallible. When the shift closes, settle your pay and choose how to spend the evening.", 14, DIM)
 
 
 func _emit_command(command: Dictionary) -> void:
@@ -430,11 +429,14 @@ func _filter_rules() -> void:
 	var day: int = int(_state.get("day", 1))
 	var visible_count: int = 0
 	var active_count: int = 0
+	var new_count: int = 0
 	for entry: Dictionary in _rule_rows:
 		var rule: Dictionary = entry["rule"]
 		var active: bool = int(rule.get("introduced_day", 1)) <= day
 		if active:
 			active_count += 1
+		if int(rule.get("introduced_day", 1)) == day:
+			new_count += 1
 		var haystack: String = (str(rule.get("id", "")) + " " + str(rule.get("title", "")) + " " + str(rule.get("text", ""))).to_lower()
 		var matches: bool = active and (query.is_empty() or haystack.contains(query)) and (_category.selected == 0 or str(rule.get("category", "")) == category)
 		var panel: Control = entry["panel"]
@@ -442,6 +444,8 @@ func _filter_rules() -> void:
 		if matches:
 			visible_count += 1
 	_rule_count.text = "%d shown / %d active rules" % [visible_count, active_count]
+	if day > 1 and new_count > 0:
+		_rule_count.text += "\n%d added this shift" % new_count
 
 
 func render_state(state: Dictionary) -> void:
@@ -454,7 +458,7 @@ func render_state(state: Dictionary) -> void:
 	for key: String in _hud:
 		var label: Label = _hud[key]
 		var value: int = int(state.get(key, 0))
-		label.text = "$%d" % value if key == "credits" else "%d / 3" % day if key == "day" else "%d%%" % value
+		label.text = "$%d" % value if key == "credits" else str(day) if key == "day" else "%d%%" % value
 	var coworkers: Dictionary = state.get("coworkers", {})
 	for person: String in _people:
 		var label: Label = _people[person]
@@ -485,7 +489,7 @@ func render_state(state: Dictionary) -> void:
 		var request_id: String = str(request.get("id", ""))
 		if request_id != _last_pr:
 			_last_pr = request_id
-			_pr_id.text = "%s / %d OF 4 TODAY" % [request_id, index % 4 + 1]
+			_pr_id.text = "%s / AWAITING REVIEW" % request_id
 			_pr_title.text = str(request.get("title", ""))
 			_pr_context.text = "%s: %s\n\n%s" % [str(request.get("author", "")), str(request.get("message", "")), str(request.get("description", ""))]
 			_file_label.text = str(request.get("file", ""))
@@ -507,7 +511,7 @@ func render_state(state: Dictionary) -> void:
 	for entry: Dictionary in log:
 		records.append("D%d  %s" % [int(entry.get("day", 1)), str(entry.get("message", ""))])
 	_people_log.text = "\n".join(records)
-	_footer.text = "DAY %d  /  %d OF 12 REVIEWS COMPLETE  /  %s" % [day, index, "Reading takes no game time." if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "SLICE COMPLETE"]
+	_footer.text = "TERMINAL 04 / %s" % ("HUMAN SIGN-OFF REQUIRED · Reading takes no game time." if phase == "review" else "SHIFT CLOSED · Evening record pending." if phase == "debrief" else "ASSIGNMENT CLOSED · Record available.")
 
 
 func _feedback_text(feedback: Dictionary) -> String:
@@ -530,20 +534,20 @@ func _render_phase(state: Dictionary) -> void:
 		_phase_title.text = "SHIFT %d COMPLETE" % int(state.get("day", 1))
 		_phase_detail.text = "REVIEWS %d     CORRECT %d\nPAY +$%d     EXPENSES -$%d     CASH $%d\n\n%s\n\nCOLLEAGUES / %s\n\nChoose how to spend the evening.\nREST: stress -18.\nSOCIALIZE: costs $15; all colleagues +4; stress -8.\nSTUDY: trust +4; stress +4." % [int(debrief.get("reviewed", 0)), int(debrief.get("correct", 0)), int(debrief.get("pay", 0)), int(debrief.get("expenses", 0)), int(debrief.get("balance", state.get("credits", 0))), str(debrief.get("message", "")), relationship_text]
 	else:
-		_phase_title.text = "THREE DAYS / FINAL RECORD"
+		_phase_title.text = "ASSIGNMENT / FINAL RECORD"
 		var ending: String = "Human review is retained, under closer observation."
 		if int(state.get("autonomy", 0)) >= 70:
 			ending = "Helios is promoted to the default review gate. Human sign-off becomes an exception."
 		elif int(state.get("trust", 0)) < 40:
 			ending = "You are reassigned to the incident queue. Your reviews will be supervised."
 		if int(state.get("stress", 0)) >= 70:
-			ending += " The three shifts have left you exhausted."
+			ending += " The assignment has left you exhausted."
 		var correct: int = 0
 		var decisions: Array = state.get("decisions", [])
 		for decision: Dictionary in decisions:
 			if bool(decision.get("correct", false)):
 				correct += 1
-		_phase_detail.text = "%d / 12 reviews correct.\n\nCASH $%d    SYSTEM TRUST %d%%\nSTRESS %d%%    AI AUTHORITY %d%%\n\nCOLLEAGUES / %s\n\n%s\n\nEnd of this playable slice. Your record remains in PEOPLE and can be saved in SYSTEM." % [correct, int(state.get("credits", 0)), int(state.get("trust", 0)), int(state.get("stress", 0)), int(state.get("autonomy", 0)), relationship_text, ending]
+		_phase_detail.text = "%d correct reviews.\n\nCASH $%d    SYSTEM TRUST %d%%\nSTRESS %d%%    AI AUTHORITY %d%%\n\nCOLLEAGUES / %s\n\n%s\n\nEnd of this playable slice. Your record remains in PEOPLE and can be saved in SYSTEM." % [correct, int(state.get("credits", 0)), int(state.get("trust", 0)), int(state.get("stress", 0)), int(state.get("autonomy", 0)), relationship_text, ending]
 
 
 func notify(message: String, is_error: bool = false) -> void:
