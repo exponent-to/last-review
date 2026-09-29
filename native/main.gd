@@ -4,6 +4,8 @@ const Simulation = preload("res://native/simulation.gd")
 const SaveStore = preload("res://native/save_store.gd")
 const GameInterface = preload("res://native/interface.gd")
 const ComputerFrame = preload("res://native/computer_frame.gd")
+const MainMenu = preload("res://native/main_menu.gd")
+const Tutorial = preload("res://native/tutorial.gd")
 const Intro = preload("res://native/intro.gd")
 
 var state: Dictionary = {}
@@ -14,12 +16,26 @@ var intro: Intro
 var paused: bool = false
 var _clock_fraction: float = 0.0
 var _focused: bool = true
+var menu: MainMenu
+var tutorial: Dictionary = {}
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(1120, 800)
 	state = Simulation.initial_state()
+	_build_interface()
+	interface.hide()
+	menu = MainMenu.new()
+	add_child(menu)
+	menu.new_game_requested.connect(_new_game)
+	menu.load_game_requested.connect(_on_load)
+	menu.quit_requested.connect(func() -> void: get_tree().quit())
+	menu.set_load_available(SaveStore.has_save())
+
+func _build_interface() -> void:
+	if is_instance_valid(interface):
+		remove_child(interface)
+		interface.queue_free()
 	interface = GameInterface.new()
-	interface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(interface)
 	interface.command_requested.connect(_on_command)
 	interface.save_requested.connect(_on_save)
@@ -27,19 +43,62 @@ func _ready() -> void:
 	interface.reset_requested.connect(_on_reset)
 	interface.motion_changed.connect(_on_motion)
 	interface.pause_requested.connect(_toggle_pause)
+	interface.menu_requested.connect(_return_to_menu)
+	interface.tutorial_event.connect(_tutorial_event)
+	interface.tutorial_continue_requested.connect(_tutorial_continue)
 	scenery = ComputerFrame.new()
 	interface.scene_host.add_child(scenery)
-	scenery.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_render()
+
+func _new_game() -> void:
+	menu.hide()
+	paused = false
+	_clock_fraction = 0.0
+	tutorial = Tutorial.initial_progress()
+	state = Tutorial.initial_practice_state()
+	_build_interface()
 	interface.hide()
 	intro = Intro.new()
 	intro.finished.connect(_on_intro_finished)
 	add_child(intro)
+	intro.set_motion(motion_enabled)
+
+func _return_to_menu() -> void:
+	var result := SaveStore.save_game(state, tutorial)
+	if not result.ok:
+		interface.notify(str(result.error), true)
+		return
+	interface.hide()
+	menu.show_error("")
+	menu.set_load_available(true)
+	menu.show()
+	menu.focus_default()
+
+func _tutorial_continue() -> void:
+	if tutorial.is_empty(): return
+	if int(tutorial.stage) == 7:
+		tutorial = {}
+		state = Simulation.initial_state()
+		_clock_fraction = 0.0
+		paused = false
+		_build_interface()
+		interface.focus_workspace()
+		interface.notify("Monday. Your first shift has begun. Incoming work arrives in SLOUCH.")
+	else:
+		_tutorial_event({"type": "welcome-start"})
+
+func _tutorial_event(event: Dictionary) -> void:
+	if tutorial.is_empty(): return
+	var next := Tutorial.observe(tutorial, event, state)
+	if next != tutorial:
+		tutorial = next
+		interface.render_tutorial(tutorial, Tutorial.prompt(tutorial))
 
 
 func _notification(what: int) -> void:
 	# Application focus excludes our own menus and popup windows. A file picker
 	# must not pause the shift just because the main window yields to its menu.
+	if not is_instance_valid(interface): return
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_on_focus_exited()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
@@ -55,7 +114,7 @@ func _process(delta: float) -> void:
 	_tick_shift(delta)
 
 func _tick_shift(delta: float) -> void:
-	if not is_instance_valid(interface) or not interface.visible or paused or not _focused or state.get("phase") != "review":
+	if not tutorial.is_empty() or not is_instance_valid(interface) or not interface.visible or paused or not _focused or state.get("phase") != "review":
 		return
 	if interface._confirmation.visible:
 		return
@@ -85,40 +144,55 @@ func _render() -> void:
 	interface.render_state(state)
 	scenery.set_story(int(state.day), int(state.autonomy))
 	scenery.set_time_of_day(Simulation.clock_minutes(state))
+	interface.render_tutorial(tutorial, {} if tutorial.is_empty() else Tutorial.prompt(tutorial))
 
 func _on_command(command: Dictionary) -> void:
 	if paused:
 		return
+	if not tutorial.is_empty() and command.get("type") == "review" and int(tutorial.stage) != 6:
+		interface.notify("Finish the orientation steps before sending this practice review.")
+		return
 	var previous_day: int = int(state.day)
 	state = Simulation.dispatch(state, command)
+	if not tutorial.is_empty():
+		if command.get("type") == "chat-reply":
+			_tutorial_event({"type": "chat-question"})
+		if command.get("type") == "review" and not state.decisions.is_empty():
+			if bool(state.decisions[-1].correct):
+				_tutorial_event({"type": "correct-submit"})
+			else:
+				state = Tutorial.retry_practice_state(state)
+				interface.notify("Try the practice review again: trace the dropped deadline, cite R01, and request changes.")
 	if int(state.day) != previous_day:
 		_clock_fraction = 0.0
 	_render()
 
 func _on_save() -> void:
-	var result: Dictionary = SaveStore.save_game(state)
+	var result: Dictionary = SaveStore.save_game(state, tutorial)
 	interface.notify("Game saved on this computer." if result.ok else str(result.error), not result.ok)
 
 func _on_load() -> void:
 	var result: Dictionary = SaveStore.load_game()
 	if not result.ok:
-		interface.notify(str(result.error), true)
+		if menu.visible:
+			menu.show_error(str(result.error))
+		else:
+			interface.notify(str(result.error), true)
 		return
 	state = result.state
+	tutorial = result.get("tutorial", {})
 	_clock_fraction = 0.0
-	_render()
+	menu.hide()
+	_build_interface()
 	_set_paused(state.phase == "review")
 	interface.notify(str(result.error) if not str(result.get("error", "")).is_empty() else "Saved game loaded.")
 
 func _on_reset() -> void:
-	state = Simulation.initial_state()
-	_clock_fraction = 0.0
-	_render()
-	_set_paused(false)
-	interface.notify("New review career started. Your last save remains available.")
+	_new_game()
 
 func _on_motion(enabled: bool) -> void:
 	motion_enabled = enabled
+	if is_instance_valid(menu): menu.set_motion(enabled)
 	if is_instance_valid(scenery):
 		scenery.set_motion(enabled and _focused and not paused)
 	if is_instance_valid(intro):

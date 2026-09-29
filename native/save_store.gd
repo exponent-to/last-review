@@ -1,6 +1,7 @@
 extends RefCounted
 ## Native user-data persistence; simulation stays independent of filesystem APIs.
 
+const Tutorial = preload("res://native/tutorial.gd")
 const Simulation = preload("res://native/simulation.gd")
 const SAVE_PATH: String = "user://review-save-v4.json"
 const TEMP_PATH: String = "user://review-save-v4.json.tmp"
@@ -10,11 +11,16 @@ const MAX_SAVE_BYTES: int = 100000
 static func _failure(message: String) -> Dictionary:
 	return {"ok": false, "state": {}, "error": message}
 
-static func save_game(state: Dictionary) -> Dictionary:
+static func save_game(state: Dictionary, tutorial: Dictionary = {}) -> Dictionary:
 	var validation: Dictionary = Simulation.validate_save(state)
 	if not validation.ok:
 		return _failure(validation.error)
 	var raw: String = Simulation.serialize_save(validation.state)
+	if not tutorial.is_empty():
+		var training := Tutorial.validate(tutorial, validation.state)
+		if not training.ok:
+			return _failure(training.error)
+		raw = JSON.stringify({"format": "last-review-session", "version": 1, "state": validation.state, "tutorial": training.progress})
 	var file: FileAccess = FileAccess.open(TEMP_PATH, FileAccess.WRITE)
 	if file == null:
 		return _failure("Could not create temporary save: " + error_string(FileAccess.get_open_error()))
@@ -74,4 +80,21 @@ static func _load_path(path: String) -> Dictionary:
 	var parse_error: Error = parser.parse(raw)
 	if parse_error != OK:
 		return _failure("Invalid save JSON at line %d: %s" % [parser.get_error_line(), parser.get_error_message()])
-	return Simulation.validate_save(parser.data)
+	return decode_session(parser.data)
+
+static func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH) or FileAccess.file_exists(BACKUP_PATH)
+
+static func decode_session(value: Variant) -> Dictionary:
+	if value is Dictionary and value.get("format") == "last-review-session":
+		if value.size() != 4 or value.get("version") != 1:
+			return _failure("Invalid saved session.")
+		var saved := Simulation.validate_save(value.get("state"))
+		if not saved.ok: return saved
+		var training := Tutorial.validate(value.get("tutorial"), saved.state)
+		if not training.ok: return _failure(training.error)
+		saved.tutorial = training.progress
+		return saved
+	var saved := Simulation.validate_save(value)
+	if saved.ok: saved.tutorial = {}
+	return saved

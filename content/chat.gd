@@ -3,7 +3,7 @@ extends RefCounted
 ## Does not import Simulation: Catalog owns the shared arrival schedule.
 
 const Catalog = preload("res://content/catalog.gd")
-const CONTACTS: Array = ["Maya", "Theo", "Inez", "company"]
+const CONTACTS: Array = ["Maya", "Theo", "Inez", "company", "manager"]
 const REPLY_IDS: Array = ["acknowledge", "clarify", "concern"]
 const HISTORY_LIMIT: int = 24
 static var _content: Dictionary = {}
@@ -47,7 +47,7 @@ static func _arrived(state: Dictionary, request: Dictionary) -> bool:
 
 
 static func _option(contact: String, pr_id: String, reply_id: String) -> Dictionary:
-	if contact == "company" or contact not in CONTACTS or reply_id not in REPLY_IDS:
+	if contact in ["company", "manager"] or contact not in CONTACTS or reply_id not in REPLY_IDS:
 		return {}
 	var authored := _authored()
 	var person: Dictionary = authored.get("contacts", {}).get(contact, {})
@@ -73,7 +73,7 @@ static func _used(state: Dictionary, contact: String, pr_id: String, reply_id: S
 
 
 static func reply_options(state: Dictionary, contact: String) -> Array:
-	if contact == "company" or contact not in CONTACTS or state.get("phase") != "review":
+	if contact in ["company", "manager"] or contact not in CONTACTS or state.get("phase") != "review":
 		return []
 	var options: Array = []
 	for request: Dictionary in Catalog.requests():
@@ -118,6 +118,8 @@ static func messages(state: Dictionary, contact: String) -> Array:
 		return []
 	var authored := _authored()
 	var history: Array = []
+	if contact == "manager":
+		return _manager_messages(state)
 	if contact == "company":
 		for notice: Dictionary in authored.get("company", []):
 			if int(notice.day) <= int(state.get("day", 1)):
@@ -145,3 +147,39 @@ static func messages(state: Dictionary, contact: String) -> Array:
 	if start > 0 and history[start].kind == "response":
 		start += 1
 	return history.slice(start).duplicate(true)
+
+
+static func _manager_messages(state: Dictionary) -> Array:
+	var history: Array = []
+	var copy: Dictionary = _authored().get("manager", {})
+	_append(history, "Morgan / Engineering Manager", str(copy.get("intro", "")), "intro")
+	for shift: Dictionary in state.get("shift_history", []):
+		var had_incident := false
+		var had_friction := false
+		var held := false
+		for request: Dictionary in Catalog.requests_for_day(int(shift.day)):
+			var decision := _decision_for(state, str(request.id))
+			if decision.is_empty(): continue
+			if decision.verdict == "approve" and not bool(decision.get("correct", true)):
+				var incident: String = str(_authored().get("requests", {}).get(request.id, {}).get("incident", ""))
+				if not incident.is_empty():
+					_append(history, "Morgan", incident, "notice")
+					had_incident = true
+			elif decision.verdict == "request_changes":
+				held = true
+				if not bool(decision.get("correct", true)): had_friction = true
+		if had_friction: _append(history, "Morgan", str(copy.friction), "notice")
+		if int(shift.get("handed_off", 0)) > 0:
+			_append(history, "Morgan", str(copy.handoff), "notice")
+		elif not had_incident and not had_friction:
+			_append(history, "Morgan", str(copy.held if held else copy.quiet), "notice")
+		_append(history, "Morgan", str(copy.closing), "notice")
+	if state.get("phase") == "complete":
+		var ending := "The assignment is over. We're keeping human review, although leadership wants a closer look at how it works. You'll hear from me about the next rotation."
+		if int(state.get("autonomy", 0)) >= 70:
+			ending = "Leadership has made Helios the default review gate. Human sign-off will be an exception now. I wanted you to hear it from me before the memo lands."
+		elif int(state.get("trust", 0)) < 40:
+			ending = "I'm moving you to the incident queue for the next rotation. Someone will sit with you on reviews for a while. We should talk before you head out."
+		if int(state.get("stress", 0)) >= 70: ending += " You look exhausted. Please take tonight off."
+		_append(history, "Morgan", ending, "notice")
+	return history.slice(maxi(0, history.size() - HISTORY_LIMIT)).duplicate(true)

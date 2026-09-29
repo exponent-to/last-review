@@ -7,6 +7,9 @@ signal load_requested
 signal reset_requested
 signal motion_changed(enabled: bool)
 signal pause_requested
+signal menu_requested
+signal tutorial_event(event: Dictionary)
+signal tutorial_continue_requested
 
 const Simulation = preload("res://native/simulation.gd")
 const ComputerFrame = preload("res://native/computer_frame.gd")
@@ -61,12 +64,8 @@ var _browser_text: Label
 var _browser_back: Button
 var _browser_history: Array[String] = []
 var _browser_path: String = "home"
-var _phase_panel: VBoxContainer
-var _phase_title: Label
-var _phase_detail: Label
 var _evening_buttons: HBoxContainer
 var _complete_button: Button
-var _phase_feedback: Label
 var _pr_id: Label
 var _pr_title: Label
 var _pr_context: Label
@@ -103,6 +102,12 @@ var _resume_button: Button
 var _paused: bool = false
 var _chat_replies: VBoxContainer
 var _chat_reply_pr: String = ""
+var _tutorial_panel: PanelContainer
+var _tutorial_title: Label
+var _tutorial_body: Label
+var _tutorial_next: Button
+var _tutorial_active := false
+var _tutorial_details: Dictionary = {}
 
 
 func _ready() -> void:
@@ -122,6 +127,7 @@ func _ready() -> void:
 	_build_os_menu(frame)
 	_build_desktop(frame)
 	_build_dock(frame)
+	_build_tutorial_panel()
 	_build_pause_overlay()
 	_toast = PanelContainer.new()
 	_toast.visible = false
@@ -130,6 +136,7 @@ func _ready() -> void:
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_monitor_screen.add_child(_toast)
 	_notice = _paragraph(_toast, "", 14, CYAN)
+	_notice.minimum_size_changed.connect(func() -> void: _fit_notice.call_deferred())
 	_confirmation = ConfirmationDialog.new()
 	_confirmation.title = "Start a new run"
 	_confirmation.dialog_text = "Discard this run and return to the first shift?\nYour disk save remains until overwritten."
@@ -153,6 +160,8 @@ func _layout_monitor() -> void:
 	_monitor_screen.position = screen.position
 	_monitor_screen.size = screen.size
 	_toast.position = Vector2(18, maxf(0, screen.size.y - 90))
+	if is_instance_valid(_tutorial_panel):
+		_tutorial_panel.position = Vector2(maxf(0, screen.size.x - 450), 48)
 	_toast.size = Vector2(minf(620, screen.size.x - 36), 48)
 
 
@@ -189,6 +198,7 @@ func _build_pause_overlay() -> void:
 	_paragraph(box, "Your clock is stopped.
 Resume when you're ready.", 15, DIM)
 	_resume_button = _button(box, "RESUME SHIFT", func() -> void: pause_requested.emit())
+	_button(box, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
 
 
 func set_paused(paused: bool) -> void:
@@ -358,16 +368,6 @@ func _build_desktop(parent: Node) -> void:
 	_build_chat(_new_window("chat", "SLOUCH / ENGINEERING").body)
 	_build_system(_new_window("system", "SYSTEM / WORKSTATION SETTINGS").body)
 	_build_browser(_new_window("browser", "INTRANET / LOCAL BROWSER").body)
-	var phase_window: DesktopWindow = _new_window("shift", "PERSONNEL / SHIFT RECORD")
-	_phase_panel = _scroll_column(phase_window.body)
-	_phase_title = _label(_phase_panel, "", 22, CYAN)
-	_phase_detail = _paragraph(_phase_panel, "", 16)
-	_evening_buttons = _row(_phase_panel)
-	for choice: String in ["rest", "socialize", "study"]:
-		var button: Button = _button(_evening_buttons, choice.to_upper(), _emit_command.bind({"type": "next-day", "choice": choice}))
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_complete_button = _button(_phase_panel, "START NEW RUN", func() -> void: _confirmation.popup_centered())
-	_phase_feedback = _paragraph(_phase_panel, "", 14, DIM)
 
 	for window: DesktopWindow in _windows.values():
 		window.hide()
@@ -524,9 +524,11 @@ func _select_file(index: int) -> void:
 	_diff.scroll_vertical = 0
 	_diff.scroll_horizontal = 0
 	_restore_file_position.call_deferred(_displayed_file_key)
+	tutorial_event.emit({"type": "inspect-file", "path": path})
 
 
 func _restore_file_position(key: String) -> void:
+	if not is_inside_tree(): return
 	await get_tree().process_frame
 	if key != _displayed_file_key:
 		return
@@ -545,7 +547,7 @@ func _build_dock(parent: Node) -> void:
 	var home: Button = _button(dock, "HOME", _show_home)
 	home.add_theme_font_size_override("font_size", 12)
 	home.tooltip_text = "Show the desktop. Open windows remain on the taskbar."
-	for item: Array in [["review", "REVIEW"], ["rules", "HANDBOOK"], ["chat", "SLOUCH"], ["browser", "INTRANET"], ["system", "SYSTEM"], ["shift", "PAYROLL"]]:
+	for item: Array in [["review", "REVIEW"], ["rules", "HANDBOOK"], ["chat", "SLOUCH"], ["browser", "INTRANET"], ["system", "SYSTEM"]]:
 		var id: String = str(item[0])
 		var button: Button = _button(dock, str(item[1]), _open_app.bind(id))
 		button.toggle_mode = true
@@ -575,7 +577,6 @@ func _arrange_windows() -> void:
 		"chat": Rect2(Vector2(160, 55), Vector2(minf(760, extent.x - 190), minf(520, extent.y - 82))),
 		"system": Rect2(Vector2(210, 90), Vector2(minf(650, extent.x - 240), minf(470, extent.y - 118))),
 		"browser": Rect2(Vector2(185, 70), Vector2(minf(720, extent.x - 215), minf(500, extent.y - 98))),
-		"shift": Rect2(Vector2(130, 45), Vector2(minf(840, extent.x - 160), minf(550, extent.y - 72))),
 	}
 	for id: String in _windows:
 		var window: DesktopWindow = _windows[id]
@@ -591,16 +592,18 @@ func _open_app(id: String) -> void:
 	if id == "decision":
 		id = "review"
 	var phase: String = str(_state.get("phase", "review"))
-	if id in ["review"] and phase != "review":
-		id = "shift"
-	if id == "shift" and phase == "review":
-		notify("No shift record is available yet.")
-		return
+	if id == "review" and phase != "review":
+		_chat_contact = "manager"
+		id = "chat"
 	if id == "chat":
 		_open_chat_conversation()
 	var window: DesktopWindow = _windows[id]
 	window.restore_window()
 	_update_dock()
+	var event_type: String = {"chat": "open-chat", "review": "open-review", "rules": "open-handbook"}.get(id, "")
+	if not event_type.is_empty(): tutorial_event.emit({"type": event_type})
+	if id == "review" and not _review_files.is_empty():
+		tutorial_event.emit({"type": "inspect-file", "path": _file_label.text})
 
 
 func _focus_app(id: String) -> void:
@@ -647,7 +650,7 @@ func _browse(path: String, record: bool = true) -> void:
 	_browser_back.disabled = _browser_history.is_empty()
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. Request changes with precise citations.\nThe audit is issued after your decision. Your colleagues react to your decisions. The audit judges the code.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. Request changes with precise citations.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
 		"memo":
 			_browser_text.text = "DAILY OPERATIONS MEMO\n\n" + Catalog.briefing(int(_state.get("day", 1)))
 		_:
@@ -718,8 +721,8 @@ func _build_decision(parent: Node) -> void:
 	_consult = _button(column, "CONSULT AI", _emit_command.bind({"type": "consult-ai"}))
 	_consult.tooltip_text = "Ask Helios for a recommendation. It can lighten your workload, but invites the assistant further into the process. Advice can be wrong."
 	_ai_note = _paragraph(column, "Helios can take a look. Its advice may be wrong, and using it gives the assistant more influence.", 13, DIM)
-	_label(column, "PREVIOUS REVIEW / AUDIT", 12, CYAN)
-	_feedback = _paragraph(column, "No completed reviews.", 13, DIM)
+	_label(column, "SENT", 12, DIM)
+	_feedback = _paragraph(column, "No review sent yet.", 13, DIM)
 
 
 func _build_chat(page: VBoxContainer) -> void:
@@ -733,10 +736,10 @@ func _build_chat(page: VBoxContainer) -> void:
 	sidebar.size_flags_horizontal = Control.SIZE_FILL
 	sidebar.custom_minimum_size.x = 155
 	_label(sidebar, "CHANNELS", 11, DIM)
-	for contact: String in ["company", "Maya", "Theo", "Inez"]:
+	for contact: String in ["company", "Maya", "Theo", "Inez", "manager"]:
 		if contact == "Maya":
 			_label(sidebar, "DIRECT MESSAGES", 11, DIM)
-		var button: Button = _button(sidebar, "#engineering" if contact == "company" else contact, _select_chat_contact.bind(contact))
+		var button: Button = _button(sidebar, "#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact, _select_chat_contact.bind(contact))
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.toggle_mode = true
 		button.add_theme_font_size_override("font_size", 13)
@@ -755,10 +758,18 @@ func _build_chat(page: VBoxContainer) -> void:
 	_chat_messages = _column(_chat_scroll, 10)
 	_chat_replies = _column(conversation, 4)
 	_chat_replies.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_evening_buttons = _row(conversation, 5)
+	for item: Array in [["rest", "GO HOME"], ["socialize", "GET DINNER"], ["study", "STUDY"]]:
+		var button := _button(_evening_buttons, str(item[1]), _emit_command.bind({"type": "next-day", "choice": str(item[0])}))
+		button.add_theme_font_size_override("font_size", 11)
+	_complete_button = _button(conversation, "RETURN TO MAIN MENU", func() -> void: menu_requested.emit())
+	_evening_buttons.hide()
+	_complete_button.hide()
 
 
 func _select_chat_contact(contact: String) -> void:
 	_chat_contact = contact
+	_render_phase(_state)
 	_chat_unread[contact] = false
 	_draw_chat(true)
 	_update_chat_badges()
@@ -774,8 +785,8 @@ func _render_chat() -> void:
 		var messages: Array = Chat.messages(_state, contact)
 		var signature: String = JSON.stringify(messages)
 		if str(_chat_signatures.get(contact, "")) != signature:
-			if _chat_signatures.has(contact) and not (window.visible and contact == _chat_contact) and str(_state.get("phase", "")) == "review":
-				notify(("#engineering" if contact == "company" else contact) + " sent a message in SLOUCH.")
+			if _chat_signatures.has(contact) and not (window.visible and contact == _chat_contact) and (str(_state.get("phase", "")) == "review" or contact == "manager"):
+				notify(("#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact) + " sent a message in SLOUCH.")
 			_chat_signatures[contact] = signature
 			_chat_unread[contact] = not messages.is_empty() and not (window.visible and contact == _chat_contact)
 	if window.visible:
@@ -790,7 +801,7 @@ func _update_chat_badges() -> void:
 		var unread: bool = bool(_chat_unread.get(contact, false))
 		any_unread = any_unread or unread
 		var button: Button = _chat_contacts[contact]
-		button.text = ("#engineering" if contact == "company" else contact) + (" •" if unread else "")
+		button.text = ("#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact) + (" •" if unread else "")
 		button.set_pressed_no_signal(contact == _chat_contact)
 	if _home_icons.has("chat"):
 		var caption: Label = _home_icons["chat"].get_meta("caption")
@@ -810,11 +821,11 @@ func _draw_chat(contact_changed: bool = false) -> void:
 			reply_targets.append(str(option.pr_id))
 	if _chat_reply_pr not in reply_targets:
 		_chat_reply_pr = "" if reply_targets.is_empty() else reply_targets[0]
-	var key: String = _chat_contact + JSON.stringify(messages) + JSON.stringify(options) + _chat_reply_pr
+	var key: String = _chat_contact + JSON.stringify(messages) + JSON.stringify(options) + _chat_reply_pr + str(_state.get("phase", ""))
 	if key == _chat_last_draw and not contact_changed:
 		return
 	_chat_last_draw = key
-	_chat_heading.text = "#engineering" if _chat_contact == "company" else _chat_contact + " / direct message"
+	_chat_heading.text = "#engineering" if _chat_contact == "company" else ("Morgan / Engineering Manager" if _chat_contact == "manager" else _chat_contact + " / direct message")
 	var bar: VScrollBar = _chat_scroll.get_v_scroll_bar()
 	var follow_latest: bool = contact_changed or bar.value >= bar.max_value - bar.page - 12
 	var previous_position: int = _chat_scroll.scroll_vertical
@@ -872,6 +883,7 @@ func _open_pr_link(pr_id: String) -> void:
 
 
 func _set_chat_scroll(follow_latest: bool, previous_position: int, draw_key: String) -> void:
+	if not is_inside_tree(): return
 	await get_tree().process_frame
 	if draw_key != _chat_last_draw:
 		return
@@ -889,6 +901,7 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(saves, "SAVE RUN", func() -> void: save_requested.emit())
 	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
 	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
+	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
 	_label(content, "DISPLAY", 16, CYAN)
 	var motion: CheckBox = CheckBox.new()
 	motion.text = "Office background motion"
@@ -897,7 +910,7 @@ func _build_system(page: VBoxContainer) -> void:
 	content.add_child(motion)
 	_paragraph(content, "Disable decorative animation without changing the review simulation.", 14, DIM)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Read the previous-review audit before moving on.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Settle your pay and choose how to spend the evening.", 14, DIM)
+	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
 
 
 func _emit_command(command: Dictionary) -> void:
@@ -973,10 +986,9 @@ func render_state(state: Dictionary) -> void:
 		_last_phase = phase
 		if phase != "review" and not previous_phase.is_empty():
 			_windows["review"].minimize_window()
-			_windows["shift"].restore_window(false)
+			notify("Morgan sent you a message in SLOUCH.")
 		elif phase == "review" and not previous_phase.is_empty():
-			_windows["shift"].close_window()
-			_windows["review"].restore_window(false)
+			_windows["review"].minimize_window()
 		_update_dock()
 	if phase == "review":
 		# Deliberately never read audit-only violations or explanation here.
@@ -1001,48 +1013,15 @@ func render_state(state: Dictionary) -> void:
 		if consulted:
 			_ai_note.text = "AI: %s\n%s" % [str(request.get("ai_verdict", "")).replace("_", " ").to_upper(), str(request.get("ai_note", ""))]
 	var feedback: Dictionary = state.get("last_feedback", {})
-	var feedback_text: String = _feedback_text(feedback)
-	_feedback.text = feedback_text
-	_feedback.add_theme_color_override("font_color", DIM if feedback.is_empty() else GREEN if bool(feedback.get("correct", false)) else RED)
-	_phase_feedback.text = "LAST REVIEW / AUDIT\n" + feedback_text
+	_feedback.text = "No review sent yet." if feedback.is_empty() else "%s · %s sent to %s." % [str(feedback.get("pr_id", "")), "Approval" if feedback.get("verdict") == "approve" else "Change request", str(feedback.get("author", ""))]
 	_render_phase(state)
 	_render_chat()
-	_footer.text = "READY" if phase == "review" else "SHIFT RECORD AVAILABLE" if phase == "debrief" else "ASSIGNMENT CLOSED"
-
-
-func _feedback_text(feedback: Dictionary) -> String:
-	if feedback.is_empty():
-		return "No completed reviews."
-	var expected: Array = feedback.get("expected_rules", [])
-	var narrative: String = str(feedback.get("message", ""))
-	var legacy_deltas: RegEx = RegEx.new()
-	legacy_deltas.compile("\\s*Trust [+-][0-9]+; relationship [+-][0-9]+; stress [+-][0-9]+\\.?")
-	narrative = legacy_deltas.sub(narrative, "", true)
-	return "%s / %s\n%s · %s\n%s\nRequired: %s" % [str(feedback.get("pr_id", "")), str(feedback.get("author", "")), "CORRECT" if bool(feedback.get("correct", false)) else "INCORRECT", str(feedback.get("verdict", "")).replace("_", " "), narrative, "none" if expected.is_empty() else ", ".join(expected)]
+	_footer.text = "ORIENTATION" if _tutorial_active else "READY" if phase == "review" else "OFF THE CLOCK"
 
 
 func _render_phase(state: Dictionary) -> void:
-	var phase: String = str(state.get("phase", "review"))
-	if phase == "review":
-		return
-	var debrief: Dictionary = state.get("last_debrief", {})
-	_evening_buttons.visible = phase == "debrief"
-	_complete_button.visible = phase == "complete"
-	if phase == "debrief":
-		_phase_title.text = "SHIFT CLOSED / PAYROLL RECORD"
-		_phase_detail.text = "PAY $%d     EXPENSES $%d     BALANCE $%d\n\nYour reviews have been filed. The team is signing off.\n\nChoose how to spend the evening.\nREST: Go home and get some sleep.\nSOCIALIZE: Buy dinner with your coworkers.\nSTUDY: Stay up with the standards manual." % [int(debrief.get("pay", 0)), int(debrief.get("expenses", 0)), int(debrief.get("balance", state.get("credits", 0)))]
-		if bool(debrief.get("timed_out", false)):
-			_phase_detail.text += "\n\nClosing time. Helios has taken the unfinished reviews; your pay reflects your completed work."
-	else:
-		_phase_title.text = "ASSIGNMENT / FINAL RECORD"
-		var ending: String = "Human review is retained, under closer observation."
-		if int(state.get("autonomy", 0)) >= 70:
-			ending = "Helios is promoted to the default review gate. Human sign-off becomes an exception."
-		elif int(state.get("trust", 0)) < 40:
-			ending = "You are reassigned to the incident queue. Your reviews will be supervised."
-		if int(state.get("stress", 0)) >= 70:
-			ending += " The assignment has left you exhausted."
-		_phase_detail.text = "%s\n\nThe assignment is closed. Team conversations remain in SLOUCH. Your record can be saved in SYSTEM." % ending
+	_evening_buttons.visible = _chat_contact == "manager" and state.get("phase") == "debrief"
+	_complete_button.visible = _chat_contact == "manager" and state.get("phase") == "complete"
 
 
 func notify(message: String, is_error: bool = false) -> void:
@@ -1051,9 +1030,19 @@ func notify(message: String, is_error: bool = false) -> void:
 	_notice.text = message
 	_notice.add_theme_color_override("font_color", RED if is_error else CYAN)
 	_toast.visible = true
+	_fit_notice.call_deferred()
 	await get_tree().create_timer(8.0).timeout
 	if generation == _notice_generation:
 		_toast.visible = false
+
+
+func _fit_notice() -> void:
+	if not is_inside_tree(): return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_inside_tree():
+		_toast.size.y = maxf(48, _toast.get_combined_minimum_size().y)
+		_toast.position.y = maxf(0, _monitor_screen.size.y - _toast.size.y - 42)
 
 
 func focus_workspace() -> void:
@@ -1070,3 +1059,53 @@ func focus_workspace() -> void:
 	await get_tree().process_frame
 	_diff.scroll_vertical = 0
 	_diff.scroll_horizontal = 0
+
+
+func _build_tutorial_panel() -> void:
+	_tutorial_panel = PanelContainer.new()
+	_tutorial_panel.add_theme_stylebox_override("panel", _style(INSET, CYAN, 1, 12, 10))
+	_tutorial_panel.z_index = 40
+	_tutorial_panel.hide()
+	_monitor_screen.add_child(_tutorial_panel)
+	var box := _column(_tutorial_panel, 6)
+	var heading := _row(box, 8)
+	_tutorial_title = _label(heading, "ORIENTATION", 12, CYAN)
+	_spacer(heading)
+	var fold := _button(heading, "−", func() -> void:
+		_tutorial_body.visible = not _tutorial_body.visible
+		_tutorial_next.visible = _tutorial_body.visible and int(_tutorial_details.get("stage", 0)) in [0, 7]
+		_fit_tutorial.call_deferred())
+	fold.custom_minimum_size = Vector2(26, 24)
+	fold.tooltip_text = "Collapse or expand orientation instructions"
+	_tutorial_body = _paragraph(box, "", 13, TEXT)
+	_tutorial_body.minimum_size_changed.connect(func() -> void: _fit_tutorial.call_deferred())
+	visibility_changed.connect(func() -> void:
+		if visible: _fit_tutorial.call_deferred())
+	_tutorial_next = _button(box, "START ORIENTATION", func() -> void: tutorial_continue_requested.emit())
+
+
+func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
+	var step_changed: bool = _tutorial_details.get("stage", -1) != progress.get("stage", -1)
+	_tutorial_active = not progress.is_empty()
+	_tutorial_details = progress.duplicate(true)
+	_tutorial_panel.visible = _tutorial_active
+	if not _tutorial_active: return
+	_tutorial_title.text = str(prompt.title)
+	_tutorial_body.text = str(prompt.body)
+	if step_changed: _tutorial_body.show()
+	_tutorial_next.visible = _tutorial_body.visible and int(progress.stage) in [0, 7]
+	_tutorial_next.text = "START MONDAY" if int(progress.stage) == 7 else "START ORIENTATION"
+	_tutorial_panel.position = Vector2(maxf(0, _monitor_screen.size.x - 450), 48)
+	_tutorial_panel.size.x = 430
+	_fit_tutorial.call_deferred()
+	_clock_label.text = "TRAINING"
+	_hud["day"].text = "ORIENTATION"
+	_footer.text = "CLOCK STOPPED"
+
+
+func _fit_tutorial() -> void:
+	if not is_inside_tree(): return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_inside_tree():
+		_tutorial_panel.size.y = _tutorial_panel.get_combined_minimum_size().y
