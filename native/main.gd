@@ -4,11 +4,13 @@ const Simulation = preload("res://native/simulation.gd")
 const SaveStore = preload("res://native/save_store.gd")
 const GameInterface = preload("res://native/interface.gd")
 const OfficeScene = preload("res://native/office_scene.gd")
+const Intro = preload("res://native/intro.gd")
 
 var state: Dictionary = {}
 var interface: GameInterface
 var scenery: OfficeScene
 var motion_enabled: bool = true
+var intro: Intro
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(1120, 800)
@@ -25,8 +27,20 @@ func _ready() -> void:
 	interface.scene_host.add_child(scenery)
 	scenery.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_render()
+	interface.hide()
+	intro = Intro.new()
+	intro.finished.connect(_on_intro_finished)
+	add_child(intro)
 	get_window().focus_exited.connect(_on_focus_exited)
 	get_window().focus_entered.connect(_on_focus_entered)
+
+func _on_intro_finished() -> void:
+	if is_instance_valid(intro):
+		intro.queue_free()
+	interface.show()
+	var first_control: Control = interface.find_next_valid_focus()
+	if first_control != null:
+		first_control.grab_focus()
 
 func _render() -> void:
 	interface.render_state(state)
@@ -58,11 +72,17 @@ func _on_motion(enabled: bool) -> void:
 	motion_enabled = enabled
 	if is_instance_valid(scenery):
 		scenery.set_motion(enabled)
+	if is_instance_valid(intro):
+		intro.set_motion(enabled)
 
 func _on_focus_exited() -> void:
+	if is_instance_valid(intro):
+		intro.set_paused(true)
 	if is_instance_valid(scenery):
 		scenery.set_motion(false)
 
 func _on_focus_entered() -> void:
+	if is_instance_valid(intro):
+		intro.set_paused(false)
 	if is_instance_valid(scenery):
 		scenery.set_motion(motion_enabled)

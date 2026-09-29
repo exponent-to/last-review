@@ -14,22 +14,22 @@ The office receives only day, automation authority, and motion preference. It ra
 
 ## Content and gameplay
 
-`content/rules.json` has six categories and 36 standards. Thirty begin active; six automation rules arrive over days two and three. `requests.json` contains four ordered PRs per day, including compliant changes, single-rule defects, and multi-rule defects. Every expected violation references an active rule.
+`content/rules.json` contains a larger standards index, with four rules active initially, eight on the second day, and thirteen on the third. Remaining standards are future-dated for later content. `requests.json` assigns each ordered PR to a day; the current development fixture has 3/5/4 requests. Catalog-derived boundaries close shifts without a fixed modulo or player-facing queue counter. Every expected violation references an active rule. Confident AI comments and recursive helpers obscure the defects without changing the exact audit criteria.
 
 The first loop separates technical trust from relationships. Approval can make a coworker happy even when an audit finds a defect. Stress, salary, daily expenses, and evening choices add personal stakes. The three-day ending is a prototype summary based on trust, stress, and automation authority.
 
 ## Persistence
 
-State version 2 stores a bounded journal of decisions, citations, consultations, and evening choices. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
+State version 3 stores a bounded journal of decisions, citations, consultations, and evening choices. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized. V2 careers remain on disk separately; their old shift boundaries cannot be replayed against the new schedule.
 
 The filesystem adapter writes a temporary file, rotates the previous save to a backup, and atomically renames the new file. Load failures preserve the active session. Saves are local to the Last Review application-data directory. There is no automatic load, autosave, or cloud storage.
 
-Because validation replays authored content and economics, incompatible changes require a migration or version bump. Do not silently change scenario outcomes while expecting old v2 saves to remain valid.
+Because validation replays authored content and economics, incompatible changes require a migration or version bump. Do not silently change scenario outcomes while expecting old saves to remain valid.
 
 ## Extending the slice
 
 - Add scenario packets and rules with explicit, non-overlapping audit criteria.
-- Generalize the current three-day/four-PR schedule in the simulation and tests when extending the campaign.
+- Extend the campaign by adding day-tagged packets and corresponding briefings; keep future queue lengths out of the player interface.
 - Add richer coworker motivations and evening events without placing rules in button handlers.
 - Keep opinion, technical quality, and automation authority as distinct consequences.
 - Add a seeded stateful generator only if procedural content becomes necessary; keep validation deterministic.
