@@ -14,6 +14,8 @@ The office receives only day, automation authority, and motion preference. It ra
 
 The workstation is a local fictional computer. Floating native windows own their movement, focus, stacking, and minimization; the interface manages taskbar restoration and layout reset. A local intranet view links authored procedures and the current memo to the rulebook and directory. It has no web engine or network access. Desktop arrangement is presentation state and does not enter the career save.
 
+Slouch is another native desktop window. Its company channel and coworker conversations derive authored messages from the existing decision history and current career state. Emotional tone conveys relationship changes instead of exposing numeric scores. PR hints are written separately from audit answers, and future requests cannot appear before they reach the player's desk. Read/unread presentation is session-local; it does not mutate the career or contact a messaging service.
+
 The opening sequence hides the workstation until skipped or acknowledged. The handoff focuses a neutral surface so releasing Enter cannot activate a review control. Keyboard shortcuts, reduced motion, and focus pause apply to the opening independently of the simulation.
 
 ## Content and gameplay

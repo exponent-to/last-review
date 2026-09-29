@@ -36,7 +36,9 @@ Helios can advise you, but its scripted recommendations may be wrong. Generated 
 
 Reading and searching never consume game time. Skip the opening with Enter, Escape, or its on-screen control. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. SYSTEM contains save/load, confirmed new-run controls, instructions, and the background-motion toggle.
 
-Drag window titlebars to arrange the review desk. Click a window to bring it forward; minimize it with the titlebar button and reopen it from the taskbar. With a titlebar focused, arrow keys move its window (Shift moves farther). ARRANGE restores the layout. The in-game BROWSER opens company procedures, daily memos, standards, and the colleague directory. It is an authored local interface, not a real web browser.
+Drag window titlebars to arrange the review desk. Click a window to bring it forward; minimize it with the titlebar button and reopen it from the taskbar. With a titlebar focused, arrow keys move its window (Shift moves farther). ARRANGE restores the layout. The in-game BROWSER opens company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
+
+Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. Colleagues hint at tricky code and react to your approvals or change requests. Their tone carries relationship signals; there are no visible relationship scores, stress percentages, or authority meters. Incoming messages mark conversations unread without opening them for you. Money remains explicit in payroll paperwork. Slouch is entirely fictional and local, with no connection to a real messaging service.
 
 ## Saves
 
@@ -54,6 +56,7 @@ sh scripts/build-macos.sh
 The simulation suite covers the authored career, precise citations, AI mistakes, relationship and audit consequences, one-time pay, evening choices, immutability, and malformed saves. The native-interface test drives actual rule/decision controls through the campaign and final report. The intro suite checks completion, skipping, reduced motion, and pause behavior. All run headlessly without test plugins.
 
 - `content/` — editable JSON rules, PR packets, and daily briefings.
+- `content/chat.gd`, `content/messages.json` — authored coworker messages derived from the career's decisions.
 - `native/simulation.gd` — pure turn-based decisions and life-sim consequences.
 - `native/interface.gd` — review desk, rule search, people, evenings, and system controls.
 - `native/desktop_window.gd` — draggable, focusable, minimizable native desktop windows.
