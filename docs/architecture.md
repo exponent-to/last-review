@@ -48,4 +48,4 @@ Native macOS export is configured with the official universal template and local
 
 `save_store.gd` accepts existing raw v4 careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.
 
-The window rain combines three depths of independently moving rainfall, stationary glass beads, and slow rivulets with fading trails. It uses deterministic decoration seeds, respects pause/reduced motion, and is drawn behind the window frame and monitor. No gameplay randomness is consumed.
+The window rain uses three depths of independently moving, angled rainfall outside, without beads or trails on the glass. It uses deterministic decoration seeds, respects pause/reduced motion, and is drawn behind the window frame and monitor. No gameplay randomness is consumed.

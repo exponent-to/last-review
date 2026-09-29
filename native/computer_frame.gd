@@ -168,7 +168,7 @@ func _draw_room() -> void:
 
 
 static func _rain_seed(index: int, salt: int) -> float:
-	# Stable droplets across frames and resizing, without touching gameplay RNG.
+	# Stable rain phases across frames and resizing, without touching gameplay RNG.
 	return fposmod(sin(float(index) * 127.1 + float(salt) * 311.7) * 43758.5453, 1.0)
 
 
@@ -192,28 +192,3 @@ func _draw_window_rain(glass: Rect2) -> void:
 			var tint := light
 			tint.a = (0.09 + layer * 0.055) * lerpf(0.6, 1.0, _rain_seed(seed_index, 5))
 			draw_line(tail, head, tint, 0.45 + layer * 0.18, true)
-	# Beads stuck to the glass have a dark refracted edge and a small sky glint.
-	for index in range(100):
-		var bead := glass.position + Vector2(_rain_seed(index, 8), _rain_seed(index, 9)) * glass.size
-		var radius := lerpf(0.35, 0.95, _rain_seed(index, 10))
-		draw_circle(bead, radius + 0.4, Color(0.05, 0.12, 0.18, 0.25), true, -1, true)
-		draw_circle(bead + Vector2(-0.2, -0.3), radius * 0.55, Color(light, 0.42), true, -1, true)
-	# Slow rivulets accelerate and hesitate, leaving narrow, fading wet trails.
-	for index in range(22):
-		var rate := lerpf(3.0, 9.0, _rain_seed(index, 12))
-		var phase := _elapsed * 0.65 + _rain_seed(index, 13) * TAU
-		var fall := _elapsed * rate + sin(phase) * rate
-		var y := glass.position.y + fposmod(_rain_seed(index, 14) * glass.size.y + fall, glass.size.y)
-		var base_x := glass.position.x + 3.0 + _rain_seed(index, 15) * maxf(1, glass.size.x - 6)
-		var trail := lerpf(12.0, 34.0, _rain_seed(index, 16))
-		var previous := Vector2(base_x + sin(y * 0.07 + index) * 0.8, y)
-		for segment in range(1, 9):
-			var trail_y := maxf(glass.position.y, y - trail * float(segment) / 8.0)
-			var point := Vector2(base_x + sin(trail_y * 0.07 + index) * 0.8, trail_y)
-			var opacity := 0.20 * (1.0 - float(segment) / 9.0)
-			draw_line(previous, point, Color(0.06, 0.14, 0.22, opacity), 1.8, true)
-			draw_line(previous + Vector2(0.6, 0), point + Vector2(0.6, 0), Color(light, opacity), 0.6, true)
-			previous = point
-		var head := Vector2(base_x + sin(y * 0.07 + index) * 0.8, y)
-		draw_circle(head, 1.2, Color(0.06, 0.14, 0.22, 0.4), true, -1, true)
-		draw_line(head + Vector2(-0.4, -1.1), head + Vector2(-0.4, 0.2), Color(light, 0.65), 0.65, true)
