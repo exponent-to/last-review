@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="12" viewBox="0 0 72 12" shape-rendering="crispEdges">
+  <!-- Three 24 × 12 terminal states: human review, assistant, autonomous. -->
+  <path fill="#203b50" d="M0 0h24v12H0z"/>
+  <path fill="#6898ad" d="M2 2h6v1H2zm8 0h8v1h-8zM3 5h4v1H3zm6 0h11v1H9zM3 7h12v1H3zm2 2h13v1H5z"/>
+  <path fill="#b3cbd2" d="M2 9h2v1H2z"/>
+  <path fill="#284b5c" d="M24 0h24v12H24z"/>
+  <path fill="#83c9d1" d="M26 2h3v1h-3zm5 0h13v1H31zm-5 3h7v1h-7zm9 0h9v1h-9zm-9 3h11v1H26z"/>
+  <path fill="#c4e3e5" d="M39 7h5v3h-5z"/>
+  <path fill="#1d4558" d="M48 0h24v12H48z"/>
+  <path fill="#91d9dd" d="M56 2h8v1h-8zm-2 1h2v5h-2zm10 0h2v5h-2zm-8 5h8v1h-8zm3-3h2v1h-2z"/>
+  <path fill="#c9e6e7" d="M50 10h20v1H50z"/>
+  <path fill="#c07680" d="M69 1h2v2h-2z"/>
+</svg>

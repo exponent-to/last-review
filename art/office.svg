@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="72" viewBox="0 0 640 72" shape-rendering="crispEdges">
+  <!-- Midnight office cutaway. All geometry uses the native one-pixel grid. -->
+  <path fill="#172330" d="M0 0h640v72H0z"/>
+  <path fill="#253544" d="M0 5h640v50H0z"/>
+  <path fill="#111b29" d="M45 12h460v32H45z"/>
+  <!-- Sky and layered city silhouettes through the ribbon window. -->
+  <path fill="#233c51" d="M46 13h458v29H46z"/>
+  <path fill="#1b3044" d="M46 34h12V24h16v7h9V21h17v9h14V19h20v15h11V26h19v6h9V16h17v18h12V22h23v9h12V25h16v9h14V20h19v9h16V24h15v8h14V18h23v13h18V24h16v10h10V19h22v13h14V24h21v6h15V20h16v14h10V25h26v17H46z"/>
+  <path fill="#102131" d="M46 38h25V29h17v13h20V35h21v7h21V31h18v11h19V28h23v14h28V34h23v8h22V29h16v13h25V35h30v7h25V30h20v12h24V34h24v8h20V28h21v14h24V32h24v10h15v2H46z"/>
+  <path fill="#4d7082" d="M62 27h2v2h-2zm28-3h2v2h-2zm27-2h2v2h-2zm8 3h2v2h-2zm51-6h2v2h-2zm8 6h2v2h-2zm22 0h2v2h-2zm16 3h2v2h-2zm48-5h2v2h-2zm16 9h2v2h-2zm19-5h2v2h-2zm31-6h2v2h-2zm11 4h2v2h-2zm35 2h2v2h-2zm26-5h2v2h-2zm8 6h2v2h-2zm39 0h2v2h-2zm24-4h2v2h-2zm17 6h2v2h-2z"/>
+  <path fill="#54707c" d="M199 14h1v3h-1zm145 0h1v4h-1z"/>
+  <!-- Window structure and cold sill. -->
+  <path fill="#344a59" d="M43 10h464v3H43zm0 32h464v4H43zM43 10h3v36h-3zm77 2h3v32h-3zm77 0h3v32h-3zm77 0h3v32h-3zm77 0h3v32h-3zm77 0h3v32h-3zm77-2h3v36h-3z"/>
+  <path fill="#617683" d="M44 45h464v1H44z"/>
+  <path fill="#1b2937" d="M0 52h640v20H0z"/>
+  <path fill="#34424d" d="M0 53h640v2H0z"/>
+  <path fill="#253541" d="M0 63h640v1H0zm19-8h1v8h-1zm158 0h1v8h-1zm158 0h1v8h-1zm158 0h1v8h-1zm-416 9h1v8h-1zm158 0h1v8h-1zm158 0h1v8h-1zm158 0h1v8h-1z"/>
+  <!-- Ceiling: conduit and practical fluorescent strips. -->
+  <path fill="#0c1520" d="M0 0h640v4H0z"/>
+  <path fill="#465b69" d="M0 6h640v1H0zM62 4h1v5h-1zm510 0h1v5h-1z"/>
+  <path fill="#728895" d="M79 5h61v2H79zm233 0h61v2h-61zm233 0h50v2h-50z"/>
+  <path fill="#b9cbd0" d="M82 7h55v1H82zm233 0h55v1h-55zm233 0h44v1h-44z"/>
+  <!-- Quiet side rooms, wall clock and paper notice. -->
+  <path fill="#152331" d="M8 18h24v37H8zM609 15h24v40h-24z"/>
+  <path fill="#405969" d="M11 21h18v15H11zm601-3h18v21h-18z"/>
+  <path fill="#74909d" d="M13 23h14v2H13zm0 5h9v1h-9zm599-7h14v2h-14z"/>
+  <path fill="#99aab1" d="M514 16h9v9h-9z"/>
+  <path fill="#213240" d="M516 18h5v5h-5z"/>
+  <path fill="#bdc9ca" d="M518 18h1v3h2v1h-3z"/>
+  <path fill="#778894" d="M510 31h14v11h-14z"/>
+  <path fill="#bdc6c7" d="M512 33h10v7h-10z"/>
+  <path fill="#5f7280" d="M513 35h8v1h-8zm0 3h5v1h-5z"/>
+  <!-- Four review desks; screens and seated people are separate sprites. -->
+  <g id="desk">
+    <path fill="#101c29" d="M79 61h68v3H79z"/>
+    <path fill="#8796a1" d="M79 51h68v3H79z"/>
+    <path fill="#d2dcdf" d="M79 50h68v2H79z"/>
+    <path fill="#566b7c" d="M83 54h3v8h-3zm56 0h3v8h-3z"/>
+    <path fill="#111e2b" d="M108 36h28v14h-28z"/>
+    <path fill="#627c8e" d="M109 35h26v1h-26z"/>
+    <path fill="#576b78" d="M120 49h3v1h-3zm-12 3h23v1h-23z"/>
+    <path fill="#9fb0b9" d="M108 49h22v1h-22z"/>
+    <path fill="#aebdc4" d="M139 46h4v4h-4z"/>
+    <path fill="#6b8393" d="M142 47h3v2h-3z"/>
+    <path fill="#152736" d="M88 47h4v12h-4zM88 57h17v3H88zM96 60h2v4h-2zM90 64h14v1H90z"/>
+  </g>
+  <use href="#desk" x="116"/>
+  <use href="#desk" x="232"/>
+  <use href="#desk" x="348"/>
+  <!-- Server cabinets occupy the far end of the office. -->
+  <path fill="#0c1723" d="M532 14h63v48h-63z"/>
+  <path fill="#465b6b" d="M534 13h59v2h-59zM534 60h59v2h-59z"/>
+  <path fill="#283e50" d="M535 17h26v40h-26zm29 0h26v40h-26z"/>
+  <path fill="#122331" d="M537 19h22v6h-22zm0 9h22v6h-22zm0 9h22v6h-22zm0 9h22v6h-22zm29-27h22v6h-22zm0 9h22v6h-22zm0 9h22v6h-22zm0 9h22v6h-22z"/>
+  <path fill="#435b6a" d="M539 21h13v1h-13zm0 9h13v1h-13zm0 9h13v1h-13zm0 9h13v1h-13zm29-27h13v1h-13zm0 9h13v1h-13zm0 9h13v1h-13zm0 9h13v1h-13z"/>
+  <path fill="#596d7b" d="M534 58h59v1h-59z"/>
+  <path fill="#3c5061" d="M529 62h69v2h-69z"/>
+  <!-- Low cables and a single red access indicator. -->
+  <path fill="#0e1c28" d="M148 56h10v6h43v1h-44v-6h-9zm232 1h10v5h138v1H389v-5h-9z"/>
+  <path fill="#a65c65" d="M624 46h2v2h-2z"/>
+</svg>
