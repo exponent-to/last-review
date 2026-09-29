@@ -8,6 +8,7 @@ signal reset_requested
 signal motion_changed(enabled: bool)
 
 const DesktopWindow = preload("res://native/desktop_window.gd")
+const Chat = preload("res://content/chat.gd")
 const Catalog = preload("res://content/catalog.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 const BACK: Color = Color("101824")
@@ -35,7 +36,14 @@ class DiffHighlighter extends SyntaxHighlighter:
 var scene_host: Control
 var _state: Dictionary = {}
 var _hud: Dictionary = {}
-var _people: Dictionary = {}
+var _chat_contacts: Dictionary = {}
+var _chat_unread: Dictionary = {}
+var _chat_signatures: Dictionary = {}
+var _chat_contact: String = "Maya"
+var _chat_last_draw: String = ""
+var _chat_heading: Label
+var _chat_scroll: ScrollContainer
+var _chat_messages: VBoxContainer
 var _rule_rows: Array[Dictionary] = []
 var _desktop: Control
 var _windows: Dictionary = {}
@@ -68,7 +76,6 @@ var _reject: Button
 var _consult: Button
 var _ai_note: Label
 var _feedback: Label
-var _people_log: Label
 var _briefing: Label
 var _footer: Label
 var _notice: Label
@@ -255,7 +262,7 @@ func _build_header(parent: Node) -> void:
 	_label(row, "LAST REVIEW", 19, TEXT)
 	_label(row, " / ENGINEERING OPERATIONS", 12, DIM)
 	_spacer(row)
-	_label(row, "HUMAN REVIEWER · TERMINAL 04", 12, CYAN)
+	_label(row, "HUMAN REVIEWER · LOCAL WORKSTATION", 12, CYAN)
 
 
 func _build_hud(parent: Node) -> void:
@@ -263,10 +270,11 @@ func _build_hud(parent: Node) -> void:
 	panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 0, 0))
 	parent.add_child(panel)
 	var row: HBoxContainer = _row(_margin(panel, 12, 8), 16)
-	for item: Array in [["DAY", "day"], ["CASH", "credits"], ["TRUST", "trust"], ["STRESS", "stress"], ["AI AUTHORITY", "autonomy"]]:
-		var cell: HBoxContainer = _row(row, 10)
-		_label(cell, str(item[0]), 11, DIM)
-		_hud[str(item[1])] = _label(cell, "—", 17, CYAN if str(item[1]) == "autonomy" else TEXT)
+	_hud["day"] = _label(row, "MONDAY", 13, DIM)
+	_spacer(row)
+	_hud["status"] = _label(row, "REVIEWER CONNECTED", 13, CYAN)
+	_spacer(row)
+	_label(row, "SLOUCH / COMPANY WORKSPACE", 12, DIM)
 
 
 func _build_scene(parent: Node) -> void:
@@ -296,7 +304,7 @@ func _build_desktop(parent: Node) -> void:
 	_build_review_content(_new_window("review", "REVIEW / PULL REQUEST").body)
 	_build_rulebook(_new_window("rules", "INTRANET / RULEBOOK").body)
 	_build_decision(_new_window("decision", "DISPOSITION / SIGN-OFF").body)
-	_build_people(_new_window("people", "DIRECTORY / COLLEAGUES").body)
+	_build_chat(_new_window("chat", "SLOUCH / ENGINEERING").body)
 	_build_system(_new_window("system", "TERMINAL / SYSTEM").body)
 	_build_browser(_new_window("browser", "INTRANET / LOCAL BROWSER").body)
 	var phase_window: DesktopWindow = _new_window("shift", "PERSONNEL / SHIFT RECORD")
@@ -310,7 +318,7 @@ func _build_desktop(parent: Node) -> void:
 	_complete_button = _button(_phase_panel, "START NEW RUN", func() -> void: _confirmation.popup_centered())
 	_phase_feedback = _paragraph(_phase_panel, "", 14, DIM)
 
-	for id: String in ["people", "system", "browser", "shift"]:
+	for id: String in ["chat", "system", "browser", "shift"]:
 		_windows[id].hide()
 	_desktop.resized.connect(_arrange_windows)
 
@@ -356,7 +364,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 
 func _build_dock(parent: Node) -> void:
 	var dock: HBoxContainer = _row(parent, 5)
-	for item: Array in [["review", "PR"], ["rules", "RULEBOOK"], ["decision", "SIGN-OFF"], ["browser", "BROWSER"], ["people", "PEOPLE"], ["system", "SYSTEM"], ["shift", "SHIFT"]]:
+	for item: Array in [["review", "PR"], ["rules", "RULEBOOK"], ["decision", "SIGN-OFF"], ["browser", "BROWSER"], ["chat", "SLOUCH"], ["system", "SYSTEM"], ["shift", "SHIFT"]]:
 		var id: String = str(item[0])
 		var button: Button = _button(dock, str(item[1]), _open_app.bind(id))
 		button.toggle_mode = true
@@ -379,7 +387,7 @@ func _arrange_windows() -> void:
 		"review": Rect2(Vector2(5, 4), Vector2(review_width, extent.y - 10)),
 		"rules": Rect2(Vector2(review_width - 8, 13), Vector2(rule_width, extent.y - 21)),
 		"decision": Rect2(Vector2(extent.x - decision_width - 6, 24), Vector2(decision_width, extent.y - 32)),
-		"people": Rect2(Vector2(50, 24), Vector2(minf(620, extent.x - 100), extent.y - 48)),
+		"chat": Rect2(Vector2(40, 14), Vector2(minf(800, extent.x - 80), extent.y - 32)),
 		"system": Rect2(Vector2(100, 32), Vector2(minf(700, extent.x - 150), extent.y - 56)),
 		"browser": Rect2(Vector2(70, 18), Vector2(minf(780, extent.x - 100), extent.y - 38)),
 		"shift": Rect2(Vector2(28, 10), Vector2(extent.x - 56, extent.y - 22)),
@@ -399,6 +407,8 @@ func _open_app(id: String) -> void:
 	if id == "shift" and phase == "review":
 		notify("No shift record is available yet.")
 		return
+	if id == "chat":
+		_open_chat_conversation()
 	var window: DesktopWindow = _windows[id]
 	window.restore_window()
 	_update_dock()
@@ -433,7 +443,7 @@ func _build_browser(page: VBoxContainer) -> void:
 	_button(links, "PROCEDURE", _browse.bind("procedure"))
 	_button(links, "DAILY MEMO", _browse.bind("memo"))
 	_button(links, "STANDARDS", _open_app.bind("rules"))
-	_button(links, "DIRECTORY", _open_app.bind("people"))
+	_button(links, "SLOUCH", _open_app.bind("chat"))
 	var content: VBoxContainer = _scroll_column(page)
 	_browser_text = _paragraph(content, "", 15)
 	_browse("home")
@@ -447,11 +457,11 @@ func _browse(path: String, record: bool = true) -> void:
 	_browser_back.disabled = _browser_history.is_empty()
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. Request changes with precise citations.\nThe audit is issued after your decision. Colleague approval and technical correctness are separate.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. Request changes with precise citations.\nThe audit is issued after your decision. Your colleagues react to your decisions. The audit judges the code.\nHelios recommendations are optional and can be wrong."
 		"memo":
 			_browser_text.text = "DAILY OPERATIONS MEMO\n\n" + Catalog.briefing(int(_state.get("day", 1)))
 		_:
-			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nOpen STANDARDS to consult the active rulebook, DIRECTORY to inspect colleague relationships, or DAILY MEMO for the current instructions.\n\nExternal access restricted by company policy."
+			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nOpen STANDARDS to consult the active rulebook, SLOUCH to read messages from your coworkers, or DAILY MEMO for the current instructions.\n\nExternal access restricted by company policy."
 
 
 func _browser_go_back() -> void:
@@ -516,23 +526,116 @@ func _build_decision(parent: Node) -> void:
 	_reject = _button(column, "REQUEST CHANGES", _emit_command.bind({"type": "review", "verdict": "request_changes"}))
 	_reject.add_theme_color_override("font_color", RED)
 	_consult = _button(column, "CONSULT AI", _emit_command.bind({"type": "consult-ai"}))
-	_consult.tooltip_text = "Ask for a recommendation. Stress -2; AI authority +4. Advice can be wrong."
-	_ai_note = _paragraph(column, "Consult cost: stress -2; AI authority +4. Advice may be wrong.", 13, DIM)
+	_consult.tooltip_text = "Ask Helios for a recommendation. It can lighten your workload, but invites the assistant further into the process. Advice can be wrong."
+	_ai_note = _paragraph(column, "Helios can take a look. Its advice may be wrong, and using it gives the assistant more influence.", 13, DIM)
 	_label(column, "PREVIOUS REVIEW / AUDIT", 12, CYAN)
 	_feedback = _paragraph(column, "No completed reviews.", 13, DIM)
 
 
-func _build_people(page: VBoxContainer) -> void:
-	var content: VBoxContainer = _scroll_column(page)
-	_label(content, "COLLEAGUE RELATIONSHIPS", 16, CYAN)
-	_paragraph(content, "Your colleagues remember whether you approve their work. Their opinion is separate from system trust in your technical judgment.", 14, DIM)
-	for person: String in ["Maya", "Theo", "Inez"]:
-		var row: HBoxContainer = _row(content)
-		_label(row, person, 19)
-		_spacer(row)
-		_people[person] = _label(row, "50 / 100", 17, CYAN)
-	_label(content, "WORKPLACE RECORD", 13, CYAN)
-	_people_log = _paragraph(content, "", 14, DIM)
+func _build_chat(page: VBoxContainer) -> void:
+	var header: HBoxContainer = _row(page)
+	_label(header, "SLOUCH", 16, CYAN)
+	_spacer(header)
+	_label(header, "COMPANY WORKSPACE", 11, DIM)
+	var columns: HBoxContainer = _row(page, 12)
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var sidebar: VBoxContainer = _column(columns, 6)
+	sidebar.size_flags_horizontal = Control.SIZE_FILL
+	sidebar.custom_minimum_size.x = 155
+	_label(sidebar, "CHANNELS", 11, DIM)
+	for contact: String in ["company", "Maya", "Theo", "Inez"]:
+		if contact == "Maya":
+			_label(sidebar, "DIRECT MESSAGES", 11, DIM)
+		var button: Button = _button(sidebar, "#engineering" if contact == "company" else contact, _select_chat_contact.bind(contact))
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.toggle_mode = true
+		button.add_theme_font_size_override("font_size", 13)
+		_chat_contacts[contact] = button
+		_chat_unread[contact] = false
+	var conversation: VBoxContainer = _column(columns, 8)
+	conversation.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_chat_heading = _label(conversation, "#engineering", 16, TEXT)
+	_label(conversation, "Internal conversation · retained locally", 11, DIM)
+	_chat_scroll = ScrollContainer.new()
+	_chat_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_chat_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_chat_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	conversation.add_child(_chat_scroll)
+	_chat_messages = _column(_chat_scroll, 10)
+
+
+func _select_chat_contact(contact: String) -> void:
+	_chat_contact = contact
+	_chat_unread[contact] = false
+	_draw_chat(true)
+	_update_chat_badges()
+
+
+func _open_chat_conversation() -> void:
+	_select_chat_contact(_chat_contact)
+
+
+func _render_chat() -> void:
+	var window: DesktopWindow = _windows["chat"]
+	for contact: String in _chat_contacts:
+		var messages: Array = Chat.messages(_state, contact)
+		var signature: String = JSON.stringify(messages)
+		if str(_chat_signatures.get(contact, "")) != signature:
+			_chat_signatures[contact] = signature
+			_chat_unread[contact] = not messages.is_empty() and not (window.visible and contact == _chat_contact)
+	if window.visible:
+		_chat_unread[_chat_contact] = false
+		_draw_chat()
+	_update_chat_badges()
+
+
+func _update_chat_badges() -> void:
+	var any_unread: bool = false
+	for contact: String in _chat_contacts:
+		var unread: bool = bool(_chat_unread.get(contact, false))
+		any_unread = any_unread or unread
+		var button: Button = _chat_contacts[contact]
+		button.text = ("#engineering" if contact == "company" else contact) + (" •" if unread else "")
+		button.set_pressed_no_signal(contact == _chat_contact)
+	if _dock_buttons.has("chat"):
+		var dock: Button = _dock_buttons["chat"]
+		dock.text = "SLOUCH •" if any_unread else "SLOUCH"
+		dock.tooltip_text = "Unread team messages" if any_unread else "Open Slouch"
+
+
+func _draw_chat(contact_changed: bool = false) -> void:
+	var messages: Array = Chat.messages(_state, _chat_contact)
+	var key: String = _chat_contact + JSON.stringify(messages)
+	if key == _chat_last_draw and not contact_changed:
+		return
+	_chat_last_draw = key
+	_chat_heading.text = "#engineering" if _chat_contact == "company" else _chat_contact + " / direct message"
+	var bar: VScrollBar = _chat_scroll.get_v_scroll_bar()
+	var follow_latest: bool = contact_changed or bar.value >= bar.max_value - bar.page - 12
+	var previous_position: int = _chat_scroll.scroll_vertical
+	for child: Node in _chat_messages.get_children():
+		_chat_messages.remove_child(child)
+		child.queue_free()
+	for message: Dictionary in messages:
+		var panel: PanelContainer = PanelContainer.new()
+		panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 0, 0))
+		_chat_messages.add_child(panel)
+		var body: VBoxContainer = _column(_margin(panel, 10, 8), 5)
+		_label(body, str(message.get("author", "")), 13, CYAN)
+		_paragraph(body, str(message.get("text", "")), 14, TEXT)
+	if messages.is_empty():
+		_paragraph(_chat_messages, "No messages in this conversation yet.", 14, DIM)
+	_set_chat_scroll.call_deferred(follow_latest, previous_position, key)
+
+
+func _set_chat_scroll(follow_latest: bool, previous_position: int, draw_key: String) -> void:
+	await get_tree().process_frame
+	if draw_key != _chat_last_draw:
+		return
+	if follow_latest:
+		_chat_scroll.scroll_vertical = int(_chat_scroll.get_v_scroll_bar().max_value)
+	else:
+		_chat_scroll.scroll_vertical = previous_position
 
 
 func _build_system(page: VBoxContainer) -> void:
@@ -598,18 +701,13 @@ func render_state(state: Dictionary) -> void:
 	var index: int = int(state.get("request_index", 0))
 	var selected: Array = state.get("selected_rules", [])
 	var consulted: bool = bool(state.get("consulted", false))
-	for key: String in _hud:
-		var label: Label = _hud[key]
-		var value: int = int(state.get(key, 0))
-		label.text = "$%d" % value if key == "credits" else str(day) if key == "day" else "%d%%" % value
-	var coworkers: Dictionary = state.get("coworkers", {})
-	for person: String in _people:
-		var label: Label = _people[person]
-		label.text = "%d / 100" % int(coworkers.get(person, 50))
+	var day_names: Array[String] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+	_hud["day"].text = day_names[(day - 1) % day_names.size()]
+	_hud["status"].text = "HUMAN SIGN-OFF REQUESTED" if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED"
 	if day != _last_day:
 		_last_day = day
 		var briefing: String = Catalog.briefing(day)
-		_briefing.text = "DAY %d / %s" % [day, briefing.left(115) + ("…" if briefing.length() > 115 else "")]
+		_briefing.text = briefing.left(115) + ("…" if briefing.length() > 115 else "")
 		_briefing_dialog.dialog_text = briefing
 		_filter_rules()
 		if _browser_path == "memo":
@@ -652,7 +750,7 @@ func render_state(state: Dictionary) -> void:
 			_diff.scroll_vertical = 0
 			_diff.scroll_horizontal = 0
 			_packet_scroll.scroll_vertical = 0
-		_ai_note.text = "Consult cost: stress -2; AI authority +4. Advice may be wrong."
+		_ai_note.text = "Helios can take a look. Its advice may be wrong, and using it gives the assistant more influence."
 		if consulted:
 			_ai_note.text = "AI: %s\n%s" % [str(request.get("ai_verdict", "")).replace("_", " ").to_upper(), str(request.get("ai_note", ""))]
 	var feedback: Dictionary = state.get("last_feedback", {})
@@ -661,19 +759,19 @@ func render_state(state: Dictionary) -> void:
 	_feedback.add_theme_color_override("font_color", DIM if feedback.is_empty() else GREEN if bool(feedback.get("correct", false)) else RED)
 	_phase_feedback.text = "LAST REVIEW / AUDIT\n" + feedback_text
 	_render_phase(state)
-	var records: PackedStringArray = []
-	var log: Array = state.get("log", [])
-	for entry: Dictionary in log:
-		records.append("D%d  %s" % [int(entry.get("day", 1)), str(entry.get("message", ""))])
-	_people_log.text = "\n".join(records)
-	_footer.text = "TERMINAL 04 / %s" % ("HUMAN SIGN-OFF REQUIRED · Reading takes no game time." if phase == "review" else "SHIFT CLOSED · Evening record pending." if phase == "debrief" else "ASSIGNMENT CLOSED · Record available.")
+	_render_chat()
+	_footer.text = "LOCAL WORKSTATION / %s" % ("HUMAN SIGN-OFF REQUIRED · Reading takes no game time." if phase == "review" else "SHIFT CLOSED · Evening record pending." if phase == "debrief" else "ASSIGNMENT CLOSED · Record available.")
 
 
 func _feedback_text(feedback: Dictionary) -> String:
 	if feedback.is_empty():
 		return "No completed reviews."
 	var expected: Array = feedback.get("expected_rules", [])
-	return "%s / %s\n%s · %s\n%s\nRequired: %s\nColleague %+d · Trust %+d" % [str(feedback.get("pr_id", "")), str(feedback.get("author", "")), "CORRECT" if bool(feedback.get("correct", false)) else "INCORRECT", str(feedback.get("verdict", "")).replace("_", " "), str(feedback.get("message", "")), "none" if expected.is_empty() else ", ".join(expected), int(feedback.get("relationship_delta", 0)), int(feedback.get("trust_delta", 0))]
+	var narrative: String = str(feedback.get("message", ""))
+	var legacy_deltas: RegEx = RegEx.new()
+	legacy_deltas.compile("\\s*Trust [+-][0-9]+; relationship [+-][0-9]+; stress [+-][0-9]+\\.?")
+	narrative = legacy_deltas.sub(narrative, "", true)
+	return "%s / %s\n%s · %s\n%s\nRequired: %s" % [str(feedback.get("pr_id", "")), str(feedback.get("author", "")), "CORRECT" if bool(feedback.get("correct", false)) else "INCORRECT", str(feedback.get("verdict", "")).replace("_", " "), narrative, "none" if expected.is_empty() else ", ".join(expected)]
 
 
 func _render_phase(state: Dictionary) -> void:
@@ -681,13 +779,11 @@ func _render_phase(state: Dictionary) -> void:
 	if phase == "review":
 		return
 	var debrief: Dictionary = state.get("last_debrief", {})
-	var coworkers: Dictionary = state.get("coworkers", {})
-	var relationship_text: String = "Maya %d / Theo %d / Inez %d" % [int(coworkers.get("Maya", 50)), int(coworkers.get("Theo", 50)), int(coworkers.get("Inez", 50))]
 	_evening_buttons.visible = phase == "debrief"
 	_complete_button.visible = phase == "complete"
 	if phase == "debrief":
-		_phase_title.text = "SHIFT %d COMPLETE" % int(state.get("day", 1))
-		_phase_detail.text = "REVIEWS %d     CORRECT %d\nPAY +$%d     EXPENSES -$%d     CASH $%d\n\n%s\n\nCOLLEAGUES / %s\n\nChoose how to spend the evening.\nREST: stress -18.\nSOCIALIZE: costs $15; all colleagues +4; stress -8.\nSTUDY: trust +4; stress +4." % [int(debrief.get("reviewed", 0)), int(debrief.get("correct", 0)), int(debrief.get("pay", 0)), int(debrief.get("expenses", 0)), int(debrief.get("balance", state.get("credits", 0))), str(debrief.get("message", "")), relationship_text]
+		_phase_title.text = "SHIFT CLOSED / PAYROLL RECORD"
+		_phase_detail.text = "PAY $%d     EXPENSES $%d     BALANCE $%d\n\nYour reviews have been filed. The team is signing off.\n\nChoose how to spend the evening.\nREST: Go home and get some sleep.\nSOCIALIZE: Buy dinner with your coworkers.\nSTUDY: Stay up with the standards manual." % [int(debrief.get("pay", 0)), int(debrief.get("expenses", 0)), int(debrief.get("balance", state.get("credits", 0)))]
 	else:
 		_phase_title.text = "ASSIGNMENT / FINAL RECORD"
 		var ending: String = "Human review is retained, under closer observation."
@@ -697,12 +793,7 @@ func _render_phase(state: Dictionary) -> void:
 			ending = "You are reassigned to the incident queue. Your reviews will be supervised."
 		if int(state.get("stress", 0)) >= 70:
 			ending += " The assignment has left you exhausted."
-		var correct: int = 0
-		var decisions: Array = state.get("decisions", [])
-		for decision: Dictionary in decisions:
-			if bool(decision.get("correct", false)):
-				correct += 1
-		_phase_detail.text = "%d correct reviews.\n\nCASH $%d    SYSTEM TRUST %d%%\nSTRESS %d%%    AI AUTHORITY %d%%\n\nCOLLEAGUES / %s\n\n%s\n\nEnd of this playable slice. Your record remains in PEOPLE and can be saved in SYSTEM." % [correct, int(state.get("credits", 0)), int(state.get("trust", 0)), int(state.get("stress", 0)), int(state.get("autonomy", 0)), relationship_text, ending]
+		_phase_detail.text = "%s\n\nThe assignment is closed. Team conversations remain in SLOUCH. Your record can be saved in SYSTEM." % ending
 
 
 func notify(message: String, is_error: bool = false) -> void:
