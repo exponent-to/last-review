@@ -8,7 +8,7 @@ Authored JSON → Catalog → current PR and active rules → native workstation
 
 Native control → command dictionary → immutable simulation transition → render existing controls.
 
-Content contains audit answers, but the active UI never reads `violations` or `explanation`; only a submitted decision exposes them in `last_feedback`. The optional AI recommendation is scripted, not an external model call, and stays hidden until consultation. No displayed code is executed.
+Content contains audit answers, but the active UI never reads `violations` or `explanation`; `last_feedback` retains internal audit data, but the interface shows only delivery confirmation and authored downstream consequences. The optional AI recommendation is scripted, not an external model call, and stays hidden until consultation. No displayed code is executed.
 
 The computer frame receives only day, automation authority, and motion preference. It draws hand-authored pixel geometry for the physical monitor and rain outside it. Losing window focus freezes decorative movement; it cannot change a review or economic result. The earlier SVG office renderer remains available as an art component, but no office banner appears in the current composition.
 
@@ -22,7 +22,7 @@ The opening sequence hides the workstation until skipped or acknowledged. The ha
 
 `content/rules.json` contains a larger standards index, with four rules active initially, eight on the second day, and thirteen on the third. Remaining standards are future-dated for later content. `requests.json` assigns each ordered PR to a day; the current development fixture has 3/5/4 requests. Catalog-derived boundaries close shifts without a fixed modulo or player-facing queue counter. Every expected violation references an active rule. Confident AI comments and recursive helpers obscure the defects without changing the exact audit criteria.
 
-The first loop separates technical trust from relationships. Approval can make a coworker happy even when an audit finds a defect. Stress, salary, daily expenses, and evening choices add personal stakes. The three-day ending is a prototype summary based on trust, stress, and automation authority.
+The first loop separates technical trust from relationships. Approval can make a coworker happy even when an audit finds a defect. Stress, salary, daily expenses, and evening choices add personal stakes. The three-day ending is a manager DM based on trust, stress, and automation authority.
 
 ## Persistence
 
@@ -41,3 +41,9 @@ Because validation replays authored content and economics, incompatible changes 
 - Add a seeded stateful generator only if procedural content becomes necessary; keep validation deterministic.
 
 Native macOS export is configured with the official universal template and local ad-hoc signing. Public distribution signing/notarization and additional platforms are separate future work.
+
+## Session entry and practice
+
+`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real v4 simulation state. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. A lesson recognizes questions asked early so one-shot replies cannot strand progress.
+
+`save_store.gd` accepts existing raw v4 careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.

@@ -3,7 +3,7 @@
 Verified on Apple Silicon macOS with Godot 4.7.2.
 
 - Simulation: 219 checks passed. Coverage includes progressive rules, variable shift boundaries, alternate catalog schedules, precise citations, AI mistakes, immutable transitions, one-time wages, evenings, and malformed saves.
-- Authored conversations: 558 checks passed. Future requests and notices stay hidden; reactions follow the player's verdict independently of audit correctness; relationship tone is qualitative; returned messages cannot mutate career state or cached content.
+- Authored conversations: 564 checks passed. Future requests and notices stay hidden; reactions follow the player's verdict independently of audit correctness; relationship tone is qualitative; returned messages cannot mutate career state or cached content.
 - Intro: 21 checks passed for skip controls, completion once, reduced motion, focus pause, and final prompt behavior.
 - Pointer windows: 59 checks passed using actual viewport press/motion/release events. The regression reproduced four movement failures before switching from polled cursor position to event coordinates. Native and headless checks cover scaled desktop coordinates, clamping, offscreen release, all eight resize handles, usable minimum sizes, anchored opposite edges, maximizing, desktop resize, and closing/reopening without discarding content.
 - Native interface integration: zero failures across the authored campaign. It exercises citation controls, AI disclosure, search preservation, window movement/focus/minimization, browser history, unread conversations, and preservation of the player's selected Slouch conversation. Both supported window sizes are covered, including home-icon containment and the exposed office margins.
@@ -18,3 +18,8 @@ Windows packaging, notarized distribution, audio, and comprehensive assistive-te
 
 - Timed shift suite: 147 checks pass for six-minute deadlines, ordered arrivals, out-of-order selections, zero-review shifts, handoffs, chat replies, and strict mixed-history save replay. Application checks cover fractional clock accumulation, intro isolation, pause/resume, focus loss, daylight change, and one-time deadline closure.
 - Browser playtest: contextual Slouch questions, links into multi-file reviews, file switching, pause/resume, and browser-local Save/reload/Load passed at 1280×900. Native and Web exports both build successfully.
+
+- Main menu: 21 checks pass for entry controls, disabled load, errors, focus, and layout. Tutorial: 11 checks pass for real-action progression, early questions, save round trips, invalid progress, retry, and compatibility with existing v4 careers.
+- Manager feedback: 20 checks pass for incident timing, authored defects, handoffs, hidden grades, and immutable message generation. Interface checks verify evening controls in Morgan’s conversation and the absence of a results window. Application checks exercise the full orientation and reset into Monday.
+
+- Browser menu/orientation playtest: New Game, intro skip, compact lesson instructions, Maya’s contextual question, SAVE AND MAIN MENU, page reload, and Load Game all passed. Loading preserved the lesson and reply history and resumed paused.

@@ -1,6 +1,6 @@
 # Native computer interface
 
-`native/interface.gd` presents the game as a first-person workstation. The physical monitor occupies almost the entire viewport; only narrow room and rain edges remain visible. There is no exterior dashboard, office banner, resource strip, briefing strip, or game footer. The operating-system menu, application windows, and taskbar all live inside `ComputerFrame.get_screen_rect()`.
+`native/interface.gd` presents the game as a first-person workstation. A large physical monitor sits within a visible rainy office, with the desk and keyboard below it. There is no exterior dashboard, office banner, resource strip, briefing strip, or game footer. The operating-system menu, application windows, and taskbar all live inside `ComputerFrame.get_screen_rect()`.
 
 ## Application boundary
 
@@ -14,23 +14,23 @@ Call `render_state(state: Dictionary)` after state changes. After an intro revea
 
 HOME starts with all applications closed and five original pixel icons: REVIEW, HANDBOOK, SLOUCH, INTRANET, and SYSTEM. Single-clicking an icon launches its application. The taskbar lists only launched applications. HOME minimizes visible applications while retaining their taskbar entries; closing an application removes its entry. Reopening retains the application's data.
 
-REVIEW combines the current author packet and read-only diff with the sign-off controls and previous audit. HANDBOOK is an independent searchable standards window. SLOUCH contains company messages and coworker DMs. INTRANET offers local home, procedure, and daily memo pages, including back navigation and links to other apps. SYSTEM provides save/load, confirmed reset, motion settings, and instructions. No browser engine, external network request, or nonfunctional chat composer is involved.
+REVIEW combines the current author packet and read-only diff with the sign-off controls and a delivery confirmation. HANDBOOK is an independent searchable standards window. SLOUCH contains company messages and coworker DMs. INTRANET offers local home, procedure, and daily memo pages, including back navigation and links to other apps. SYSTEM provides save/load, confirmed reset, motion settings, and instructions. No browser engine, external network request, or nonfunctional chat composer is involved.
 
 Windows cascade at useful independent sizes rather than filling fixed columns. Their classic gray and blue chrome provides minimize, maximize/restore, and close controls. The player can drag a titlebar or focus it and use arrow keys, with Shift for larger moves. Titlebar clamping keeps windows reachable. ARRANGE restores default positions. Resizing the main game window fits ordinary windows to the monitor; maximized windows follow the desktop extent.
 
-`native/desktop_window.gd` owns dragging, focus, chrome, and application visibility. `launched` distinguishes closed apps from minimized apps. The interface consumes `activated`, `minimized`, and `closed` signals to keep taskbar state current. It preserves app positions and open state across ordinary simulation refreshes. A submitted final review opens the shift record; choosing an evening option returns to REVIEW. The initial render and intro handoff always leave HOME untouched.
+`native/desktop_window.gd` owns dragging, focus, chrome, and application visibility. `launched` distinguishes closed apps from minimized apps. The interface consumes `activated`, `minimized`, and `closed` signals to keep taskbar state current. It preserves app positions and open state across ordinary simulation refreshes. Closing time marks Morgan’s conversation unread and minimizes REVIEW. Evening choices appear inside that conversation; no results window opens or steals focus. The initial render and intro handoff always leave HOME untouched.
 
 ## Review information and consequences
 
 CodeEdit provides selectable code, line numbers, independent scrolling, and native diff colors. The author packet scrolls separately. A new PR resets its packet and code to the beginning. Rule controls are built once, then filtered by ID, title, text, category, and authored introduction day. Later shifts show a compact notice of new rules. Search, citation state, and scroll survive ordinary refreshes.
 
-Approve requires no citations; requesting changes requires at least one. Clear citations emits one toggle command per selected rule. Core validation remains authoritative. The active PR view never reads audit-only violations or explanation. AI advice appears only after consultation and is described as optional and fallible. The previous audit identifies its PR and preserves the exact defects and required rule IDs while suppressing legacy numerical consequence suffixes.
+Approve requires no citations; requesting changes requires at least one. Clear citations emits one toggle command per selected rule. Core validation remains authoritative. The active PR view never reads audit-only violations or explanation. AI advice appears only after consultation and is described as optional and fallible. Review submission confirms delivery only. Closed-shift consequences appear as authored manager messages about symptoms, delays, and handoffs, without revealing required rule IDs or technical grades.
 
-No trust, stress, automation, relationship, or final-score meters are displayed. Coworker feelings and story consequences are expressed through messages and prose. Money appears only on retrospective payroll paperwork. PR IDs, rule IDs, code line numbers, and technical quantities remain where the review task needs them. Queue totals and campaign denominators remain concealed.
+No trust, stress, automation, relationship, or final-score meters are displayed. Coworker feelings and story consequences are expressed through messages and prose. Pay and expenses remain internal; no payroll table is shown. PR IDs, rule IDs, code line numbers, and technical quantities remain where the review task needs them. Queue totals and campaign denominators remain concealed.
 
 ## Slouch behavior
 
-`content/chat.gd` supplies `messages(state, contact)` for company, Maya, Theo, and Inez. Slouch renders authored author/text rows; it does not derive hints from hidden audit answers. Incoming messages never open, raise, or switch the app. The selected conversation remains under player control. Boolean unread dots appear on contacts, the Slouch desktop icon, and its taskbar entry without message counts.
+`content/chat.gd` supplies `messages(state, contact)` for company, Maya, Theo, Inez, and manager Morgan. Slouch renders authored author/text rows; it does not derive hints from hidden audit answers. Incoming messages never open, raise, or switch the app. The selected conversation remains under player control. Boolean unread dots appear on contacts, the Slouch desktop icon, and its taskbar entry without message counts.
 
 Opening a conversation clears its dot. New messages follow the bottom only when the player was reading the latest content; otherwise the previous scroll position is retained. Contact changes settle at the latest messages after native layout. The message viewport uses `SCROLL_MODE_SHOW_NEVER` horizontally so a hidden paragraph's temporary unwrapped width cannot inflate the floating window on first open.
 
@@ -45,3 +45,9 @@ Windows resize from all eight edges/corners with directional cursor feedback. Mi
 The top-right desktop clock maps each six-minute shift to 09:00–18:00. PAUSE/Esc covers the desktop and stops game time; switching away pauses until an explicit resume. Rain and office lighting follow the day without driving simulation time. Incoming PRs appear as Slouch links, and Review stays empty until a link is selected. Slouch has a per-PR question target and authored reply choices; asked questions and answers survive saving.
 
 Review's changed-file selector displays each file's own diff and remembers its caret/scroll position while switching. The first three PRs split callers from imported helpers. Citations and disposition apply to the whole PR.
+
+## Main menu and orientation
+
+Startup displays New Game and Load Game inside the monitor. Load is disabled when neither a current save nor its backup exists. New Game plays the intro and opens an untimed orientation with a compact, collapsible instruction panel. Players ask Maya a question, follow her PR link, inspect both changed files, consult the handbook, and submit a practice change request. Mistakes can be retried; practice is discarded before Monday.
+
+SYSTEM and the pause screen offer SAVE AND MAIN MENU. Loading resumes paused, including the current orientation step when applicable. Morgan’s final conversation offers a return to the menu.
