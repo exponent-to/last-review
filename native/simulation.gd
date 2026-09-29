@@ -2,17 +2,19 @@ extends RefCounted
 ## Turn-based review rules. Catalog answers are used only to audit submitted decisions.
 
 const Catalog = preload("res://content/catalog.gd")
+const SAVE_VERSION: int = 3
 const LOG_LIMIT: int = 40
 const AUTHORS: Array = ["Maya", "Theo", "Inez"]
 const EVENINGS: Array = ["rest", "socialize", "study"]
 
 static func initial_state() -> Dictionary:
+	var first_day: int = int(Catalog.campaign_days()[0])
 	return {
-		"version": 2, "day": 1, "request_index": 0, "phase": "review",
+		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
 		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
 		"coworkers": {"Maya": 50, "Theo": 50, "Inez": 50},
 		"selected_rules": [], "consulted": false, "decisions": [],
-		"log": [{"day": 1, "message": "Your review shift begins. Read carefully; there is no timer."}],
+		"log": [{"day": first_day, "message": "Your review shift begins. Read carefully; there is no timer."}],
 		"last_feedback": {}, "last_debrief": {},
 	}
 
@@ -106,22 +108,24 @@ static func _review(state: Dictionary, verdict: String) -> void:
 	state.request_index += 1
 	state.selected_rules = []
 	state.consulted = false
-	if int(state.request_index) % 4 == 0:
+	var upcoming: Dictionary = Catalog.request_at(int(state.request_index))
+	if upcoming.is_empty() or int(upcoming.day) != int(state.day):
 		_debrief(state)
 
 static func _debrief(state: Dictionary) -> void:
 	state.phase = "debrief"
 	var correct: int = 0
-	for index in range(int(state.request_index) - 4, int(state.request_index)):
+	var reviewed: int = Catalog.requests_for_day(int(state.day)).size()
+	for index in range(int(state.request_index) - reviewed, int(state.request_index)):
 		if state.decisions[index].correct:
 			correct += 1
 	var pay: int = 80 + 10 * correct
 	state.credits = clampi(int(state.credits) + pay - 90, -9999, 9999)
 	state.autonomy = clampi(int(state.autonomy) + 12, 0, 100)
 	state.last_debrief = {
-		"day": state.day, "reviewed": 4, "correct": correct, "pay": pay,
+		"day": state.day, "reviewed": reviewed, "correct": correct, "pay": pay,
 		"expenses": 90, "balance": state.credits,
-		"message": "Shift audited: %d of 4 correct. Pay %d, living expenses 90. Management expands the assistant's authority; automation reliance +12." % [correct, pay],
+		"message": "Shift audited: %d correct decisions. Pay %d, living expenses 90. Management expands the assistant's authority; automation reliance +12." % [correct, pay],
 	}
 	_record(state, state.last_debrief.message)
 
@@ -141,11 +145,11 @@ static func _evening(state: Dictionary, choice: String) -> void:
 			state.trust = clampi(int(state.trust) + 4, 0, 100)
 			state.stress = clampi(int(state.stress) + 4, 0, 100)
 			_record(state, "You spend the evening studying the rulebook. Trust +4; stress +4.")
-	if state.day == 3:
+	if int(state.request_index) == Catalog.requests().size():
 		state.phase = "complete"
-		_record(state, "Three shifts complete. The assistant has more authority; your decisions still have human consequences.")
+		_record(state, "Assignment complete. The assistant has more authority; your decisions still have human consequences.")
 	else:
-		state.day += 1
+		state.day = int(Catalog.request_at(int(state.request_index)).day)
 		state.phase = "review"
 		_record(state, "Day %d begins. Read the updated rulebook before reviewing." % state.day)
 
@@ -194,13 +198,17 @@ static func _matches(expected: Variant, candidate: Variant) -> bool:
 static func validate_save(value: Variant) -> Dictionary:
 	if typeof(value) != TYPE_DICTIONARY:
 		return _invalid("game state must be an object.")
-	if not _integer(value.get("version"), 2, 2):
-		return _invalid("this is not a Last Review version 2 save. Old workshop saves cannot be loaded; start a new review career.")
+	if not _integer(value.get("version"), SAVE_VERSION, SAVE_VERSION):
+		return _invalid("this campaign requires version 3. Earlier review schedules and workshop saves are incompatible; their files are preserved. Start a new review career.")
+	var days: Array = Catalog.campaign_days()
+	var campaign_size: int = Catalog.requests().size()
 	for field: String in ["day", "request_index", "credits", "trust", "stress", "autonomy"]:
-		var minimum: int = -9999 if field == "credits" else (1 if field == "day" else 0)
-		var maximum: int = 9999 if field == "credits" else (3 if field == "day" else (12 if field == "request_index" else 100))
+		var minimum: int = -9999 if field == "credits" else (int(days[0]) if field == "day" else 0)
+		var maximum: int = 9999 if field == "credits" else (int(days[-1]) if field == "day" else (campaign_size if field == "request_index" else 100))
 		if not _integer(value.get(field), minimum, maximum):
 			return _invalid("%s has an invalid integer value." % field)
+	if int(value.day) not in days:
+		return _invalid("day is not part of this campaign.")
 	if value.get("phase") not in ["review", "debrief", "complete"] or typeof(value.get("consulted")) != TYPE_BOOL:
 		return _invalid("invalid phase or consultation flag.")
 	if not _rule_list(value.get("selected_rules"), int(value.day)):
