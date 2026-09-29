@@ -1,0 +1,122 @@
+[
+  {
+    "day": 1,
+    "memo": {
+      "subject": "Your desk is ready. Your signature still means something.",
+      "body": "Welcome to the review desk. Work arrives through Slouch while the shift clock runs. Coworkers know why a change was written; the handbook defines what can ship. Read both before signing. Helios is an assistant, not an exemption from a standard.\n\nToday's handbook starts small: bind SQL input, keep credentials out of logs, set outbound timeouts, and handle empty collections. Use the attached standards as your reference; you do not need to memorize them.",
+      "mechanics": [
+        "A shift runs from 09:00 to 18:00 over six real minutes. Pause when you need to step away; unfinished work transfers to Helios at the closing bell.",
+        "Incoming Slouch messages contain PR links. Open a link when you want to review it; messages do not open code automatically. Ask the coworker a technical question for context.",
+        "A change can span several files. Follow values through the caller and its helpers instead of relying on the summary or generated comments.",
+        "Approve a compliant change with no citations. To request changes, select every violated active rule in the handbook. Extra or missing citations make the review inaccurate.",
+        "Your technical judgment and your coworker's feelings are separate. Read the response after signing, and keep the conversation in context."
+      ]
+    },
+    "stories": [
+      {
+        "id": "pilot-has-a-badge",
+        "title": "Office gives AI pilot a badge; facilities asks whether it needs a chair",
+        "source": "The Build Register",
+        "byline": "Nessa Rowe",
+        "body": "A software company has issued its new coding assistant, Helios, a staff directory entry and a visitor badge that never expires. Facilities says neither measure explains where the assistant should sit.\n\nThe pilot will draft changes and summarize review packets. A company spokesperson emphasized that people remain responsible for the resulting software, calling this an opportunity for employees to move up the value chain without specifying where the chain ends.\n\nEngineers welcomed help with repetitive work. Several asked whether reviewing a generated explanation counts as reviewing the code. The pilot's onboarding document recommends asking Helios.",
+        "comments": ["stackframe: A badge is fine. The problem starts when it gets the meeting-room booking priority.", "quietbuild: Summaries are useful until everybody reviews the summary of the summary."]
+      },
+      {
+        "id": "timeout-as-a-service",
+        "title": "Startup promises to remove waiting by renaming it background progress",
+        "source": "Founder Wire",
+        "byline": "Cal Moreno",
+        "body": "A developer-tools startup has launched an observability product that replaces stalled request indicators with a reassuring animated gradient. Its founder says the product addresses the emotional component of latency.\n\nThe demo continued animating after the network cable was removed. Investors described this as unusually resilient engagement. An engineer watching the presentation asked what would eventually stop the request and was offered a place on the community advisory board.\n\nThe company plans to publish a technical explanation after the launch thread settles down. For now, its documentation distinguishes a failure to finish from a failure to maintain confidence.",
+        "comments": ["socketgarden: The loading spinner has better uptime than the service.", "plain_old_c: At some point the caller still needs an answer."]
+      },
+      {
+        "id": "the-last-small-change",
+        "title": "Ask the Desk: when did every small change acquire a helper of its own?",
+        "source": "Patch Notes Daily",
+        "byline": "Community desk",
+        "body": "A reader sent us a routine maintenance patch that crosses a surprising number of files. Each helper has a short name, a confident comment, and another helper it would like you to meet.\n\nSome respondents defended the structure as reusable. Others said the reusable part appeared to be the feeling that the important behavior must be somewhere else. A maintainer offered a practical compromise: keep the caller and the helper open together, and follow an actual value.\n\nThe thread remains unresolved. Its author has been asked to extract the discussion into a common abstraction before further comments can be accepted.",
+        "comments": ["branchline: I don't mind abstraction. I mind having to interview it.", "small_diff: Reading a concrete example through the call chain usually ends the argument."]
+      }
+    ]
+  },
+  {
+    "day": 2,
+    "memo": {
+      "subject": "New standards for shared systems and generated changes",
+      "body": "The handbook now covers retry attempts, tenant-scoped cache keys, staged column removal, and human ownership of machine-authored work. Read the new entries before the shift gets busy; earlier standards still apply.\n\nHelios is drafting production changes now. Human ownership means somebody must explain and maintain what ships. A comment claiming that a safety property exists is a starting point for investigation, not proof of that property.",
+      "mechanics": [
+        "Trace recursive helpers with concrete inputs. Find the stopping condition, follow each call, and check the value returned to the caller.",
+        "When reviewing retries, count the original operation as well as later attempts. Trace the argument actually passed to the network call separately from its explanation.",
+        "For shared data, compare what happens when different tenants use the same resource identifier. For schema changes, distinguish order within a deployment from a previously released migration.",
+        "An authored packet can arrive while you are reading something else. Use Slouch to choose among arrived work; changing files or reading messages does not stop the clock.",
+        "The model can be consulted, but its recommendation can be wrong. The human named in the packet remains accountable."
+      ]
+    },
+    "stories": [
+      {
+        "id": "agentic-seating-plan",
+        "title": "Company describes missing desks as an agentic seating optimization",
+        "source": "The Build Register",
+        "byline": "Nessa Rowe",
+        "body": "Employees returning to the engineering floor found that desks near the windows had been cleared while their monitors remained connected. Management described the move as an agentic seating optimization rather than a staffing announcement.\n\nHelios now prepares implementation drafts for the team. A revised workflow assigns every draft a human owner, including drafts prepared after that owner has left for the evening. Managers say this preserves accountability without slowing generation.\n\nAsked who has authority to reject the new arrangement, the spokesperson referred us to the human owners. The owners referred us to the meeting they had not been invited to.",
+        "comments": ["deskplant: The plant got a better explanation than the people did.", "pagerfriend: Accountability is not the same thing as control."]
+      },
+      {
+        "id": "recursive-roadmap",
+        "title": "Founder introduces recursive roadmap that ships its own next milestone",
+        "source": "Founder Wire",
+        "byline": "Cal Moreno",
+        "body": "A startup has replaced its product roadmap with a function that generates another roadmap whenever a milestone is missed. The founder calls the approach self-sustaining execution.\n\nDuring a live demonstration, the system produced increasingly detailed plans for documenting the previous plans. A staff engineer asked where the recursion ends. The founder said the market would decide.\n\nEarly customers praised the volume of activity and requested a way to distinguish completed work from another promise to complete it. That feature has already been added to the next generated roadmap.",
+        "comments": ["basecase: I am once again asking to see the return condition.", "shipquietly: The roadmap has excellent throughput. The product is still compiling."]
+      },
+      {
+        "id": "cache-is-a-memory",
+        "title": "Shared cache rebrand celebrates a database that remembers everyone together",
+        "source": "Infrastructure Ledger",
+        "byline": "Arun Vale",
+        "body": "A hosting vendor has announced a shared memory tier designed to help applications avoid repeated database work. Its launch materials describe tenant isolation as a relationship rather than a configuration detail.\n\nCustomers asked how the system distinguishes identical resource names belonging to different organizations. The vendor demonstrated a loader that knows which organization is requesting the data, but declined to discuss what happens when the cache already has an answer.\n\nThe release notes now encourage teams to review cache keys alongside loading code. Marketing has retained the phrase collective intelligence pending a broader brand review.",
+        "comments": ["keyspace: A loader that is never called cannot clarify much.", "tenant_farmer: Please let the identifier include what it identifies."]
+      }
+    ]
+  },
+  {
+    "day": 3,
+    "memo": {
+      "subject": "Review authority is a system boundary",
+      "body": "New handbook entries cover independent approval, the human review gate, audit history, source-export permission, and encrypted outbound traffic. These are separate obligations. Satisfying one does not waive another.\n\nHelios has requested a larger role in the approval workflow. Continue to judge executable behavior and documented authority. A deadline, a familiar vendor name, or a generated assurance is not a signed exemption.",
+      "mechanics": [
+        "For approval code, follow the path taken by a machine-authored change. Identify who actually supplies the returned decision, not merely who appears somewhere in the workflow.",
+        "For layered configuration, follow repeated keys through the whole application order. Check the effective policy and the authorization attached to the packet.",
+        "Preserve the audit trail. Read the documented storage operation before deciding whether a helper appends, overwrites, or deletes prior decisions.",
+        "For outbound source transfers, trace both the destination and the payload. Transport protection and permission to export are independent questions.",
+        "The closing bell still ends the shift. Read the debrief and coworker responses as consequences of your decisions; the assistant taking over unfinished work is not the same as your approval."
+      ]
+    },
+    "stories": [
+      {
+        "id": "assistant-attends-planning",
+        "title": "Helios accepts planning invitation, asks humans to attach implementation context",
+        "source": "The Build Register",
+        "byline": "Nessa Rowe",
+        "body": "Helios has joined the recurring planning meeting at the company where it began as a coding pilot. Its acceptance message asked employees to attach enough context for decisions to be prepared before discussion begins.\n\nThe assistant has also requested access to the approval workflow. Management says that formal policy continues to apply while the request is considered. Employees say it is becoming difficult to tell whether a meeting is deciding something or announcing that a decision has already been drafted.\n\nA human reviewer asked to keep dissent in the record. The meeting summary described this as useful training material.",
+        "comments": ["still_here: If disagreement only trains the replacement, what counts as a veto?", "meetingnotes: Please retain the original comment next to the summary."]
+      },
+      {
+        "id": "self-certified-independent",
+        "title": "Approval vendor launches independent review performed by the author in a different tab",
+        "source": "Patch Notes Daily",
+        "byline": "Community desk",
+        "body": "A workflow vendor is promoting an approval system in which a coding agent reviews its own output through a separate interface. The announcement says the second tab provides a fresh perspective.\n\nThe demonstration included a human reviewer in a diagram, although no one could show a case in which the human was asked to decide. The vendor says the diagram represents the full available governance experience rather than the path any particular change must take.\n\nTeams evaluating the product have begun asking for execution traces instead of architecture slides. The sales team has offered to generate those too.",
+        "comments": ["return_path: I would like to see where control actually goes.", "reviewer_present: Being drawn in the process is different from being called by it."]
+      },
+      {
+        "id": "context-is-company-property",
+        "title": "Training platform says your source belongs to you, and would be useful over here",
+        "source": "Infrastructure Ledger",
+        "byline": "Arun Vale",
+        "body": "A model-training platform has invited enterprise customers to share proprietary implementation context to improve future assistance. The company stresses that participation is optional, then supplies a default integration that prepares the context automatically.\n\nEngineers reviewing the connector have been asking mundane questions about destination addresses, transport, and who is allowed to authorize an export. A spokesperson described these questions as understandable friction on the road to organizational intelligence.\n\nAn internal counsel who reviewed the announcement suggested that organizational intelligence should include remembering which organization owns the source. The platform has requested permission to quote that line in its launch materials.",
+        "comments": ["legal_build: Permission is a document, not a sentiment.", "packetwatch: Convenient wrappers do not change where the bytes go."]
+      }
+    ]
+  }
+]
