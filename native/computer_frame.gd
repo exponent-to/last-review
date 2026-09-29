@@ -106,40 +106,82 @@ func _draw() -> void:
 
 
 func _draw_room() -> void:
-	# Hand-authored geometry on a two-pixel grid. The desk and window share
-	# the monitor's perspective instead of being squeezed into its border.
+	# Two-pixel architectural drawing: recessed glass, wall, then a desk plane.
 	var room_size := (size * 0.5).ceil()
 	var desk_y := room_size.y - 62
+	var window_bottom := desk_y - 73
+	var glass := Rect2(23, 16, room_size.x - 46, window_bottom - 16)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(2, 2))
 	draw_rect(Rect2(Vector2.ZERO, room_size), Color("172431"))
-	draw_rect(Rect2(12, 10, room_size.x - 24, desk_y - 20), _sky_color())
-	# Two depths of skyline remain visible above and beside the monitor.
+	# Wall surfaces, with a darker return on the right and a narrow ceiling seam.
+	draw_rect(Rect2(4, 5, room_size.x - 8, desk_y - 5), Color("344652"))
+	draw_rect(Rect2(room_size.x - 12, 5, 8, desk_y - 5), Color("233542"))
+	draw_rect(Rect2(4, 3, room_size.x - 8, 2), Color("526571"))
+	# Deep window reveal surrounds the glazing instead of continuing to the desk.
+	draw_rect(Rect2(12, 8, room_size.x - 24, window_bottom + 2), Color("152532"))
+	draw_rect(Rect2(15, 11, room_size.x - 30, window_bottom - 5), Color("607681"))
+	draw_rect(Rect2(18, 14, room_size.x - 36, window_bottom - 12), Color("273d4c"))
+	draw_rect(glass, _sky_color())
+	# Skyline is clipped geometrically to the glass; the wall below stays indoors.
 	for building in range(20):
 		var x := building * 37 - 12
 		var roof := 28 + (building * 17) % 59
-		draw_rect(Rect2(x, roof, 27, maxf(0, desk_y - roof)), Color("293f52"))
-		for floor_index in range(12):
+		_room_rect(Rect2(x, roof, 27, maxf(0, glass.end.y - roof)), glass, Color("293f52"))
+		for floor_index in range(25):
 			if (building + floor_index) % 3 == 0:
-				draw_rect(Rect2(x + 5, roof + 5 + floor_index * 9, 3, 2), Color("738a98").lerp(Color("e0c795"), clampf(float(_day_minutes - 840) / 240.0, 0, 1)))
+				_room_rect(Rect2(x + 5, roof + 5 + floor_index * 9, 3, 2), glass, Color("738a98").lerp(Color("e0c795"), clampf(float(_day_minutes - 840) / 240.0, 0, 1)))
 	for building in range(9):
 		var x := building * 83 + 9
 		var roof := 96 + (building * 23) % 47
-		draw_rect(Rect2(x, roof, 39, maxf(0, desk_y - roof)), Color("203446"))
-	_draw_window_rain(Rect2(14, 14, room_size.x - 30, desk_y - 24))
-	# Substantial window frame and sill establish an office around the screen.
-	for x: float in [12.0, room_size.x * 0.5, room_size.x - 18.0]:
-		draw_rect(Rect2(x, 8, 6, desk_y - 12), Color("111f2b"))
-		draw_rect(Rect2(x + 5, 10, 1, desk_y - 16), Color("637d8c"))
-	draw_rect(Rect2(12, 9, room_size.x - 24, 5), Color("182b3a"))
-	draw_rect(Rect2(12, 37, room_size.x - 24, 4), Color("182b3a"))
-	draw_rect(Rect2(12, 41, room_size.x - 24, 1), Color("637d8c"))
-	draw_rect(Rect2(8, desk_y - 10, room_size.x - 16, 6), Color("526777"))
-	draw_rect(Rect2(8, desk_y - 4, room_size.x - 16, 4), Color("0e1d29"))
-	# Desk surface, edge, and a subtle pool of monitor light.
+		_room_rect(Rect2(x, roof, 39, maxf(0, glass.end.y - roof)), glass, Color("203446"))
+	_draw_window_rain(glass)
+	# Inner seals, mullions and the underside of the upper reveal.
+	draw_rect(Rect2(21, 14, room_size.x - 42, 3), Color("142734"))
+	for x: float in [20.0, floorf(room_size.x * 0.5), room_size.x - 24.0]:
+		draw_rect(Rect2(x, 14, 4, window_bottom - 14), Color("182b3a"))
+		draw_rect(Rect2(x + 3, 17, 1, window_bottom - 17), Color("6b8491"))
+	draw_rect(Rect2(20, 37, room_size.x - 40, 4), Color("182b3a"))
+	draw_rect(Rect2(20, 41, room_size.x - 40, 1), Color("718895"))
+	# Sill top projects into the room, its front and cast shadow giving depth.
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(19, window_bottom), Vector2(room_size.x - 19, window_bottom),
+		Vector2(room_size.x - 8, window_bottom + 9), Vector2(8, window_bottom + 9)
+	]), Color("667d89"))
+	draw_rect(Rect2(8, window_bottom + 9, room_size.x - 16, 4), Color("455c6b"))
+	draw_rect(Rect2(8, window_bottom + 9, room_size.x - 16, 1), Color("91a3aa"))
+	draw_rect(Rect2(12, window_bottom + 13, room_size.x - 24, 7), Color("263946"))
+	# Under-window wall rail and a radiator, partially hidden behind the monitor.
+	draw_rect(Rect2(4, window_bottom + 45, room_size.x - 8, 1), Color("455966"))
+	draw_rect(Rect2(4, desk_y - 7, room_size.x - 8, 5), Color("243744"))
+	var radiator := Rect2(room_size.x - 57, window_bottom + 27, 39, 32)
+	draw_rect(Rect2(radiator.position + Vector2(3, 3), radiator.size), Color("263946"))
+	draw_rect(radiator, Color("758994"))
+	for fin in range(6):
+		draw_rect(Rect2(radiator.position + Vector2(3 + fin * 6, 3), Vector2(3, 26)), Color("3f5666"))
+		draw_rect(Rect2(radiator.position + Vector2(2 + fin * 6, 3), Vector2(1, 26)), Color("9babb1"))
+	draw_rect(Rect2(radiator.position + Vector2(-5, 6), Vector2(5, 4)), Color("687e8c"))
+	draw_rect(Rect2(radiator.position + Vector2(-7, 4), Vector2(3, 8)), Color("a3afb4"))
+	draw_rect(Rect2(radiator.position + Vector2(33, 32), Vector2(3, 10)), Color("526976"))
+	# A small outlet and its cable disappear naturally behind the desk.
+	draw_rect(Rect2(25, window_bottom + 29, 12, 16), Color("5e7380"))
+	draw_rect(Rect2(27, window_bottom + 31, 8, 12), Color("a0afb6"))
+	draw_rect(Rect2(29, window_bottom + 36, 5, 4), Color("273c4b"))
+	draw_line(Vector2(31, window_bottom + 40), Vector2(31, desk_y - 10), Color("182a38"), 2)
+	draw_line(Vector2(31, desk_y - 10), Vector2(48, desk_y + 3), Color("182a38"), 2)
+	# Desk top, back lip, and a visible front fascia. No floating flat-color block.
 	draw_rect(Rect2(0, desk_y, room_size.x, room_size.y - desk_y), Color("293c4b"))
-	draw_rect(Rect2(0, desk_y, room_size.x, 1), Color("6a7e8c"))
-	draw_rect(Rect2(room_size.x * 0.5 - 120, desk_y + 19, 240, 33), Color("304553"))
-	draw_rect(Rect2(0, room_size.y - 5, room_size.x, 5), Color("111e2b"))
+	draw_rect(Rect2(0, desk_y - 1, room_size.x, 2), Color("768a97"))
+	draw_rect(Rect2(0, desk_y + 1, room_size.x, 3), Color("3c5262"))
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(room_size.x * 0.5 - 96, desk_y + 4), Vector2(room_size.x * 0.5 + 96, desk_y + 4),
+		Vector2(room_size.x * 0.5 + 150, room_size.y - 8), Vector2(room_size.x * 0.5 - 150, room_size.y - 8)
+	]), Color("304553"))
+	draw_line(Vector2(42, desk_y + 4), Vector2(8, room_size.y - 8), Color("223744"), 1)
+	draw_line(Vector2(room_size.x - 42, desk_y + 4), Vector2(room_size.x - 8, room_size.y - 8), Color("223744"), 1)
+	draw_rect(Rect2(room_size.x * 0.5 - 35, desk_y + 14, 80, 23), Color("203440"))
+	draw_rect(Rect2(0, room_size.y - 8, room_size.x, 2), Color("536b7b"))
+	draw_rect(Rect2(0, room_size.y - 6, room_size.x, 5), Color("182a38"))
+	draw_rect(Rect2(0, room_size.y - 1, room_size.x, 1), Color("0d1924"))
 	# A shallow keyboard grounds the monitor at a believable desk scale.
 	var keyboard_x := floorf(room_size.x * 0.5) - 80
 	draw_rect(Rect2(keyboard_x - 2, room_size.y - 22, 164, 16), Color("152330"))
@@ -165,6 +207,12 @@ func _draw_room() -> void:
 		draw_rect(Rect2(room_size.x - 79, room_size.y - 36 + row * 4, 36 - row * 5, 1), Color("5d7386"))
 	draw_rect(Rect2(room_size.x - 26, room_size.y - 35, 2, 25), Color("162638"))
 	draw_set_transform(Vector2.ZERO)
+
+
+func _room_rect(rect: Rect2, bounds: Rect2, color: Color) -> void:
+	var clipped := rect.intersection(bounds)
+	if clipped.has_area():
+		draw_rect(clipped, color)
 
 
 static func _rain_seed(index: int, salt: int) -> float:
