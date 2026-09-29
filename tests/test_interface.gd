@@ -127,7 +127,10 @@ func _test_desktop() -> void:
 		ui._arrange_windows()
 		await process_frame
 		check(ui.scene_host.size == ui.size, "Computer frame must occupy the complete viewport behind the monitor screen")
-		check(ui._monitor_screen.size.x >= ui.size.x * 0.9 and ui._monitor_screen.size.y >= ui.size.y * 0.85, "Computer monitor must dominate the viewport")
+		check(ui._monitor_screen.size.x >= ui.size.x * 0.78 and ui._monitor_screen.size.y >= ui.size.y * 0.65, "Computer monitor must stay readable while allowing room around it")
+		check(ui._monitor_screen.position.x >= 120 and ui._monitor_screen.position.y >= 130, "Office window must have substantial visible space beside and above the monitor")
+		for launcher: Button in ui._home_icons.values():
+			check(Rect2(Vector2.ZERO, ui._desktop.size).encloses(launcher.get_rect()), "All home icons must remain inside the reduced monitor screen")
 		check(ui._diff.size.y >= 100, "Review code must retain readable vertical space at supported window sizes")
 		for id: String in ["review", "rules"]:
 			var window = ui._windows[id]

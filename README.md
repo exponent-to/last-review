@@ -36,7 +36,7 @@ Helios can advise you, but its scripted recommendations may be wrong. Generated 
 
 Reading and searching never consume game time. Skip the opening with Enter, Escape, or its on-screen control. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. SYSTEM contains save/load, confirmed new-run controls, instructions, and the background-motion toggle.
 
-Open an app from its desktop icon. Drag titlebars to arrange windows, click a window to bring it forward, or use its minimize, maximize, and close controls. The taskbar tracks open apps; HOME reveals the desktop. With a titlebar focused, arrow keys move its window (Shift moves farther). ARRANGE restores the layout. Intranet opens company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
+Open an app from its desktop icon. Drag titlebars to arrange windows, drag any edge or corner to resize, or use the minimize, maximize, and close controls. Resizing stops at the screen boundaries and each app's usable minimum size. The taskbar tracks open apps; HOME reveals the desktop. With a titlebar focused, arrow keys move its window (Shift moves farther). ARRANGE restores the layout. Intranet opens company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
 
 Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. Colleagues hint at tricky code and react to your approvals or change requests. Their tone carries relationship signals; there are no visible relationship scores, stress percentages, or authority meters. Incoming messages mark conversations unread without opening them for you. Money remains explicit in payroll paperwork. Slouch is entirely fictional and local, with no connection to a real messaging service.
 
@@ -68,4 +68,4 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 
 See [architecture](docs/architecture.md), [interface](docs/interface.md), [art pipeline](docs/art-pipeline.md), and [verification](docs/verification.md).
 
-This is an authored prototype, not a finished or procedurally generated career. There is no live code execution, real repository access, audio, multiplayer, or Windows build yet. Earlier workshop/browser prototypes remain in Git history; development continues through scoped branches/worktrees and incremental commits. No hosted Git remote is configured.
+This is an authored prototype, not a finished or procedurally generated career. There is no live code execution, real repository access, audio, multiplayer, or Windows build yet. Earlier workshop/browser prototypes remain in Git history; development continues through scoped branches/worktrees and incremental commits. Development history is hosted in the private [TravisGibbs/last-review repository](https://github.com/TravisGibbs/last-review).

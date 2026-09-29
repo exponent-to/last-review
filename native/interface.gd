@@ -317,6 +317,7 @@ func _build_desktop(parent: Node) -> void:
 	for window: DesktopWindow in _windows.values():
 		window.hide()
 	_desktop.resized.connect(_arrange_windows)
+	_desktop.resized.connect(_layout_home_icons)
 
 
 func _build_home() -> void:
@@ -371,6 +372,14 @@ func _build_home() -> void:
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		launcher.set_meta("caption", label)
 		_home_icons[id] = launcher
+
+
+func _layout_home_icons() -> void:
+	var rows := maxi(1, int((_desktop.size.y - 26) / 104))
+	var index := 0
+	for launcher: Button in _home_icons.values():
+		launcher.position = Vector2(22 + int(index / rows) * 122, 18 + (index % rows) * 104)
+		index += 1
 
 
 func _new_window(id: String, title: String) -> DesktopWindow:
