@@ -7,6 +7,7 @@ signal load_requested
 signal reset_requested
 signal motion_changed(enabled: bool)
 
+const ComputerFrame = preload("res://native/computer_frame.gd")
 const DesktopWindow = preload("res://native/desktop_window.gd")
 const Chat = preload("res://content/chat.gd")
 const Catalog = preload("res://content/catalog.gd")
@@ -45,6 +46,10 @@ var _chat_heading: Label
 var _chat_scroll: ScrollContainer
 var _chat_messages: VBoxContainer
 var _rule_rows: Array[Dictionary] = []
+var _monitor_screen: Control
+var _desktop_home: Control
+var _home_icons: Dictionary = {}
+var _toast: PanelContainer
 var _desktop: Control
 var _windows: Dictionary = {}
 var _dock_buttons: Dictionary = {}
@@ -76,7 +81,6 @@ var _reject: Button
 var _consult: Button
 var _ai_note: Label
 var _feedback: Label
-var _briefing: Label
 var _footer: Label
 var _notice: Label
 var _confirmation: ConfirmationDialog
@@ -90,28 +94,30 @@ var _workspace_presented: bool = false
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = _build_theme()
-	var background: ColorRect = ColorRect.new()
-	background.color = BACK
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
-	var margin: MarginContainer = _margin(self, 12, 10)
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var frame: VBoxContainer = _column(margin, 8)
-	_build_header(frame)
-	_build_hud(frame)
-	_build_scene(frame)
-	var briefing_row: HBoxContainer = _row(frame)
-	_briefing = _paragraph(briefing_row, "", 13, DIM)
-	_button(briefing_row, "BRIEFING", func() -> void: _briefing_dialog.popup_centered())
+	scene_host = Control.new()
+	scene_host.name = "ComputerFrameHost"
+	scene_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	scene_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(scene_host)
+	_monitor_screen = Control.new()
+	_monitor_screen.name = "MonitorScreen"
+	_monitor_screen.clip_contents = true
+	add_child(_monitor_screen)
+	var frame: VBoxContainer = _column(_monitor_screen, 0)
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_build_os_menu(frame)
 	_build_desktop(frame)
 	_build_dock(frame)
-	_notice = _paragraph(frame, "", 14, CYAN)
-	_notice.visible = false
-	_footer = _label(frame, "REVIEW DESK  /  Reading takes no game time.", 12, DIM)
+	_toast = PanelContainer.new()
+	_toast.visible = false
+	_toast.z_index = 50
+	_toast.add_theme_stylebox_override("panel", _style(INSET, CYAN, 1, 12, 9))
+	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_monitor_screen.add_child(_toast)
+	_notice = _paragraph(_toast, "", 14, CYAN)
 	_confirmation = ConfirmationDialog.new()
 	_confirmation.title = "Start a new run"
-	_confirmation.dialog_text = "Discard this run and return to day one?\nYour disk save remains until overwritten."
+	_confirmation.dialog_text = "Discard this run and return to the first shift?\nYour disk save remains until overwritten."
 	_confirmation.ok_button_text = "Start new run"
 	_confirmation.cancel_button_text = "Keep reviewing"
 	_confirmation.min_size = Vector2i(460, 160)
@@ -123,7 +129,28 @@ func _ready() -> void:
 	_briefing_dialog.get_label().autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_briefing_dialog.get_label().custom_minimum_size.x = 600
 	add_child(_briefing_dialog)
-	_arrange_windows.call_deferred()
+	resized.connect(_layout_monitor)
+	_layout_monitor.call_deferred()
+
+
+func _layout_monitor() -> void:
+	var screen: Rect2 = ComputerFrame.get_screen_rect(size)
+	_monitor_screen.position = screen.position
+	_monitor_screen.size = screen.size
+	_toast.position = Vector2(18, maxf(0, screen.size.y - 90))
+	_toast.size = Vector2(minf(620, screen.size.x - 36), 48)
+
+
+func _build_os_menu(parent: Node) -> void:
+	var panel: PanelContainer = PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _style(Color("b7bdc4"), Color("49535e"), 1, 8, 3))
+	parent.add_child(panel)
+	var row: HBoxContainer = _row(panel, 12)
+	_label(row, "WORKSTATION", 12, Color("18212b"))
+	_footer = _label(row, "READY", 11, Color("414b58"))
+	_spacer(row)
+	_hud["day"] = _label(row, "MONDAY", 12, Color("18212b"))
+	_hud["status"] = _footer
 
 
 func _build_theme() -> Theme:
@@ -257,55 +284,24 @@ func _scroll_column(parent: Node) -> VBoxContainer:
 	return _column(scroll, 10)
 
 
-func _build_header(parent: Node) -> void:
-	var row: HBoxContainer = _row(parent)
-	_label(row, "LAST REVIEW", 19, TEXT)
-	_label(row, " / ENGINEERING OPERATIONS", 12, DIM)
-	_spacer(row)
-	_label(row, "HUMAN REVIEWER · LOCAL WORKSTATION", 12, CYAN)
-
-
-func _build_hud(parent: Node) -> void:
-	var panel: PanelContainer = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 0, 0))
-	parent.add_child(panel)
-	var row: HBoxContainer = _row(_margin(panel, 12, 8), 16)
-	_hud["day"] = _label(row, "MONDAY", 13, DIM)
-	_spacer(row)
-	_hud["status"] = _label(row, "REVIEWER CONNECTED", 13, CYAN)
-	_spacer(row)
-	_label(row, "SLOUCH / COMPANY WORKSPACE", 12, DIM)
-
-
-func _build_scene(parent: Node) -> void:
-	var panel: PanelContainer = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 2, 2))
-	parent.add_child(panel)
-	scene_host = Control.new()
-	scene_host.name = "SceneHost"
-	scene_host.custom_minimum_size = Vector2(640, 192)
-	scene_host.clip_contents = true
-	panel.add_child(scene_host)
-
-
 func _build_desktop(parent: Node) -> void:
 	_desktop = Control.new()
 	_desktop.name = "TerminalDesktop"
 	_desktop.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_desktop.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_desktop.custom_minimum_size.y = 340
 	_desktop.clip_contents = true
 	parent.add_child(_desktop)
-	var back: Panel = Panel.new()
-	back.add_theme_stylebox_override("panel", _style(Color("0b121c"), Color("2c3a4b"), 2, 0, 0))
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_desktop.add_child(back)
-	_build_review_content(_new_window("review", "REVIEW / PULL REQUEST").body)
-	_build_rulebook(_new_window("rules", "INTRANET / RULEBOOK").body)
-	_build_decision(_new_window("decision", "DISPOSITION / SIGN-OFF").body)
+	_build_home()
+	var review: DesktopWindow = _new_window("review", "REVIEW / CHANGE CONTROL")
+	var review_body: HBoxContainer = _row(review.body, 12)
+	review_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var code: VBoxContainer = _column(review_body)
+	code.size_flags_stretch_ratio = 2.4
+	_build_review_content(code)
+	_build_decision(review_body)
+	_build_rulebook(_new_window("rules", "HANDBOOK / ENGINEERING STANDARDS").body)
 	_build_chat(_new_window("chat", "SLOUCH / ENGINEERING").body)
-	_build_system(_new_window("system", "TERMINAL / SYSTEM").body)
+	_build_system(_new_window("system", "SYSTEM / WORKSTATION SETTINGS").body)
 	_build_browser(_new_window("browser", "INTRANET / LOCAL BROWSER").body)
 	var phase_window: DesktopWindow = _new_window("shift", "PERSONNEL / SHIFT RECORD")
 	_phase_panel = _scroll_column(phase_window.body)
@@ -318,9 +314,63 @@ func _build_desktop(parent: Node) -> void:
 	_complete_button = _button(_phase_panel, "START NEW RUN", func() -> void: _confirmation.popup_centered())
 	_phase_feedback = _paragraph(_phase_panel, "", 14, DIM)
 
-	for id: String in ["chat", "system", "browser", "shift"]:
-		_windows[id].hide()
+	for window: DesktopWindow in _windows.values():
+		window.hide()
 	_desktop.resized.connect(_arrange_windows)
+
+
+func _build_home() -> void:
+	_desktop_home = Control.new()
+	_desktop_home.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_desktop_home.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_desktop.add_child(_desktop_home)
+	var wallpaper: ColorRect = ColorRect.new()
+	wallpaper.color = Color("213949")
+	wallpaper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wallpaper.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_desktop_home.add_child(wallpaper)
+	# Sparse native geometric wallpaper, kept behind all launched applications.
+	for index: int in range(4):
+		var stripe: ColorRect = ColorRect.new()
+		stripe.color = Color("263f50")
+		stripe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stripe.anchor_left = 0.58 + index * 0.08
+		stripe.anchor_right = stripe.anchor_left + 0.015
+		stripe.anchor_top = 0.0
+		stripe.anchor_bottom = 1.0
+		_desktop_home.add_child(stripe)
+	var launchers: Array = [
+		["review", "REVIEW", "review"],
+		["rules", "HANDBOOK", "handbook"],
+		["chat", "SLOUCH", "slouch"],
+		["browser", "INTRANET", "browser"],
+		["system", "SYSTEM", "system"],
+	]
+	for index: int in range(launchers.size()):
+		var item: Array = launchers[index]
+		var id: String = str(item[0])
+		var launcher: Button = _button(_desktop_home, "", _open_app.bind(id))
+		launcher.position = Vector2(22, 18 + index * 104)
+		launcher.size = Vector2(112, 94)
+		launcher.tooltip_text = "Open " + str(item[1])
+		launcher.add_theme_stylebox_override("normal", _style(Color.TRANSPARENT, Color.TRANSPARENT, 0, 0, 0))
+		launcher.add_theme_stylebox_override("hover", _style(Color("304f65"), Color("65839b"), 1, 0, 0))
+		var contents: VBoxContainer = _column(launcher, 3)
+		contents.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		contents.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var icon: TextureRect = TextureRect.new()
+		icon.texture = load("res://art/desktop-%s.svg" % str(item[2])) as Texture2D
+		icon.custom_minimum_size = Vector2(56, 56)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		contents.add_child(icon)
+		var label: Label = _label(contents, str(item[1]), 13, TEXT)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		launcher.set_meta("caption", label)
+		_home_icons[id] = launcher
 
 
 func _new_window(id: String, title: String) -> DesktopWindow:
@@ -329,6 +379,7 @@ func _new_window(id: String, title: String) -> DesktopWindow:
 	window.window_title = title
 	window.activated.connect(_focus_app)
 	window.minimized.connect(func(_id: String) -> void: _update_dock())
+	window.closed.connect(func(_id: String) -> void: _update_dock())
 	_desktop.add_child(window)
 	_windows[id] = window
 	return window
@@ -363,11 +414,18 @@ func _build_review_content(code: VBoxContainer) -> void:
 
 
 func _build_dock(parent: Node) -> void:
-	var dock: HBoxContainer = _row(parent, 5)
-	for item: Array in [["review", "PR"], ["rules", "RULEBOOK"], ["decision", "SIGN-OFF"], ["browser", "BROWSER"], ["chat", "SLOUCH"], ["system", "SYSTEM"], ["shift", "SHIFT"]]:
+	var panel: PanelContainer = PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _style(Color("abb3bc"), Color("49535e"), 1, 4, 3))
+	parent.add_child(panel)
+	var dock: HBoxContainer = _row(panel, 4)
+	var home: Button = _button(dock, "HOME", _show_home)
+	home.add_theme_font_size_override("font_size", 12)
+	home.tooltip_text = "Show the desktop. Open windows remain on the taskbar."
+	for item: Array in [["review", "REVIEW"], ["rules", "HANDBOOK"], ["chat", "SLOUCH"], ["browser", "INTRANET"], ["system", "SYSTEM"], ["shift", "PAYROLL"]]:
 		var id: String = str(item[0])
 		var button: Button = _button(dock, str(item[1]), _open_app.bind(id))
 		button.toggle_mode = true
+		button.visible = false
 		button.add_theme_font_size_override("font_size", 12)
 		_dock_buttons[id] = button
 	_spacer(dock)
@@ -376,24 +434,29 @@ func _build_dock(parent: Node) -> void:
 	arrange.add_theme_font_size_override("font_size", 12)
 
 
+func _show_home() -> void:
+	for window: DesktopWindow in _windows.values():
+		if window.visible:
+			window.minimize_window()
+	_update_dock()
+
+
 func _arrange_windows() -> void:
 	if not is_instance_valid(_desktop) or _windows.is_empty():
 		return
 	var extent: Vector2 = _desktop.size
-	var review_width: float = maxf(430.0, extent.x * 0.465)
-	var rule_width: float = maxf(320.0, extent.x * 0.28)
-	var decision_width: float = maxf(266.0, extent.x * 0.225)
 	var layouts: Dictionary = {
-		"review": Rect2(Vector2(5, 4), Vector2(review_width, extent.y - 10)),
-		"rules": Rect2(Vector2(review_width - 8, 13), Vector2(rule_width, extent.y - 21)),
-		"decision": Rect2(Vector2(extent.x - decision_width - 6, 24), Vector2(decision_width, extent.y - 32)),
-		"chat": Rect2(Vector2(40, 14), Vector2(minf(800, extent.x - 80), extent.y - 32)),
-		"system": Rect2(Vector2(100, 32), Vector2(minf(700, extent.x - 150), extent.y - 56)),
-		"browser": Rect2(Vector2(70, 18), Vector2(minf(780, extent.x - 100), extent.y - 38)),
-		"shift": Rect2(Vector2(28, 10), Vector2(extent.x - 56, extent.y - 22)),
+		"review": Rect2(Vector2(150, 24), Vector2(minf(900, extent.x - 170), minf(620, extent.y - 48))),
+		"rules": Rect2(Vector2(extent.x - 405, 42), Vector2(370, minf(570, extent.y - 70))),
+		"chat": Rect2(Vector2(160, 55), Vector2(minf(760, extent.x - 190), minf(520, extent.y - 82))),
+		"system": Rect2(Vector2(210, 90), Vector2(minf(650, extent.x - 240), minf(470, extent.y - 118))),
+		"browser": Rect2(Vector2(185, 70), Vector2(minf(720, extent.x - 215), minf(500, extent.y - 98))),
+		"shift": Rect2(Vector2(130, 45), Vector2(minf(840, extent.x - 160), minf(550, extent.y - 72))),
 	}
 	for id: String in _windows:
 		var window: DesktopWindow = _windows[id]
+		if window.maximized:
+			continue
 		var layout: Rect2 = layouts[id]
 		window.position = layout.position
 		window.size = layout.size
@@ -401,8 +464,10 @@ func _arrange_windows() -> void:
 
 
 func _open_app(id: String) -> void:
+	if id == "decision":
+		id = "review"
 	var phase: String = str(_state.get("phase", "review"))
-	if id in ["review", "rules", "decision"] and phase != "review":
+	if id in ["review"] and phase != "review":
 		id = "shift"
 	if id == "shift" and phase == "review":
 		notify("No shift record is available yet.")
@@ -425,6 +490,7 @@ func _update_dock() -> void:
 	for id: String in _dock_buttons:
 		var button: Button = _dock_buttons[id]
 		var window: DesktopWindow = _windows[id]
+		button.visible = window.launched
 		button.set_pressed_no_signal(window.visible)
 		button.tooltip_text = ("Focus " if window.visible else "Reopen ") + window.window_title
 
@@ -598,6 +664,9 @@ func _update_chat_badges() -> void:
 		var button: Button = _chat_contacts[contact]
 		button.text = ("#engineering" if contact == "company" else contact) + (" •" if unread else "")
 		button.set_pressed_no_signal(contact == _chat_contact)
+	if _home_icons.has("chat"):
+		var caption: Label = _home_icons["chat"].get_meta("caption")
+		caption.text = "SLOUCH •" if any_unread else "SLOUCH"
 	if _dock_buttons.has("chat"):
 		var dock: Button = _dock_buttons["chat"]
 		dock.text = "SLOUCH •" if any_unread else "SLOUCH"
@@ -708,7 +777,6 @@ func render_state(state: Dictionary) -> void:
 	if day != _last_day:
 		_last_day = day
 		var briefing: String = Catalog.briefing(day)
-		_briefing.text = briefing.left(115) + ("…" if briefing.length() > 115 else "")
 		_briefing_dialog.dialog_text = briefing
 		_filter_rules()
 		if _browser_path == "memo":
@@ -726,14 +794,14 @@ func render_state(state: Dictionary) -> void:
 	_reject.tooltip_text = "Cite at least one rule first." if selected.is_empty() else "Request changes for every cited rule."
 	_consult.disabled = consulted or phase != "review"
 	if phase != _last_phase:
+		var previous_phase: String = _last_phase
 		_last_phase = phase
-		for id: String in ["review", "rules", "decision"]:
-			_windows[id].visible = phase == "review"
-		_windows["shift"].visible = phase != "review"
-		if phase != "review":
-			_windows["shift"].focus_window()
-		else:
-			_windows["decision"].focus_window()
+		if phase != "review" and not previous_phase.is_empty():
+			_windows["review"].minimize_window()
+			_windows["shift"].restore_window(false)
+		elif phase == "review" and not previous_phase.is_empty():
+			_windows["shift"].close_window()
+			_windows["review"].restore_window(false)
 		_update_dock()
 	if phase == "review":
 		# Deliberately never read audit-only violations or explanation here.
@@ -761,7 +829,7 @@ func render_state(state: Dictionary) -> void:
 	_phase_feedback.text = "LAST REVIEW / AUDIT\n" + feedback_text
 	_render_phase(state)
 	_render_chat()
-	_footer.text = "LOCAL WORKSTATION / %s" % ("HUMAN SIGN-OFF REQUIRED · Reading takes no game time." if phase == "review" else "SHIFT CLOSED · Evening record pending." if phase == "debrief" else "ASSIGNMENT CLOSED · Record available.")
+	_footer.text = "READY" if phase == "review" else "SHIFT RECORD AVAILABLE" if phase == "debrief" else "ASSIGNMENT CLOSED"
 
 
 func _feedback_text(feedback: Dictionary) -> String:
@@ -802,10 +870,10 @@ func notify(message: String, is_error: bool = false) -> void:
 	var generation: int = _notice_generation
 	_notice.text = message
 	_notice.add_theme_color_override("font_color", RED if is_error else CYAN)
-	_notice.visible = true
+	_toast.visible = true
 	await get_tree().create_timer(8.0).timeout
 	if generation == _notice_generation:
-		_notice.visible = false
+		_toast.visible = false
 
 
 func focus_workspace() -> void:

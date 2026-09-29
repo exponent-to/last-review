@@ -4,7 +4,7 @@ const Simulation = preload("res://native/simulation.gd")
 const Chat = preload("res://content/chat.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Interface = preload("res://native/interface.gd")
-const Office = preload("res://native/office_scene.gd")
+const Office = preload("res://native/computer_frame.gd")
 var state: Dictionary
 var ui: Interface
 var failures: int = 0
@@ -111,14 +111,25 @@ func _check_active_rules(day: int) -> void:
 func _test_desktop() -> void:
 	var review = ui._windows["review"]
 	var rules = ui._windows["rules"]
+	for window in ui._windows.values():
+		check(not window.visible and not window.launched, "HOME must begin with every application closed")
+	for button in ui._dock_buttons.values():
+		check(not button.visible, "Taskbar must omit applications that have not been launched")
+	check(ui._home_icons.size() == 5, "HOME must offer the five actual application launchers")
+	ui._home_icons["review"].pressed.emit()
+	check(review.visible and review.launched, "REVIEW desktop icon must launch the combined review application")
+	check(ui._dock_buttons["review"].visible, "Launching an application must add its taskbar entry")
+	ui._home_icons["rules"].pressed.emit()
 	for extent: Vector2i in [Vector2i(1120, 800), Vector2i(1280, 900)]:
 		root.size = extent
 		for frame: int in range(4):
 			await process_frame
 		ui._arrange_windows()
 		await process_frame
+		check(ui.scene_host.size == ui.size, "Computer frame must occupy the complete viewport behind the monitor screen")
+		check(ui._monitor_screen.size.x >= ui.size.x * 0.9 and ui._monitor_screen.size.y >= ui.size.y * 0.85, "Computer monitor must dominate the viewport")
 		check(ui._diff.size.y >= 100, "Review code must retain readable vertical space at supported window sizes")
-		for id: String in ["review", "rules", "decision"]:
+		for id: String in ["review", "rules"]:
 			var window = ui._windows[id]
 			check(window.position.y >= 0 and window.position.y + 32 <= ui._desktop.size.y, "Default window titlebars must remain accessible")
 	review.move_window(Vector2(100000, 100000))
@@ -158,7 +169,14 @@ func _test_desktop() -> void:
 	check(ui._browser_address.text == "intranet://engineering/procedure", "Fake browser must display a local in-game address")
 	ui._windows["browser"].minimize_window()
 	ui._arrange_windows()
-	ui._open_app("decision")
+	ui._show_home()
+	check(not review.visible and not rules.visible, "HOME must minimize launched windows to reveal desktop icons")
+	check(review.launched and ui._dock_buttons["review"].visible, "HOME must retain launched applications in the taskbar")
+	ui._dock_buttons["review"].pressed.emit()
+	check(review.visible, "Taskbar must restore an application after showing HOME")
+	review.close_window()
+	check(not review.visible and not ui._dock_buttons["review"].visible, "Closing an application must remove its taskbar entry")
+	ui._home_icons["review"].pressed.emit()
 	var original_diff: String = ui._diff.text
 	ui._diff.text = original_diff + "\n" + " context line\n".repeat(60)
 	ui._diff.set_caret_line(30)
@@ -197,7 +215,7 @@ func _test_slouch() -> void:
 	check(not chat.visible, "Incoming refresh must not reopen minimized chat")
 	ui._open_app("chat")
 	check(ui._chat_contact == "Theo", "Reopening Slouch must preserve the player's selected conversation")
-	ui._open_app("decision")
+	ui._open_app("review")
 	var top_window: Node = ui._desktop.get_child(ui._desktop.get_child_count() - 1)
 	ui.render_state(state)
 	check(ui._desktop.get_child(ui._desktop.get_child_count() - 1) == top_window, "Chat refresh must not steal native window focus")
