@@ -28,6 +28,7 @@ func _run() -> void:
 	for frame in range(3):
 		await process_frame
 	ui.render_state(state)
+	await _test_desktop()
 	check(ui.theme.default_font is FontFile, "Interface must use the bundled terminal font")
 	check(ui.theme.default_font.resource_path.ends_with("IBMPlexMono-Regular.ttf"), "Terminal typography must not depend on installed system fonts")
 	check(ui._rule_rows.size() == Catalog.rules().size(), "Rulebook must include the authored catalog")
@@ -90,3 +91,55 @@ func _check_active_rules(day: int) -> void:
 	check(ui._rule_count.text.contains("%d active rules" % active.size()), "Active rule count must come from the current catalog day")
 	ui._search.text = previous_query
 	ui._filter_rules()
+
+func _test_desktop() -> void:
+	var review = ui._windows["review"]
+	var rules = ui._windows["rules"]
+	for extent: Vector2i in [Vector2i(1120, 800), Vector2i(1280, 900)]:
+		root.size = extent
+		for frame: int in range(4):
+			await process_frame
+		ui._arrange_windows()
+		await process_frame
+		check(ui._diff.size.y >= 100, "Review code must retain readable vertical space at supported window sizes")
+		for id: String in ["review", "rules", "decision"]:
+			var window = ui._windows[id]
+			check(window.position.y >= 0 and window.position.y + 32 <= ui._desktop.size.y, "Default window titlebars must remain accessible")
+	review.move_window(Vector2(100000, 100000))
+	check(review.position.x <= ui._desktop.size.x - 140, "Dragging right must retain an accessible titlebar fragment")
+	check(review.position.y <= ui._desktop.size.y - 34, "Dragging below the desktop must retain the titlebar")
+	review.move_window(Vector2(-100000, -100000))
+	check(review.position.x + review.size.x >= 140, "Dragging left must retain an accessible titlebar fragment")
+	check(review.position.y == 0, "Dragging above the desktop must clamp to its top")
+	ui._arrange_windows()
+	var arranged: Vector2 = review.position
+	var key: InputEventKey = InputEventKey.new()
+	key.keycode = KEY_RIGHT
+	key.pressed = true
+	review._title_input(key)
+	check(review.position.x > arranged.x, "Focused titlebar arrow keys must move the window")
+	var press: InputEventMouseButton = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	review._title_input(press)
+	check(review._dragging, "Titlebar pointer press must begin dragging")
+	press.pressed = false
+	review._input(press)
+	check(not review._dragging, "Pointer release must stop dragging")
+	review.minimize_window()
+	check(not review.visible, "Minimize must hide the native window")
+	ui.render_state(state)
+	check(not review.visible, "State refresh must preserve minimized windows")
+	ui._open_app("review")
+	check(review.visible and review.get_index() == ui._desktop.get_child_count() - 1, "Taskbar reopening must restore and focus the window")
+	rules.focus_window()
+	check(rules.get_index() == ui._desktop.get_child_count() - 1, "Window focus must raise z-order")
+	ui._open_app("browser")
+	ui._browse("procedure")
+	ui._browse("memo")
+	ui._browser_go_back()
+	check(ui._browser_path == "procedure", "Fake browser back must restore the previous local page")
+	check(ui._browser_address.text == "intranet://engineering/procedure", "Fake browser must display a local in-game address")
+	ui._windows["browser"].minimize_window()
+	ui._arrange_windows()
+	ui._open_app("decision")
