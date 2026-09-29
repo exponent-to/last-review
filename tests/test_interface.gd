@@ -32,6 +32,35 @@ func _run() -> void:
 	ui.render_state(state)
 	await _test_desktop()
 	_test_slouch()
+	check(ui._clock_label.text == "09:00", "Desktop clock must start at nine")
+	check(ui._approve.disabled and ui._diff.text.is_empty(), "No code or review actions are available before a coworker sends a link")
+	state = Simulation.advance(state, 20)
+	ui.render_state(state)
+	ui._select_chat_contact("Maya")
+	var opened := false
+	for button: Node in ui._chat_messages.find_children("*", "Button", true, false):
+		if button.text.begins_with("OPEN " + str(Catalog.request_at(0).id)):
+			button.pressed.emit()
+			opened = true
+	check(opened and ui._windows["review"].visible, "An arrived Slouch PR link must open Review")
+	check(ui._file_picker.item_count == 2, "The first review must expose both changed files")
+	var first_diff: String = ui._diff.text
+	ui._diff.set_caret_line(4)
+	ui._file_picker.item_selected.emit(1)
+	check(ui._diff.text != first_diff and ui._file_label.text.ends_with("transport.py"), "Selecting another file must show its own diff")
+	ui._file_picker.item_selected.emit(0)
+	for frame in range(3):
+		await process_frame
+	check(ui._diff.text == first_diff and ui._diff.get_caret_line() == 4, "Returning to a file must preserve its reading position")
+	var replies: Array = Chat.reply_options(state, "Maya")
+	check(not replies.is_empty(), "An arrived PR offers coworker replies")
+	if not replies.is_empty():
+		for button: Node in ui._chat_replies.get_children():
+			if button is Button:
+				button.pressed.emit()
+				break
+		check(not state.chat_replies.is_empty(), "Slouch reply controls must persist the chosen response")
+	ui._select_chat_contact("Theo")
 	check(ui.theme.default_font is FontFile, "Interface must use the bundled terminal font")
 	check(ui.theme.default_font.resource_path.ends_with("IBMPlexMono-Regular.ttf"), "Terminal typography must not depend on installed system fonts")
 	check(ui._rule_rows.size() == Catalog.rules().size(), "Rulebook must include the authored catalog")
@@ -58,6 +87,9 @@ func _run() -> void:
 	var packets: Array = Catalog.requests()
 	for index in range(packets.size()):
 		var packet: Dictionary = Catalog.request_at(index)
+		state = Simulation.advance(state, maxi(0, Catalog.arrival_seconds(str(packet.id)) - int(state.shift_seconds)))
+		ui.render_state(state)
+		ui._open_pr_link(str(packet.id))
 		var previous_messages: String = str(ui._chat_signatures.get(str(packet.author), ""))
 		for rule_id: String in packet.violations:
 			_command({"type": "toggle-rule", "rule_id": rule_id})
@@ -78,6 +110,10 @@ func _run() -> void:
 		if str(packet.author) != "Theo":
 			check(bool(ui._chat_unread.get(str(packet.author), false)), "Other coworker reactions must receive an unread indicator")
 		check(ui._search.text == "timeout", "Review updates must preserve search text")
+		var following: Dictionary = Catalog.request_at(index + 1)
+		if following.is_empty() or int(following.day) != int(state.day):
+			state = Simulation.advance(state, Simulation.SHIFT_SECONDS)
+			ui.render_state(state)
 		if state.phase == "debrief":
 			check(ui._evening_buttons.visible, "Each shift needs an evening choice")
 			_command({"type": "next-day", "choice": "rest"})
@@ -228,6 +264,8 @@ func _test_chat_first_open() -> void:
 	var initial: Dictionary = Simulation.initial_state()
 	var loaded: Dictionary = initial.duplicate(true)
 	var first_packet: Dictionary = Catalog.request_at(0)
+	loaded = Simulation.advance(loaded, 20)
+	loaded = Simulation.dispatch(loaded, {"type": "select-request", "pr_id": str(first_packet.id)})
 	for id: String in first_packet.violations:
 		loaded = Simulation.dispatch(loaded, {"type": "toggle-rule", "rule_id": id})
 	loaded = Simulation.dispatch(loaded, {"type": "review", "verdict": "approve" if first_packet.violations.is_empty() else "request_changes"})

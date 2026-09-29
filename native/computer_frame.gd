@@ -7,6 +7,7 @@ var _elapsed := 0.0
 var _day := 1
 var _autonomy := 0
 var _hardware_font: Font
+var _day_minutes := 540
 
 
 static func get_screen_rect(surface_size: Vector2) -> Rect2:
@@ -42,6 +43,17 @@ func set_story(day: int, autonomy: int) -> void:
 	_day = maxi(1, day)
 	_autonomy = clampi(autonomy, 0, 100)
 	queue_redraw()
+
+
+func set_time_of_day(minutes: int) -> void:
+	_day_minutes = clampi(minutes, 540, 1080)
+	queue_redraw()
+
+
+func _sky_color() -> Color:
+	if _day_minutes < 840:
+		return Color("708e9f").lerp(Color("48687f"), float(_day_minutes - 540) / 300.0)
+	return Color("48687f").lerp(Color("182339"), float(_day_minutes - 840) / 240.0)
 
 
 func _sync_processing() -> void:
@@ -100,7 +112,7 @@ func _draw_room() -> void:
 	var desk_y := room_size.y - 62
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(2, 2))
 	draw_rect(Rect2(Vector2.ZERO, room_size), Color("172431"))
-	draw_rect(Rect2(12, 10, room_size.x - 24, desk_y - 20), Color("38566b"))
+	draw_rect(Rect2(12, 10, room_size.x - 24, desk_y - 20), _sky_color())
 	# Two depths of skyline remain visible above and beside the monitor.
 	for building in range(20):
 		var x := building * 37 - 12
@@ -108,7 +120,7 @@ func _draw_room() -> void:
 		draw_rect(Rect2(x, roof, 27, maxf(0, desk_y - roof)), Color("293f52"))
 		for floor_index in range(12):
 			if (building + floor_index) % 3 == 0:
-				draw_rect(Rect2(x + 5, roof + 5 + floor_index * 9, 3, 2), Color("738a98"))
+				draw_rect(Rect2(x + 5, roof + 5 + floor_index * 9, 3, 2), Color("738a98").lerp(Color("e0c795"), clampf(float(_day_minutes - 840) / 240.0, 0, 1)))
 	for building in range(9):
 		var x := building * 83 + 9
 		var roof := 96 + (building * 23) % 47
@@ -117,7 +129,7 @@ func _draw_room() -> void:
 	for index in range(70):
 		var x := 16 + (index * 47) % maxi(1, int(room_size.x - 32))
 		var y := 12 + (index * 29 + travel) % maxi(1, int(desk_y - 26))
-		draw_rect(Rect2(x, y, 1, 4 + index % 6), Color("779aaa"))
+		draw_rect(Rect2(x, y, 1, 4 + index % 6), Color("a6bac3").lerp(Color("627f98"), float(_day_minutes - 540) / 540.0))
 		if index % 4 == 0:
 			draw_rect(Rect2(x - 1, y + 1, 1, 2), Color("567a90"))
 	# Substantial window frame and sill establish an office around the screen.

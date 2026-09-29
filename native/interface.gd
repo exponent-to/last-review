@@ -6,7 +6,9 @@ signal save_requested
 signal load_requested
 signal reset_requested
 signal motion_changed(enabled: bool)
+signal pause_requested
 
+const Simulation = preload("res://native/simulation.gd")
 const ComputerFrame = preload("res://native/computer_frame.gd")
 const DesktopWindow = preload("res://native/desktop_window.gd")
 const Chat = preload("res://content/chat.gd")
@@ -70,6 +72,11 @@ var _pr_title: Label
 var _pr_context: Label
 var _packet_scroll: ScrollContainer
 var _file_label: Label
+var _file_picker: OptionButton
+var _review_files: Array = []
+var _file_positions: Dictionary = {}
+var _selected_files: Dictionary = {}
+var _displayed_file_key: String = ""
 var _diff: CodeEdit
 var _search: LineEdit
 var _category: OptionButton
@@ -89,6 +96,13 @@ var _last_pr: String = ""
 var _last_day: int = -1
 var _notice_generation: int = 0
 var _workspace_presented: bool = false
+var _clock_label: Label
+var _pause_button: Button
+var _pause_overlay: ColorRect
+var _resume_button: Button
+var _paused: bool = false
+var _chat_replies: VBoxContainer
+var _chat_reply_pr: String = ""
 
 
 func _ready() -> void:
@@ -108,6 +122,7 @@ func _ready() -> void:
 	_build_os_menu(frame)
 	_build_desktop(frame)
 	_build_dock(frame)
+	_build_pause_overlay()
 	_toast = PanelContainer.new()
 	_toast.visible = false
 	_toast.z_index = 50
@@ -151,6 +166,46 @@ func _build_os_menu(parent: Node) -> void:
 	_spacer(row)
 	_hud["day"] = _label(row, "MONDAY", 12, Color("18212b"))
 	_hud["status"] = _footer
+	_clock_label = _label(row, "09:00", 14, Color("18212b"))
+	_clock_label.custom_minimum_size.x = 50
+	_clock_label.tooltip_text = "Shift: 09:00–18:00. Six real minutes. Pause stops the clock."
+	_pause_button = _button(row, "PAUSE", func() -> void: pause_requested.emit())
+	_pause_button.add_theme_font_size_override("font_size", 11)
+	_pause_button.tooltip_text = "Pause the workday (Esc)"
+
+
+func _build_pause_overlay() -> void:
+	_pause_overlay = ColorRect.new()
+	_pause_overlay.color = Color("101824")
+	_pause_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pause_overlay.z_index = 100
+	_pause_overlay.hide()
+	_monitor_screen.add_child(_pause_overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pause_overlay.add_child(center)
+	var box := _column(center, 18)
+	_label(box, "WORKDAY PAUSED", 24, TEXT)
+	_paragraph(box, "Your clock is stopped.
+Resume when you're ready.", 15, DIM)
+	_resume_button = _button(box, "RESUME SHIFT", func() -> void: pause_requested.emit())
+
+
+func set_paused(paused: bool) -> void:
+	_paused = paused
+	_pause_overlay.visible = paused
+	_pause_button.text = "RESUME" if paused else "PAUSE"
+	if paused:
+		_resume_button.grab_focus()
+	else:
+		focus_workspace()
+
+
+func render_clock(state: Dictionary) -> void:
+	var minutes: int = Simulation.clock_minutes(state)
+	_clock_label.text = "%02d:%02d" % [int(minutes / 60), minutes % 60]
+	_clock_label.add_theme_color_override("font_color", Color("842e3d") if minutes >= 17 * 60 else Color("18212b"))
+	_pause_button.disabled = str(state.get("phase", "review")) != "review"
 
 
 func _build_theme() -> Theme:
@@ -409,6 +464,14 @@ func _build_review_content(code: VBoxContainer) -> void:
 	code.add_child(packet_scroll)
 	_pr_context = _paragraph(packet_scroll, "", 13, DIM)
 	_file_label = _paragraph(code, "", 12, CYAN)
+	_file_label.hide()
+	_file_picker = OptionButton.new()
+	_file_picker.fit_to_longest_item = false
+	_file_picker.disabled = true
+	_file_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_file_picker.add_theme_font_size_override("font_size", 12)
+	_file_picker.item_selected.connect(_select_file)
+	code.add_child(_file_picker)
 	_diff = CodeEdit.new()
 	_diff.name = "PullRequestDiff"
 	_diff.editable = false
@@ -421,6 +484,57 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_diff.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	_diff.custom_minimum_size.y = 130
 	code.add_child(_diff)
+
+
+func _remember_file_position() -> void:
+	if not _displayed_file_key.is_empty():
+		_file_positions[_displayed_file_key] = {"line": _diff.get_caret_line(), "column": _diff.get_caret_column(), "vertical": _diff.scroll_vertical, "horizontal": _diff.scroll_horizontal}
+
+
+func _set_review_files(request: Dictionary) -> void:
+	_remember_file_position()
+	_displayed_file_key = ""
+	_review_files = request.get("files", [{"path": str(request.get("file", "")), "diff": str(request.get("diff", ""))}]).duplicate(true) if not request.is_empty() else []
+	_file_picker.clear()
+	for entry: Dictionary in _review_files:
+		_file_picker.add_item(str(entry.get("path", "")))
+	_file_picker.disabled = _review_files.is_empty()
+	if _review_files.is_empty():
+		_diff.text = ""
+		return
+	var selected: int = clampi(int(_selected_files.get(_last_pr, 0)), 0, _review_files.size() - 1)
+	_file_picker.select(selected)
+	_select_file(selected)
+
+
+func _select_file(index: int) -> void:
+	if index < 0 or index >= _review_files.size():
+		return
+	_remember_file_position()
+	_file_picker.select(index)
+	_selected_files[_last_pr] = index
+	var entry: Dictionary = _review_files[index]
+	var path: String = str(entry.get("path", ""))
+	_displayed_file_key = _last_pr + "/" + path
+	_file_label.text = path
+	_file_picker.tooltip_text = "Changed file: " + path + " — review all files before signing off."
+	_diff.text = str(entry.get("diff", ""))
+	_diff.set_caret_line(0)
+	_diff.set_caret_column(0)
+	_diff.scroll_vertical = 0
+	_diff.scroll_horizontal = 0
+	_restore_file_position.call_deferred(_displayed_file_key)
+
+
+func _restore_file_position(key: String) -> void:
+	await get_tree().process_frame
+	if key != _displayed_file_key:
+		return
+	var previous: Dictionary = _file_positions.get(key, {})
+	_diff.set_caret_line(int(previous.get("line", 0)))
+	_diff.set_caret_column(int(previous.get("column", 0)))
+	_diff.scroll_vertical = float(previous.get("vertical", 0.0))
+	_diff.scroll_horizontal = int(previous.get("horizontal", 0))
 
 
 func _build_dock(parent: Node) -> void:
@@ -594,7 +708,7 @@ func _build_decision(parent: Node) -> void:
 	holder.custom_minimum_size.x = 240
 	_label(holder, "REVIEW DISPOSITION", 13, CYAN)
 	var column: VBoxContainer = _scroll_column(holder)
-	_paragraph(column, "Approve clean work. For changes, cite every violated rule.", 13, DIM)
+	_paragraph(column, "Review every changed file. Approve the whole PR, or cite every violated rule.", 13, DIM)
 	_selected_label = _paragraph(column, "CITATIONS: NONE", 13)
 	_clear_button = _button(column, "CLEAR CITATIONS", _clear_citations)
 	_approve = _button(column, "APPROVE", _emit_command.bind({"type": "review", "verdict": "approve"}))
@@ -639,6 +753,8 @@ func _build_chat(page: VBoxContainer) -> void:
 	_chat_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	conversation.add_child(_chat_scroll)
 	_chat_messages = _column(_chat_scroll, 10)
+	_chat_replies = _column(conversation, 4)
+	_chat_replies.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
 func _select_chat_contact(contact: String) -> void:
@@ -658,6 +774,8 @@ func _render_chat() -> void:
 		var messages: Array = Chat.messages(_state, contact)
 		var signature: String = JSON.stringify(messages)
 		if str(_chat_signatures.get(contact, "")) != signature:
+			if _chat_signatures.has(contact) and not (window.visible and contact == _chat_contact) and str(_state.get("phase", "")) == "review":
+				notify(("#engineering" if contact == "company" else contact) + " sent a message in SLOUCH.")
 			_chat_signatures[contact] = signature
 			_chat_unread[contact] = not messages.is_empty() and not (window.visible and contact == _chat_contact)
 	if window.visible:
@@ -685,7 +803,14 @@ func _update_chat_badges() -> void:
 
 func _draw_chat(contact_changed: bool = false) -> void:
 	var messages: Array = Chat.messages(_state, _chat_contact)
-	var key: String = _chat_contact + JSON.stringify(messages)
+	var options: Array = Chat.reply_options(_state, _chat_contact)
+	var reply_targets: Array[String] = []
+	for option: Dictionary in options:
+		if str(option.pr_id) not in reply_targets:
+			reply_targets.append(str(option.pr_id))
+	if _chat_reply_pr not in reply_targets:
+		_chat_reply_pr = "" if reply_targets.is_empty() else reply_targets[0]
+	var key: String = _chat_contact + JSON.stringify(messages) + JSON.stringify(options) + _chat_reply_pr
 	if key == _chat_last_draw and not contact_changed:
 		return
 	_chat_last_draw = key
@@ -703,9 +828,47 @@ func _draw_chat(contact_changed: bool = false) -> void:
 		var body: VBoxContainer = _column(_margin(panel, 10, 8), 5)
 		_label(body, str(message.get("author", "")), 13, CYAN)
 		_paragraph(body, str(message.get("text", "")), 14, TEXT)
+		if message.has("pr_id"):
+			var pr_id: String = str(message.pr_id)
+			var link := _button(body, "OPEN " + pr_id + "  →", _open_pr_link.bind(pr_id))
+			link.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			link.add_theme_font_size_override("font_size", 12)
+			link.add_theme_color_override("font_color", CYAN)
 	if messages.is_empty():
 		_paragraph(_chat_messages, "No messages in this conversation yet.", 14, DIM)
+	for child: Node in _chat_replies.get_children():
+		_chat_replies.remove_child(child)
+		child.queue_free()
+	if not options.is_empty():
+		var reply_header := _row(_chat_replies, 8)
+		_label(reply_header, "ASK ABOUT", 10, DIM)
+		var target := OptionButton.new()
+		target.add_theme_font_size_override("font_size", 11)
+		for pr_id: String in reply_targets:
+			target.add_item(pr_id)
+		target.select(reply_targets.find(_chat_reply_pr))
+		target.item_selected.connect(func(index: int) -> void:
+			_chat_reply_pr = reply_targets[index]
+			_draw_chat())
+		reply_header.add_child(target)
+	for option: Dictionary in options:
+		if str(option.pr_id) != _chat_reply_pr:
+			continue
+		var reply := _button(_chat_replies, str(option.text), _emit_command.bind({"type": "chat-reply", "contact": _chat_contact, "reply_id": str(option.id), "pr_id": str(option.pr_id)}))
+		reply.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		reply.add_theme_font_size_override("font_size", 12)
+		reply.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		reply.tooltip_text = str(option.text)
 	_set_chat_scroll.call_deferred(follow_latest, previous_position, key)
+
+
+func _open_pr_link(pr_id: String) -> void:
+	for request: Dictionary in Simulation.available_requests(_state):
+		if str(request.id) == pr_id:
+			_emit_command({"type": "select-request", "pr_id": pr_id})
+			_open_app("review")
+			return
+	notify("This review is closed. Its conversation remains in SLOUCH.")
 
 
 func _set_chat_scroll(follow_latest: bool, previous_position: int, draw_key: String) -> void:
@@ -721,7 +884,7 @@ func _set_chat_scroll(follow_latest: bool, previous_position: int, draw_key: Str
 func _build_system(page: VBoxContainer) -> void:
 	var content: VBoxContainer = _scroll_column(page)
 	_label(content, "LOCAL RECORD", 16, CYAN)
-	_paragraph(content, "One save slot on this computer. Reading and searching never advance game time.", 14, DIM)
+	_paragraph(content, "One local save slot. Each shift lasts six real minutes, from 09:00 to 18:00. Reading code and Slouch messages uses time. Pause with Esc or the desktop clock control. Switching away pauses automatically.", 14, DIM)
 	var saves: HBoxContainer = _row(content)
 	_button(saves, "SAVE RUN", func() -> void: save_requested.emit())
 	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
@@ -734,7 +897,7 @@ func _build_system(page: VBoxContainer) -> void:
 	content.add_child(motion)
 	_paragraph(content, "Disable decorative animation without changing the review simulation.", 14, DIM)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Read the previous-review audit before moving on.\n\nAI advice is optional and fallible. When the shift closes, settle your pay and choose how to spend the evening.", 14, DIM)
+	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Read the previous-review audit before moving on.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Settle your pay and choose how to spend the evening.", 14, DIM)
 
 
 func _emit_command(command: Dictionary) -> void:
@@ -776,14 +939,16 @@ func _filter_rules() -> void:
 
 func render_state(state: Dictionary) -> void:
 	_state = state.duplicate(true)
+	render_clock(state)
 	var day: int = int(state.get("day", 1))
 	var phase: String = str(state.get("phase", "review"))
-	var index: int = int(state.get("request_index", 0))
 	var selected: Array = state.get("selected_rules", [])
 	var consulted: bool = bool(state.get("consulted", false))
+	var active_request: Dictionary = Simulation.active_request(state)
+	var can_review: bool = phase == "review" and not active_request.is_empty()
 	var day_names: Array[String] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
 	_hud["day"].text = day_names[(day - 1) % day_names.size()]
-	_hud["status"].text = "HUMAN SIGN-OFF REQUESTED" if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED"
+	_hud["status"].text = ("HUMAN SIGN-OFF REQUESTED" if can_review else "INCOMING WORK / SLOUCH") if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED"
 	if day != _last_day:
 		_last_day = day
 		var briefing: String = Catalog.briefing(day)
@@ -795,14 +960,14 @@ func render_state(state: Dictionary) -> void:
 		var rule: Dictionary = entry["rule"]
 		var check: CheckBox = entry["check"]
 		check.set_pressed_no_signal(selected.has(str(rule.get("id", ""))))
-		check.disabled = phase != "review"
+		check.disabled = not can_review
 	_selected_label.text = "CITATIONS: " + ("NONE" if selected.is_empty() else ", ".join(selected))
-	_clear_button.disabled = selected.is_empty() or phase != "review"
-	_approve.disabled = not selected.is_empty() or phase != "review"
+	_clear_button.disabled = selected.is_empty() or not can_review
+	_approve.disabled = not selected.is_empty() or not can_review
 	_approve.tooltip_text = "Clear citations before approving." if not selected.is_empty() else "Approve this pull request."
-	_reject.disabled = selected.is_empty() or phase != "review"
+	_reject.disabled = selected.is_empty() or not can_review
 	_reject.tooltip_text = "Cite at least one rule first." if selected.is_empty() else "Request changes for every cited rule."
-	_consult.disabled = consulted or phase != "review"
+	_consult.disabled = consulted or not can_review
 	if phase != _last_phase:
 		var previous_phase: String = _last_phase
 		_last_phase = phase
@@ -815,19 +980,22 @@ func render_state(state: Dictionary) -> void:
 		_update_dock()
 	if phase == "review":
 		# Deliberately never read audit-only violations or explanation here.
-		var request: Dictionary = Catalog.request_at(index)
+		var request: Dictionary = active_request
 		var request_id: String = str(request.get("id", ""))
-		if request_id != _last_pr:
+		if request.is_empty():
+			_last_pr = ""
+			_pr_id.text = "REVIEW / NO PR OPEN"
+			_pr_title.text = "Check SLOUCH for review requests"
+			_pr_context.text = "Coworkers send links as their work is ready. Open a PR from its conversation. The workday clock continues while you read."
+			_file_label.text = ""
+			if not _review_files.is_empty() or not _diff.text.is_empty():
+				_set_review_files({})
+		if not request_id.is_empty() and request_id != _last_pr:
 			_last_pr = request_id
 			_pr_id.text = "%s / AWAITING REVIEW" % request_id
 			_pr_title.text = str(request.get("title", ""))
 			_pr_context.text = "%s: %s\n\n%s" % [str(request.get("author", "")), str(request.get("message", "")), str(request.get("description", ""))]
-			_file_label.text = str(request.get("file", ""))
-			_diff.text = str(request.get("diff", ""))
-			_diff.set_caret_line(0)
-			_diff.set_caret_column(0)
-			_diff.scroll_vertical = 0
-			_diff.scroll_horizontal = 0
+			_set_review_files(request)
 			_packet_scroll.scroll_vertical = 0
 		_ai_note.text = "Helios can take a look. Its advice may be wrong, and using it gives the assistant more influence."
 		if consulted:
@@ -863,6 +1031,8 @@ func _render_phase(state: Dictionary) -> void:
 	if phase == "debrief":
 		_phase_title.text = "SHIFT CLOSED / PAYROLL RECORD"
 		_phase_detail.text = "PAY $%d     EXPENSES $%d     BALANCE $%d\n\nYour reviews have been filed. The team is signing off.\n\nChoose how to spend the evening.\nREST: Go home and get some sleep.\nSOCIALIZE: Buy dinner with your coworkers.\nSTUDY: Stay up with the standards manual." % [int(debrief.get("pay", 0)), int(debrief.get("expenses", 0)), int(debrief.get("balance", state.get("credits", 0)))]
+		if bool(debrief.get("timed_out", false)):
+			_phase_detail.text += "\n\nClosing time. Helios has taken the unfinished reviews; your pay reflects your completed work."
 	else:
 		_phase_title.text = "ASSIGNMENT / FINAL RECORD"
 		var ending: String = "Human review is retained, under closer observation."
