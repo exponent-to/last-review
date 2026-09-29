@@ -1,6 +1,6 @@
 # Browser build
 
-Live release: [travis.show/last-review/](https://travis.show/last-review/). The website repository is `TravisGibbs/blog`; its existing Fly.io workflow publishes main. `public/last-review/` contains the tested static export, with a file-hash manifest and update instructions under that repository’s `docs/`.
+Live release: [travis.show/prs-please/](https://travis.show/prs-please/). The website repository is `TravisGibbs/blog`; its existing Fly.io workflow publishes main. `public/prs-please/` contains the tested static export, with a file-hash manifest and update instructions under that repository’s `docs/`.
 
 The same Godot game can be exported for desktop browsers alongside the native macOS app. The Web preset uses the existing Compatibility renderer, WebGL 2.0, and the single-threaded Godot 4.7.2 runtime. It does not embed a browser in the native game or change the native export preset.
 

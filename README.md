@@ -6,7 +6,7 @@ The playable slice opens at a main menu with New Game and Load Game. New Game op
 
 ## Play
 
-[Play in your desktop browser](https://travis.show/last-review/). Browser progress is saved locally and is separate from the native app.
+[Play in your desktop browser](https://travis.show/prs-please/). Browser progress is saved locally and is separate from the native app.
 
 Open `build/PRs please.app`, or run from source:
 
