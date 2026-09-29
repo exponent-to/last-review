@@ -1,22 +1,28 @@
-# Interface foundation
+# Native desktop interface
 
-`src/ui/index.ts` exports `createInterface(root, callbacks)`. It builds a stable DOM and returns the workshop `canvas`, `render(state)`, `notify(message, isError?)`, and `destroy()`. The parent application owns state, simulation timing, renderer lifecycle, persistence, and command validation. The interface has no simulation timer.
+`native/interface.gd` extends Godot `Control` and constructs a stable native scene tree using containers, buttons, labels, and flat style boxes. It does not embed a browser or load web assets. The interface creates no simulation timer and does not own game state or storage.
 
-The four sections are functional: overview combines the scene, inventory, operations, and recent activity; production exposes the assembly line; ledger shows current inventory and recent events; settings manages browser saves and decorative motion. The header identity and copy are provisional and can be replaced without changing the simulation API.
+## Integration contract
 
-## Integration
+Instantiate the script, connect its signals, and add it to the scene tree. `_ready()` builds the interface. After that, the public `scene_host: Control` is available for mounting the decorative renderer, and `render_state(state: Dictionary)` updates the displayed state.
 
-- Call `render(state)` after state changes. Text, button state, and log items update without replacing navigation, canvas, or controls. The log is rebuilt only when its contents change, and event messages use `textContent`.
-- Commands are forwarded through `onCommand`. The UI disables purchases below the sample game's fixed costs ($30 for ten materials, $100 per worker), caps hiring at six workers, and requires goods for dispatch. The simulation must enforce the same rules.
-- `onSave`, `onLoad`, and `onReset` handle storage and reset. Use `notify` for their results, including errors. New game requires an inline confirmation before calling `onReset`.
-- `onMotion(enabled)` is called during construction and on subsequent motion-preference changes. Be prepared to receive it before `createInterface` returns. The initial value respects `prefers-reduced-motion`; an explicit checkbox choice takes precedence over later OS changes.
-- The canvas is decorative, rendered at its intrinsic resolution and scaled with pixelated sampling. The renderer may change its internal resolution; preserve an 8:3 scene composition or update the CSS aspect ratio to match.
-- `destroy()` removes DOM handlers and media-query listeners, clears pending notices, and empties the root. The application remains responsible for stopping animation and simulation clocks.
+Signals:
 
-The footer displays elapsed simulation ticks. A theme-specific calendar can replace that presentation once the relationship between ticks and days is established. Inventory sale value is the current finished-parts count multiplied by $12; it is not cumulative revenue.
+- `command_requested(command: Dictionary)` forwards production, purchase, dispatch, hiring, and speed commands.
+- `save_requested` and `load_requested` ask the application to manage its local save.
+- `reset_requested` fires only after the player confirms in a Godot `ConfirmationDialog`.
+- `motion_changed(enabled: bool)` controls decorative movement separately from simulation speed. Background motion defaults on; the checkbox emits on explicit user changes.
 
-## Design and accessibility
+`notify(message: String, is_error: bool = false)` shows a status message above the footer for eight seconds. New messages replace prior ones; older timers cannot dismiss newer messages. Use it for save/load success and errors. Storage paths and serialization remain application concerns.
 
-The visual system uses warm paper, navy ink, rust accents, square borders, compact monospaced labels, and restrained sans-serif body text. There are no generated images in the interface. System fonts keep the interface self-contained and usable offline. CSS adapts the side navigation into a horizontal row and collapses cards and inventories for narrow viewports.
+## Layout and state
 
-Controls are native buttons and inputs, with visible keyboard focus, pressed states, disabled states, and semantic navigation. Save/error notifications use a polite live region; routine tick and inventory changes are intentionally not announced. Reduced motion controls scenery only, leaving simulation time under the explicit pause/speed controls.
+The interface follows a restrained bureaucratic control-desk direction: charcoal/olive background, tan records, rust status labels, monospaced system text, and hard edges. Compact typography prioritizes operational data, with 15px native default text and smaller secondary labels. Buttons retain keyboard focus styles and provide disabled-state explanations through tooltips. SystemFont uses locally available Menlo, Courier New, or monospace; no fonts are downloaded.
+
+The top resource ticker and inset exterior scene remain visible above CONTROL, RECORDS, and SYSTEM tabs. CONTROL contains production orders and recent dispatch records. RECORDS contains the inventory statement and longer activity register. SYSTEM contains disk save/load, reset, and motion controls. Each tab scrolls vertically as needed while the scene and clock footer remain visible. `scene_host` has a 640×240 minimum; the renderer should fill its actual control size and preserve its intended pixel-art proportions.
+
+State keys match the simulation dictionary: `credits`, `materials`, `goods`, `workers`, `tick`, `speed`, `production`, and `log`. Rendering updates existing controls and only rewrites log text when the log changes. No player strings are parsed as rich text. The footer displays elapsed ticks without assuming a relationship to calendar days.
+
+The sample economy uses $30 for ten materials, $12 per finished part, $100 per additional worker, and a six-worker capacity. The UI disables unaffordable/unavailable actions; the simulation must independently enforce those same rules. Inventory sale value is current goods multiplied by $12, not cumulative revenue.
+
+No web fonts, HTML, CSS, browser runtime, generated images, or remote resources are required by this interface. Rename YARD and replace workshop copy as the game's theme becomes concrete.
