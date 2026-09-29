@@ -108,7 +108,9 @@ func _title_input(event: InputEvent) -> void:
 		if event.pressed:
 			focus_window()
 			_dragging = true
-			_drag_offset = get_global_mouse_position() - global_position
+			# GUI events are title-button-local; preserve the grab point in desktop space.
+			var viewport_point: Vector2 = title_button.get_global_transform_with_canvas() * event.position
+			_drag_offset = _desktop_point(viewport_point) - position
 		else:
 			_dragging = false
 	elif event is InputEventKey and event.pressed:
@@ -132,17 +134,28 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if not event.pressed:
 			_dragging = false
-		elif get_global_rect().has_point(get_global_mouse_position()) and _is_top_window_at_pointer():
+		elif _contains_viewport_point(self, event.position) and _is_top_window_at_pointer(event.position):
 			focus_window()
 	elif event is InputEventMouseMotion and _dragging:
-		global_position = get_global_mouse_position() - _drag_offset
+		# Use the delivered motion coordinates, not the separately polled OS cursor.
+		position = _desktop_point(event.position) - _drag_offset
 		clamp_to_desktop()
 
 
-func _is_top_window_at_pointer() -> bool:
+func _desktop_point(viewport_point: Vector2) -> Vector2:
+	var desktop := get_parent() as Control
+	return desktop.get_global_transform_with_canvas().affine_inverse() * viewport_point
+
+
+func _contains_viewport_point(control: Control, viewport_point: Vector2) -> bool:
+	var local_point := control.get_global_transform_with_canvas().affine_inverse() * viewport_point
+	return Rect2(Vector2.ZERO, control.size).has_point(local_point)
+
+
+func _is_top_window_at_pointer(viewport_point: Vector2) -> bool:
 	var siblings: Array[Node] = get_parent().get_children()
 	siblings.reverse()
 	for sibling: Node in siblings:
-		if sibling is PanelContainer and sibling.visible and sibling.get_global_rect().has_point(get_global_mouse_position()):
+		if sibling is PanelContainer and sibling.visible and _contains_viewport_point(sibling, viewport_point):
 			return sibling == self
 	return true
