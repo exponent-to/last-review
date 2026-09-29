@@ -12,5 +12,6 @@ Verified on Apple Silicon macOS with Godot 4.7.2.
 - All displayed Python diffs were executed with controlled stubs during content review; 16 behavioral assertions confirmed the authored defects and clean cases. The game itself never executes displayed code.
 - Native v3 save/load and backup recovery passed, including preservation of earlier v2 save files. The new authored schedule requires a fresh career.
 - The universal native macOS app exports with the bundled terminal font, its license, local JSON dialogue, and rasterized SVG scenery. No real browser, messaging service, or AI API is involved.
+- Packaged monitor build: verified HOME startup, Slouch icon launch, readable wrapped messages on first opening, pointer dragging, and maximize staying inside the monitor. Screenshots are saved under ignored `build/monitor-home.jpg` and `build/monitor-slouch.jpg`.
 
 Windows packaging, notarized distribution, audio, and comprehensive assistive-technology support remain outside this milestone. Pointer and keyboard interaction are supported; screen-reader support is not claimed.
