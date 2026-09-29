@@ -21,9 +21,24 @@ func _check(condition: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 
+func _first_request_state() -> Dictionary:
+	var state: Dictionary = Simulation.advance(Simulation.initial_state(), 20)
+	return Simulation.dispatch(state, {"type": "select-request", "pr_id": Catalog.request_at(0).id})
+
 func _resolve(state: Dictionary) -> Dictionary:
 	var current: Dictionary = state
-	var request: Dictionary = Catalog.request_at(int(state.request_index))
+	var pending: Array = Simulation.available_requests(current)
+	if pending.is_empty():
+		var next: Dictionary = Catalog.request_at(int(current.request_index))
+		if next.is_empty() or int(next.day) != int(current.day):
+			return Simulation.advance(current, Simulation.SHIFT_SECONDS)
+		current = Simulation.advance(current, Catalog.arrival_seconds(next.id) - int(current.shift_seconds))
+		pending = Simulation.available_requests(current)
+	current = Simulation.dispatch(current, {"type": "select-request", "pr_id": pending[0].id})
+	var request: Dictionary = {}
+	for packet: Dictionary in Catalog.requests():
+		if packet.id == current.active_request_id:
+			request = packet
 	for rule_id: String in request.violations:
 		current = Simulation.dispatch(current, {"type": "toggle-rule", "rule_id": rule_id})
 	return Simulation.dispatch(current, {"type": "review", "verdict": "approve" if request.violations.is_empty() else "request_changes"})
@@ -37,9 +52,9 @@ func _round_trip(state: Dictionary) -> void:
 	_check(loaded.ok and loaded.state == state, "JSON float numbers must validate and round-trip.")
 
 func _test_reviews() -> void:
-	var initial: Dictionary = Simulation.initial_state()
+	var initial: Dictionary = _first_request_state()
 	_check(initial.credits == 120 and initial.trust == 70 and initial.stress == 20 and initial.autonomy == 10, "Initial resources must match the career design.")
-	_check(Simulation.advance(initial, 99999) == initial, "Reading must never have a time penalty.")
+	_check(Simulation.advance(initial, 0) == initial, "A paused clock must not change the game.")
 	_check(Simulation.dispatch(initial, {"type": "review", "verdict": "request_changes"}) == initial, "Rejection without citations must not advance.")
 	_check(Simulation.dispatch(initial, {"type": "toggle-rule", "rule_id": "MISSING"}) == initial, "Unknown rules must not be selected.")
 	for rule: Dictionary in Catalog.rules():
@@ -94,6 +109,8 @@ func _test_career() -> void:
 			processed += 1
 			_check(state.request_index == processed, "Each valid submission must advance exactly one request.")
 			_round_trip(state)
+		_check(state.phase == "review", "Clearing current work must not close the shift before the deadline.")
+		state = Simulation.advance(state, Simulation.SHIFT_SECONDS)
 		_check(state.phase == "debrief" and state.day == day, "The final authored PR in a shift must enter that day's debrief.")
 		_check(state.last_debrief.pay == 80 + 10 * shift_size and state.last_debrief.expenses == 90 and state.last_debrief.correct == shift_size and state.last_debrief.reviewed == shift_size, "Daily pay must reflect audit correctness.")
 		expected_credits += 80 + 10 * shift_size - 90
@@ -105,19 +122,20 @@ func _test_career() -> void:
 		state = Simulation.dispatch(state, {"type": "next-day", "choice": "rest"})
 		_round_trip(state)
 	_check(state.phase == "complete" and state.request_index == Catalog.requests().size() and state.day == Catalog.campaign_days()[-1], "Career must finish safely after three shifts and evening choices.")
-	_check(state.decisions.size() == Catalog.requests().size() and state.decisions[-1].evening_choice == "rest", "Final evening choice must be recorded and applied.")
+	_check(state.decisions.size() == Catalog.requests().size() and state.shift_history[-1].evening_choice == "rest", "Final evening choice must be recorded and applied.")
 	for command: Dictionary in [{"type": "review", "verdict": "approve"}, {"type": "next-day", "choice": "socialize"}, {"type": "consult-ai"}]:
 		_check(Simulation.dispatch(state, command) == state, "Complete careers must not accept more rewards or decisions.")
 	var debrief: Dictionary = Simulation.initial_state()
 	for _i in range(Catalog.requests_for_day(int(debrief.day)).size()):
-		debrief = Simulation.dispatch(debrief, {"type": "review", "verdict": "approve"})
+		debrief = _resolve(debrief)
+	debrief = Simulation.advance(debrief, Simulation.SHIFT_SECONDS)
 	var social: Dictionary = Simulation.dispatch(debrief, {"type": "next-day", "choice": "socialize"})
 	_check(social.credits == debrief.credits - 15 and social.coworkers.Maya == mini(100, debrief.coworkers.Maya + 4), "Socializing must charge once and improve relationships.")
 	_round_trip(social)
 	var studied: Dictionary = Simulation.dispatch(debrief, {"type": "next-day", "choice": "study"})
 	_check(studied.trust == mini(100, debrief.trust + 4) and studied.stress == mini(100, debrief.stress + 4), "Studying must improve trust at a stress cost.")
 	_round_trip(studied)
-	var maximum_stress: Dictionary = Simulation.initial_state()
+	var maximum_stress: Dictionary = _first_request_state()
 	maximum_stress.stress = 100
 	maximum_stress.trust = 0
 	var stressed: Dictionary = Simulation.dispatch(maximum_stress, {"type": "review", "verdict": "approve"})
@@ -126,14 +144,14 @@ func _test_career() -> void:
 func _test_saves() -> void:
 	var initial: Dictionary = Simulation.initial_state()
 	_round_trip(initial)
-	var selected: Dictionary = Simulation.dispatch(initial, {"type": "toggle-rule", "rule_id": Catalog.rules_for_day(1)[0].id})
+	var selected: Dictionary = Simulation.dispatch(_first_request_state(), {"type": "toggle-rule", "rule_id": Catalog.rules_for_day(1)[0].id})
 	selected = Simulation.dispatch(selected, {"type": "consult-ai"})
 	_round_trip(selected)
 	for value: Variant in [null, [], true, 42, "save", {"version": 1}, {"version": 2}]:
 		_check(not Simulation.validate_save(value).ok, "Invalid types and workshop saves must be rejected.")
 	_check("workshop" in Simulation.validate_save({"version": 1}).error, "Old save rejection must explain the incompatible workshop format.")
 	_check("preserved" in Simulation.validate_save({"version": 2}).error, "Old review saves must explain changed schedules and preservation.")
-	_check(SaveStore.SAVE_PATH == "user://review-save-v3.json", "Version 3 must not overwrite version 2 saves.")
+	_check(SaveStore.SAVE_PATH == "user://review-save-v4.json", "Version 4 must not overwrite earlier saves.")
 	var corruptions: Array = [
 		["version", true], ["day", 4], ["day", 0], ["request_index", 1], ["request_index", 0.5],
 		["credits", 121], ["credits", -10000], ["credits", INF], ["trust", NAN],
@@ -206,8 +224,9 @@ func _test_schedule_override() -> void:
 	for day: int in [2, 5]:
 		var reviewed: int = 0
 		while state.phase == "review":
+			var before_count: int = state.decisions.size()
 			state = _resolve(state)
-			reviewed += 1
+			reviewed += state.decisions.size() - before_count
 		_check(state.day == day and state.last_debrief.reviewed == reviewed, "Alternate schedules must derive their own debrief boundaries.")
 		_round_trip(state)
 		state = Simulation.dispatch(state, {"type": "next-day", "choice": "rest"})
