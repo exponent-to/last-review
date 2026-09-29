@@ -8,8 +8,8 @@ const Clock = preload("res://native/clock.gd")
 
 var state: Dictionary = {}
 var clock = Clock.new()
-var interface: Control
-var scenery: Control
+var interface: GameInterface
+var scenery: WorkshopScene
 var focused: bool = true
 
 func _ready() -> void:
@@ -60,7 +60,7 @@ func _on_load() -> void:
 	state = result.state
 	clock.reset()
 	_render()
-	interface.notify("Saved game loaded.")
+	interface.notify(str(result.error) if not str(result.get("error", "")).is_empty() else "Saved game loaded.")
 
 func _on_reset() -> void:
 	state = Simulation.initial_state()

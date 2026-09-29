@@ -1,31 +1,33 @@
-# Framework boundaries
+# Native game architecture
 
-The application uses TypeScript, native HTML/CSS menus, and Canvas 2D for decorative scenery. Vite supplies the development server and build; Vitest checks game rules and timing. Native controls keep the menu layer accessible and avoid a runtime UI framework dependency at this early stage.
+Godot 4.7.2 provides the native desktop window, Control-based menus, texture rendering, input, and application export. GDScript game rules are independent of scene nodes and drawing.
 
 ## Data flow
 
-Player input → typed command → pure state transition → interface render.
+Native button → command dictionary → pure state transition → update existing Control values.
 
-Animation frame → bounded clock accumulator → whole simulation ticks → pure state transition → interface render.
+Frame delta → bounded fixed-step clock → whole simulation ticks → pure state transition.
 
-The scene receives only a working/idle signal and a motion preference. Its animation never changes resources, time, or production. SVGs are editable source assets; the renderer rasterizes them to small canvas buffers once and paints those buffers without image smoothing.
+The decorative workshop receives only working/idle and motion flags. SVG sources are rasterized once into native ImageTextures at their intrinsic low resolution. Integer scaling and nearest filtering keep source pixels square. Animation never changes gameplay.
 
-## Time
+## Timing and persistence
 
-The clock accumulates elapsed time and applies 0×, 1×, 2×, or 4× speed. The core's `advance` consumes the resulting whole ticks without multiplying speed again. Pausing clears fractional time; hidden tabs discard elapsed time. Frame gaps are capped at one second to avoid runaway catch-up after a stalled frame. Reduced scenery motion leaves simulation controls and time functional.
+The clock applies simulation speed exactly once, and the core consumes whole ticks. Time accumulation stops when the game window loses focus. Long frames are bounded to prevent runaway catch-up. There is no offline progress in this milestone.
 
-## State and persistence
+Simulation state is plain data with a versioned schema. Save parsing reconstructs known fields, checks numeric limits and enums, and rejects malformed data before replacing the active state. The filesystem adapter writes a temporary file and retains the previous save as a backup. Files live in Godot's `user://` application-data directory, not in the source checkout. On macOS the default is `~/Library/Application Support/Godot/app_userdata/Yard/`.
 
-State is plain, serializable data. Core transitions do not read the DOM, random values, wall-clock time, or browser storage. If random outcomes are added, store a seeded generator state and advance it explicitly.
+## Extension points
 
-Browser storage belongs to `main.ts`. Save parsing reconstructs and validates versioned data before replacing current state. A failed load preserves the current session. Storage failures are presented as menu feedback. Save migration should be added at the parsing boundary before incrementing the schema version.
+1. Replace the workshop state/commands with the actual simulation theme.
+2. Add pure transition tests for each player decision and invariant.
+3. Extend native menu views without putting rules in button handlers.
+4. Replace or expand SVG frame strips without coupling art to timing.
+5. Add explicit migrations before changing save schema versions.
 
-## Growing the game
+If randomness is introduced, store and advance an explicit seed. Avoid wall-clock time or scene state inside deterministic rules.
 
-1. Define a themed state shape and commands in the simulation module.
-2. Add rules as pure transitions and test their outcomes and invariants.
-3. Adapt menu labels and views to expose player decisions.
-4. Replace SVG assets or add sprite frames without changing simulation timing.
-5. Add a save migration whenever serialized state changes incompatibly.
+## Desktop builds
 
-Current deliberate limits: single local player, one browser-local save slot, example economy, no offline progression, no backend, no audio, and no desktop packaging. No hosted repository or public deployment is configured.
+`export_presets.cfg` exports a native universal macOS application using a project-local official template. `scripts/build-macos.sh` produces `build/Yard.app` and its ZIP. The local build uses ad-hoc signing; public distribution would require its own signing/notarization setup. Windows export is a later packaging task unless requested.
+
+Current scope: one local player, one manual disk-save slot plus backup, example economy, no audio, multiplayer, backend, or public distribution. The earlier web prototype is retained in Git history only.

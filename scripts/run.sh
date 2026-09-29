@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+if [ -n "${GODOT_BIN:-}" ]; then
+  engine="$GODOT_BIN"
+elif [ -x .tools/Godot.app/Contents/MacOS/Godot ]; then
+  engine="$PWD/.tools/Godot.app/Contents/MacOS/Godot"
+elif command -v godot >/dev/null 2>&1; then
+  engine="$(command -v godot)"
+elif [ -x /Applications/Godot.app/Contents/MacOS/Godot ]; then
+  engine=/Applications/Godot.app/Contents/MacOS/Godot
+else
+  echo "Install Godot 4.7.2, or set GODOT_BIN to its executable." >&2
+  exit 1
+fi
+exec "$engine" --path "$PWD" "$@"
