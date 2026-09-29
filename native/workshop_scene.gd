@@ -3,6 +3,7 @@ extends Control
 
 const SOURCE_SIZE := Vector2(320.0, 120.0)
 const ASSET_SIZES := {
+	"surroundings": Vector2i(640, 120),
 	"workshop": Vector2i(320, 120),
 	"cloud": Vector2i(47, 13),
 	"smoke": Vector2i(7, 5),
@@ -83,6 +84,7 @@ func _draw() -> void:
 		return
 	var offset := ((size - SOURCE_SIZE * pixel_scale) * 0.5).floor()
 	draw_set_transform(offset, 0.0, Vector2.ONE * pixel_scale)
+	draw_texture(_textures["surroundings"], Vector2(-160, 0))
 	draw_texture(_textures["workshop"], Vector2.ZERO)
 
 	var cloud_x := floorf(fposmod(_elapsed * 1.4 + 31.0, 367.0)) - 47.0

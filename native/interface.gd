@@ -98,9 +98,10 @@ func _build_theme() -> Theme:
 	result.set_font_size("font_size", "TabContainer", 14)
 	result.set_constant("separation", "VBoxContainer", 8)
 	result.set_constant("separation", "HBoxContainer", 8)
-	result.set_color("font_color", "CheckBox", INK)
-	result.set_color("font_hover_color", "CheckBox", INK)
-	result.set_color("font_pressed_color", "CheckBox", INK)
+	result.set_color("font_color", "CheckBox", PAPER_LIGHT)
+	result.set_color("font_hover_color", "CheckBox", PAPER_LIGHT)
+	result.set_color("font_pressed_color", "CheckBox", PAPER_LIGHT)
+	result.set_color("font_hover_pressed_color", "CheckBox", PAPER_LIGHT)
 	result.set_stylebox("focus", "CheckBox", focus)
 	return result
 

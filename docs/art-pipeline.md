@@ -7,6 +7,7 @@ The workshop is a provisional theme demonstrating a replaceable presentation lay
 | File | Source pixels | Purpose |
 | --- | --- | --- |
 | `art/workshop.svg` | 320 × 120 | Sky, hills, pines, buildings, crates, truck, and yard |
+| `art/surroundings.svg` | 640 × 120 | Landscape continuation for wider native windows |
 | `art/cloud.svg` | 47 × 13 | Two slowly drifting cloud instances |
 | `art/smoke.svg` | 7 × 5 | Three chimney puffs while the workshop is working |
 | `art/worker.svg` | 32 × 22 | Two horizontal 16 × 22 worker frames, left foot then right foot |
@@ -19,7 +20,7 @@ The adjacent `.svg.import` files set `importer="keep"`, corresponding to Godot's
 
 `native/workshop_scene.gd` extends Godot `Control`. In `_ready()`, it reads each SVG using `FileAccess.get_file_as_string`, rasterizes it at scale 1.0 using `Image.load_svg_from_string`, validates its size, and creates one `ImageTexture`. Godot documents this conversion in its [Image API](https://docs.godotengine.org/en/stable/classes/class_image.html#class-image-method-load-svg-from-string).
 
-The Control draws these cached raster textures on a 320 × 120 logical grid through `_draw()`. It disables texture smoothing with `TEXTURE_FILTER_NEAREST`, uses integer sprite positions, and scales the artwork by the largest fitting integer factor. The minimum requested size is 640 × 240. Larger layouts center the artwork in a muted green letterbox; clouds are clipped to the artwork edge. If a host forcibly provides less than the source size, the renderer shrinks to fit while preserving the 8:3 aspect ratio.
+The Control draws these cached raster textures around a 320 × 120 central logical grid through `_draw()`. It disables texture smoothing with `TEXTURE_FILTER_NEAREST`, uses integer sprite positions, and scales the artwork by the largest fitting integer factor. The minimum requested size is 640 × 240. A wider SVG landscape continues behind the central workshop, filling the standard desktop window without stretching pixels. Clouds are clipped to the central artwork edge. If a host forcibly provides less than the source size, the renderer shrinks to fit while preserving the 8:3 aspect ratio.
 
 Worker frames advance at three frames per second. Clouds and smoke advance slowly in discrete pixels. `_process(delta)` controls decoration only: simulation state and elapsed game time must never depend on it.
 
