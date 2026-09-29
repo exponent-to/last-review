@@ -6,6 +6,8 @@ The playable slice opens with a terminal onboarding sequence, then a computer de
 
 ## Play
 
+[Play in your desktop browser](https://travis.show/last-review/). Browser progress is saved locally and is separate from the native app.
+
 Open `build/Last Review.app`, or run from source:
 
 ```sh
