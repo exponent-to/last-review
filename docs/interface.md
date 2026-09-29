@@ -76,3 +76,5 @@ Morning state is presentation-only. A saved career at 09:00 reopens the morning 
 The morning desktop bar exposes **Begin Shift** next to 09:00, enabled after opening the daily memo. It stays outside application windows and restores Pause when work begins.
 
 Hackerish News uses original fictional launch posts, personal write-ups, and technical arguments. Tone references consulted: [HN front page](https://news.ycombinator.com/), [platform-team discussion](https://news.ycombinator.com/item?id=49878857), and [Show HN discussion](https://news.ycombinator.com/item?id=49891769). No live headlines or comments are imported into the game.
+
+New Game and Load Game open a three-slot chooser. Slot 1 reads the original save path for compatibility. Creating a run immediately saves its orientation state; subsequent saves target that active slot. Occupied-slot replacement is confirmed in the menu, and each slot retains its own backup. System shows the current slot; New Run saves current progress before returning to the chooser.

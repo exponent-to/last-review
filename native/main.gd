@@ -18,6 +18,7 @@ var _focused: bool = true
 var menu: MainMenu
 var tutorial: Dictionary = {}
 var _cold_open: ColdOpen
+var active_slot := 1
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(1120, 800)
@@ -29,7 +30,7 @@ func _ready() -> void:
 	menu.new_game_requested.connect(_new_game)
 	menu.load_game_requested.connect(_on_load)
 	menu.quit_requested.connect(func() -> void: get_tree().quit())
-	menu.set_load_available(SaveStore.has_save())
+	menu.set_slots(SaveStore.list_slots())
 
 func _build_interface() -> void:
 	if is_instance_valid(interface):
@@ -48,10 +49,16 @@ func _build_interface() -> void:
 	interface.tutorial_continue_requested.connect(_tutorial_continue)
 	scenery = ComputerFrame.new()
 	interface.scene_host.add_child(scenery)
+	interface.set_save_slot(active_slot)
 	_render()
 
-func _new_game() -> void:
+func _new_game(slot: int = 1) -> void:
 	if is_instance_valid(_cold_open): return
+	var result := SaveStore.save_game(Tutorial.initial_practice_state(), Tutorial.initial_progress(), slot)
+	if not result.ok:
+		menu.show_error(str(result.error))
+		return
+	active_slot = slot
 	menu.hide()
 	interface.hide()
 	_cold_open = ColdOpen.new()
@@ -72,13 +79,14 @@ func _start_orientation() -> void:
 	interface.focus_workspace()
 
 func _return_to_menu() -> void:
-	var result := SaveStore.save_game(state, tutorial)
+	var result := SaveStore.save_game(state, tutorial, active_slot)
 	if not result.ok:
 		interface.notify(str(result.error), true)
 		return
 	interface.hide()
 	menu.show_error("")
-	menu.set_load_available(true)
+	menu.set_slots(SaveStore.list_slots())
+	menu.show_home()
 	menu.show()
 	menu.focus_default()
 
@@ -175,17 +183,19 @@ func _on_command(command: Dictionary) -> void:
 		interface.begin_morning()
 
 func _on_save() -> void:
-	var result: Dictionary = SaveStore.save_game(state, tutorial)
-	interface.notify("Game saved on this computer." if result.ok else str(result.error), not result.ok)
+	var result: Dictionary = SaveStore.save_game(state, tutorial, active_slot)
+	interface.notify("Saved to Slot %d on this computer." % active_slot if result.ok else str(result.error), not result.ok)
 
-func _on_load() -> void:
-	var result: Dictionary = SaveStore.load_game()
+func _on_load(slot: int = 0) -> void:
+	var target_slot := active_slot if slot == 0 else slot
+	var result: Dictionary = SaveStore.load_game(target_slot)
 	if not result.ok:
 		if menu.visible:
 			menu.show_error(str(result.error))
 		else:
 			interface.notify(str(result.error), true)
 		return
+	active_slot = target_slot
 	state = result.state
 	tutorial = result.get("tutorial", {})
 	_clock_fraction = 0.0
@@ -197,7 +207,9 @@ func _on_load() -> void:
 	interface.notify(str(result.error) if not str(result.get("error", "")).is_empty() else "Saved game loaded.")
 
 func _on_reset() -> void:
-	_new_game()
+	# Preserve the current run before choosing a separate or replacement slot.
+	_return_to_menu()
+	if menu.visible: menu._show_slots("new")
 
 func _on_motion(enabled: bool) -> void:
 	motion_enabled = enabled

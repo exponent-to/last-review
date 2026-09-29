@@ -66,6 +66,7 @@ var _known_requests: Dictionary = {}
 var _unread_requests: Dictionary = {}
 var _notification_day := -1
 var _system_status: Label
+var _save_slot_label: Label
 var _desktop: Control
 var _windows: Dictionary = {}
 var _dock_buttons: Dictionary = {}
@@ -147,7 +148,7 @@ func _ready() -> void:
 	_build_pause_overlay()
 	_confirmation = ConfirmationDialog.new()
 	_confirmation.title = "Start a new run"
-	_confirmation.dialog_text = "Discard this run and return to the first shift?\nYour disk save remains until overwritten."
+	_confirmation.dialog_text = "Save this run and choose a slot for a new game?"
 	_confirmation.ok_button_text = "Start new run"
 	_confirmation.cancel_button_text = "Keep reviewing"
 	_confirmation.min_size = Vector2i(460, 160)
@@ -1029,8 +1030,9 @@ func _set_chat_scroll(follow_latest: bool, previous_position: int, draw_key: Str
 func _build_system(page: VBoxContainer) -> void:
 	var content: VBoxContainer = _scroll_column(page)
 	_label(content, "LOCAL RECORD", 16, CYAN)
+	_save_slot_label = _label(content, "Current save: Slot 1", 14, CYAN)
 	_system_status = _paragraph(content, "Local storage is ready.", 14, CYAN)
-	_paragraph(content, "One local save slot. Each shift lasts six real minutes, from 09:00 to 18:00. Reading code and Slouch messages uses time. Pause with Esc or the desktop clock control. Switching away pauses automatically.", 14, DIM)
+	_paragraph(content, "Three local save slots. New Game and Load Game on the main menu let you choose a slot. Each shift lasts six real minutes, from 09:00 to 18:00. Reading code and Slouch messages uses time. Pause with Esc or the desktop clock control. Switching away pauses automatically.", 14, DIM)
 	var saves: HBoxContainer = _row(content)
 	_button(saves, "SAVE RUN", func() -> void: save_requested.emit())
 	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
@@ -1038,6 +1040,10 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
 	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
+
+
+func set_save_slot(slot: int) -> void:
+	_save_slot_label.text = "Current save: Slot %d · stored on this computer" % slot
 
 
 func _emit_command(command: Dictionary) -> void:

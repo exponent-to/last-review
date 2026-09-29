@@ -1,8 +1,8 @@
 extends Control
 ## Opening view only. The application owns saves, game transitions, and quitting.
 
-signal new_game_requested
-signal load_game_requested
+signal new_game_requested(slot: int)
+signal load_game_requested(slot: int)
 signal quit_requested
 
 const ComputerFrame = preload("res://native/computer_frame.gd")
@@ -21,6 +21,13 @@ var _new_game: Button
 var _load_game: Button
 var _quit: Button
 var _error: Label
+var _slot_heading: Label
+var _slot_buttons: Array[Button] = []
+var _back: Button
+var _slots: Array[Dictionary] = []
+var _slot_mode := ""
+var _replace: ConfirmationDialog
+var _pending_slot := 0
 
 
 func _init() -> void:
@@ -49,12 +56,27 @@ func _ready() -> void:
 	divider.add_theme_constant_override("separation", 24)
 	_content.add_child(divider)
 	_new_game = _button("New Game", "Begin a new run.")
-	_new_game.pressed.connect(func() -> void: new_game_requested.emit())
+	_new_game.pressed.connect(_show_slots.bind("new"))
 	_load_game = _button("Load Game", "Continue your saved run.")
-	_load_game.pressed.connect(func() -> void: load_game_requested.emit())
+	_load_game.pressed.connect(_show_slots.bind("load"))
 	_quit = _button("Quit", "Close PRs please.")
 	_quit.visible = not OS.has_feature("web")
 	_quit.pressed.connect(func() -> void: quit_requested.emit())
+	_slot_heading = _label("Choose a save slot", 16, INK)
+	_slot_heading.hide()
+	for slot in range(1, 4):
+		var button := _button("Slot %d — Empty" % slot, "")
+		button.pressed.connect(_select_slot.bind(slot))
+		button.hide()
+		_slot_buttons.append(button)
+	_back = _button("Back", "Return to New Game / Load Game")
+	_back.pressed.connect(show_home)
+	_back.hide()
+	_replace = ConfirmationDialog.new()
+	_replace.title = "Replace saved game?"
+	_replace.ok_button_text = "Start new game"
+	_replace.confirmed.connect(func() -> void: new_game_requested.emit(_pending_slot))
+	add_child(_replace)
 	_error = _label(_error_text, 14, Color("f2acac"))
 	_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_error.custom_minimum_size.y = 42
@@ -63,6 +85,61 @@ func _ready() -> void:
 	resized.connect(_layout)
 	_layout()
 	focus_default()
+
+
+func set_slots(slots: Array[Dictionary]) -> void:
+	_slots = slots.duplicate(true)
+	var available := false
+	for slot: Dictionary in _slots:
+		if slot.occupied: available = true
+	set_load_available(available)
+	if not _slot_mode.is_empty(): _show_slots(_slot_mode)
+
+
+func show_home() -> void:
+	_slot_mode = ""
+	_new_game.show()
+	_load_game.show()
+	_quit.visible = not OS.has_feature("web")
+	_slot_heading.hide()
+	_back.hide()
+	for button in _slot_buttons: button.hide()
+	show_error("")
+	focus_default()
+
+
+func _show_slots(mode: String) -> void:
+	_slot_mode = mode
+	_new_game.hide()
+	_load_game.hide()
+	_quit.hide()
+	_slot_heading.text = "New Game — choose a slot" if mode == "new" else "Load Game — choose a slot"
+	_slot_heading.show()
+	_back.show()
+	show_error("")
+	for index in range(3):
+		var entry := _slots[index] if index < _slots.size() else {"occupied": false, "summary": "Empty"}
+		var button := _slot_buttons[index]
+		button.text = "Slot %d — %s" % [index + 1, entry.summary]
+		button.disabled = mode == "load" and not entry.occupied
+		button.show()
+	_back.grab_focus()
+	for button in _slot_buttons:
+		if not button.disabled:
+			button.grab_focus()
+			break
+
+
+func _select_slot(slot: int) -> void:
+	if _slot_mode == "load":
+		load_game_requested.emit(slot)
+	elif _slot_mode == "new":
+		if slot <= _slots.size() and _slots[slot - 1].occupied:
+			_pending_slot = slot
+			_replace.dialog_text = "Start a new game in Slot %d?
+This replaces that slot's saved run. Other slots are kept." % slot
+			_replace.popup_centered()
+		else: new_game_requested.emit(slot)
 
 
 func set_load_available(available: bool) -> void:

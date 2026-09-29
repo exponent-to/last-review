@@ -13,6 +13,8 @@ func _check(condition: bool, message: String) -> void:
 
 func _run() -> void:
 	root.size = Vector2i(1280, 900)
+	Main.SaveStore.storage_root = "user://application-slot-test-%d" % Time.get_ticks_usec()
+	DirAccess.make_dir_recursive_absolute(Main.SaveStore.storage_root)
 	var app := Main.new()
 	root.add_child(app)
 	await process_frame
@@ -20,6 +22,9 @@ func _run() -> void:
 	app._tick_shift(30.0)
 	_check(int(app.state.shift_seconds) == 0 and app.menu.visible and not app.interface.visible, "Main menu must appear before play and stop time.")
 	app.menu._new_game.pressed.emit()
+	_check(not is_instance_valid(app._cold_open), "New Game presents slots first.")
+	app.menu._slot_buttons[1].pressed.emit()
+	_check(app.active_slot == 2 and Main.SaveStore.load_game(2).ok, "New Game immediately creates a resumable save in the chosen slot.")
 	await process_frame
 	_check(is_instance_valid(app._cold_open) and not app.interface.visible, "New Game plays the cold open before the workstation.")
 	app._tick_shift(60.0)
@@ -106,6 +111,13 @@ func _run() -> void:
 	app._cold_open._input(skip)
 	await process_frame
 	_check(not is_instance_valid(app._cold_open) and app.interface.visible, "Escape consumes its input before the cold-open handoff removes the scene.")
+	app._on_save()
+	_check(Main.SaveStore.load_game(app.active_slot).ok, "Saving writes the active slot.")
+	app._on_load(2)
+	_check(app.active_slot == 2 and not app.tutorial.is_empty(), "Loading a slot selects its saved orientation.")
 	app.free()
+	for name in DirAccess.get_files_at(Main.SaveStore.storage_root):
+		DirAccess.remove_absolute(Main.SaveStore.storage_root.path_join(name))
+	DirAccess.remove_absolute(Main.SaveStore.storage_root)
 	print("Native application handoff: %d failures" % failures)
 	quit(1 if failures else 0)
