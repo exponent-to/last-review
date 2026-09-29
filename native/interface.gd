@@ -70,6 +70,9 @@ func _build_theme() -> Theme:
 	result.default_font = mono
 	result.default_font_size = 15
 	result.set_color("font_color", "Label", INK)
+	result.set_color("font_color", "TooltipLabel", PAPER_LIGHT)
+	result.set_stylebox("panel", "TooltipPanel", _style(DESK, LINE, 1, 10, 7))
+	result.set_stylebox("panel", "AcceptDialog", _style(PAPER, INK, 2, 16, 14))
 	result.set_color("font_color", "Button", PAPER_LIGHT)
 	result.set_color("font_hover_color", "Button", PAPER_LIGHT)
 	result.set_color("font_focus_color", "Button", PAPER_LIGHT)
