@@ -137,12 +137,12 @@ static func messages(state: Dictionary, contact: String) -> Array:
 	else:
 		var person: Dictionary = authored.get("contacts", {}).get(contact, {})
 		_append(history, contact, str(person.get("intro", "")), "intro")
-		for request: Dictionary in Catalog.requests():
-			if request.author == contact and _arrived(state, request):
-				_request_history(history, state, contact, request)
 		var relationship := int(state.get("coworkers", {}).get(contact, 50))
 		var tone := "warm" if relationship >= 65 else ("distant" if relationship <= 35 else "neutral")
 		_append(history, contact, str(person.get(tone, "")), "ambient")
+		for request: Dictionary in Catalog.requests():
+			if request.author == contact and _arrived(state, request):
+				_request_history(history, state, contact, request)
 	var start := maxi(0, history.size() - HISTORY_LIMIT)
 	# Do not start a clipped history with a response whose player reply was removed.
 	if start > 0 and history[start].kind == "response":

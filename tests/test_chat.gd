@@ -159,6 +159,7 @@ func _test_expired_history() -> void:
 	var history := Chat.messages(state, str(request.author))
 	_check(authored.requests[request.id].request in _texts(history), "A handed-off PR's coworker message must survive the next shift without a decision.")
 	_check(clarification.text in _texts(history) and clarification.response in _texts(history), "Player questions and answers must survive expiration of unresolved work.")
+	_check(history[-1].kind == "response", "An older greeting cannot appear after the latest question and answer.")
 	_check(_kind(history, "reaction").is_empty(), "Expiration must not invent an approval or rejection reaction.")
 	_check(_options_for(state, request).is_empty(), "Historical handed-off work remains readable without offering new pre-review replies.")
 
