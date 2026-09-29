@@ -4,7 +4,7 @@
 
 ## Application boundary
 
-Connect `command_requested(Dictionary)`, `save_requested`, `load_requested`, `reset_requested`, and `motion_changed(bool)`. Add the interface to the scene tree, mount the decorative renderer inside the public `scene_host`, and call `render_state(state: Dictionary)` after each state change. `scene_host` has a 640×192 minimum for the office renderer's integer scaling. Motion defaults on and the checkbox emits explicit changes.
+Connect `command_requested(Dictionary)`, `save_requested`, `load_requested`, `reset_requested`, and `motion_changed(bool)`. Add the interface to the scene tree, mount the decorative renderer inside the public `scene_host`, and call `render_state(state: Dictionary)` after each state change. When an intro reveals the interface, call `focus_workspace()` to focus the non-actionable root and settle the first diff at its beginning; later calls preserve reading position. `scene_host` has a 640×192 minimum for the office renderer's integer scaling. Motion defaults on and the checkbox emits explicit changes.
 
 `notify(message: String, is_error: bool = false)` displays a footer message for eight seconds. A generation counter keeps an older timer from dismissing a newer message. New-run requests require a native confirmation dialog. Save, load, serialization, and reset policy belong to the parent application.
 

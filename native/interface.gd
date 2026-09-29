@@ -77,6 +77,7 @@ var _briefing_dialog: AcceptDialog
 var _last_pr: String = ""
 var _last_day: int = -1
 var _notice_generation: int = 0
+var _workspace_presented: bool = false
 
 
 func _ready() -> void:
@@ -287,8 +288,8 @@ func _build_desktop(parent: Node) -> void:
 	_desktop.custom_minimum_size.y = 340
 	_desktop.clip_contents = true
 	parent.add_child(_desktop)
-	var back: ColorRect = ColorRect.new()
-	back.color = Color("0b121c")
+	var back: Panel = Panel.new()
+	back.add_theme_stylebox_override("panel", _style(Color("0b121c"), Color("2c3a4b"), 2, 0, 0))
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_desktop.add_child(back)
@@ -450,7 +451,7 @@ func _browse(path: String, record: bool = true) -> void:
 		"memo":
 			_browser_text.text = "DAILY OPERATIONS MEMO\n\n" + Catalog.briefing(int(_state.get("day", 1)))
 		_:
-			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nOpen STANDARDS to consult the active rulebook, DIRECTORY to inspect colleague relationships, or DAILY MEMO for the current instructions.\n\nThis terminal has no external network access. All documents are part of the game."
+			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nOpen STANDARDS to consult the active rulebook, DIRECTORY to inspect colleague relationships, or DAILY MEMO for the current instructions.\n\nExternal access restricted by company policy."
 
 
 func _browser_go_back() -> void:
@@ -646,6 +647,8 @@ func render_state(state: Dictionary) -> void:
 			_pr_context.text = "%s: %s\n\n%s" % [str(request.get("author", "")), str(request.get("message", "")), str(request.get("description", ""))]
 			_file_label.text = str(request.get("file", ""))
 			_diff.text = str(request.get("diff", ""))
+			_diff.set_caret_line(0)
+			_diff.set_caret_column(0)
 			_diff.scroll_vertical = 0
 			_diff.scroll_horizontal = 0
 			_packet_scroll.scroll_vertical = 0
@@ -711,3 +714,19 @@ func notify(message: String, is_error: bool = false) -> void:
 	await get_tree().create_timer(8.0).timeout
 	if generation == _notice_generation:
 		_notice.visible = false
+
+
+func focus_workspace() -> void:
+	# Intro handoff focuses a non-actionable control, so Enter release cannot
+	# activate the first button. Later handoffs retain the player's read position.
+	focus_mode = Control.FOCUS_ALL
+	grab_focus()
+	if _workspace_presented:
+		return
+	_workspace_presented = true
+	_diff.set_caret_line(0)
+	_diff.set_caret_column(0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_diff.scroll_vertical = 0
+	_diff.scroll_horizontal = 0

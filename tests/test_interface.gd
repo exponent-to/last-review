@@ -143,3 +143,25 @@ func _test_desktop() -> void:
 	ui._windows["browser"].minimize_window()
 	ui._arrange_windows()
 	ui._open_app("decision")
+	var original_diff: String = ui._diff.text
+	ui._diff.text = original_diff + "\n" + " context line\n".repeat(60)
+	ui._diff.set_caret_line(30)
+	ui.hide()
+	ui.show()
+	ui.focus_workspace()
+	for frame: int in range(4):
+		await process_frame
+	check(ui._diff.scroll_vertical == 0, "Initial intro handoff must reveal the start of the diff after layout")
+	check(root.gui_get_focus_owner() == ui, "Intro handoff must focus a non-actionable root control")
+	ui._diff.scroll_vertical = 10
+	await process_frame
+	var reading_position: float = ui._diff.scroll_vertical
+	ui.hide()
+	ui.show()
+	ui.focus_workspace()
+	for frame: int in range(3):
+		await process_frame
+	check(ui._diff.scroll_vertical == reading_position, "Later workspace reveals must preserve code reading position")
+	ui._diff.text = original_diff
+	ui._diff.set_caret_line(0)
+	ui._diff.scroll_vertical = 0
