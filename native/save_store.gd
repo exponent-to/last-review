@@ -2,9 +2,9 @@ extends RefCounted
 ## Native user-data persistence; simulation stays independent of filesystem APIs.
 
 const Simulation = preload("res://native/simulation.gd")
-const SAVE_PATH: String = "user://workshop-save.json"
-const TEMP_PATH: String = "user://workshop-save.json.tmp"
-const BACKUP_PATH: String = "user://workshop-save.json.bak"
+const SAVE_PATH: String = "user://review-save-v2.json"
+const TEMP_PATH: String = "user://review-save-v2.json.tmp"
+const BACKUP_PATH: String = "user://review-save-v2.json.bak"
 const MAX_SAVE_BYTES: int = 100000
 
 static func _failure(message: String) -> Dictionary:
@@ -46,7 +46,7 @@ static func load_game() -> Dictionary:
 	if not FileAccess.file_exists(SAVE_PATH):
 		if FileAccess.file_exists(BACKUP_PATH):
 			return _load_path(BACKUP_PATH)
-		return _failure("No saved workshop found.")
+		return _failure("No saved review career found.")
 	var result: Dictionary = _load_path(SAVE_PATH)
 	if result.ok:
 		return result
