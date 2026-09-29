@@ -3,12 +3,12 @@ extends Node
 const Simulation = preload("res://native/simulation.gd")
 const SaveStore = preload("res://native/save_store.gd")
 const GameInterface = preload("res://native/interface.gd")
-const OfficeScene = preload("res://native/office_scene.gd")
+const ComputerFrame = preload("res://native/computer_frame.gd")
 const Intro = preload("res://native/intro.gd")
 
 var state: Dictionary = {}
 var interface: GameInterface
-var scenery: OfficeScene
+var scenery: ComputerFrame
 var motion_enabled: bool = true
 var intro: Intro
 
@@ -23,7 +23,7 @@ func _ready() -> void:
 	interface.load_requested.connect(_on_load)
 	interface.reset_requested.connect(_on_reset)
 	interface.motion_changed.connect(_on_motion)
-	scenery = OfficeScene.new()
+	scenery = ComputerFrame.new()
 	interface.scene_host.add_child(scenery)
 	scenery.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_render()

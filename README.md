@@ -2,7 +2,7 @@
 
 A native software-engineering life sim built with Godot 4.7.2. You review pull requests at a company handing more authority to an AGI assistant. Technical correctness, coworker approval, and your own ability to cope do not always align.
 
-The playable slice opens with a terminal onboarding sequence and a small rulebook that expands as management issues new policies. Its midnight-blue computer desktop uses overlapping movable windows, bundled IBM Plex Mono, a searchable rulebook, and animated SVG-derived pixel art outside a rainy office window. Last Review is a working title.
+The playable slice opens with a terminal onboarding sequence, then a computer desktop inside a large physical monitor. Launch Review, Handbook, Slouch, Intranet, or System from the home-screen icons. The windowed desktop uses bundled IBM Plex Mono and hand-authored pixel art, with a rainy room visible around the monitor. The rulebook starts small and expands as management issues new policies. Last Review is a working title.
 
 ## Play
 
@@ -36,7 +36,7 @@ Helios can advise you, but its scripted recommendations may be wrong. Generated 
 
 Reading and searching never consume game time. Skip the opening with Enter, Escape, or its on-screen control. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. SYSTEM contains save/load, confirmed new-run controls, instructions, and the background-motion toggle.
 
-Drag window titlebars to arrange the review desk. Click a window to bring it forward; minimize it with the titlebar button and reopen it from the taskbar. With a titlebar focused, arrow keys move its window (Shift moves farther). ARRANGE restores the layout. The in-game BROWSER opens company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
+Open an app from its desktop icon. Drag titlebars to arrange windows, click a window to bring it forward, or use its minimize, maximize, and close controls. The taskbar tracks open apps; HOME reveals the desktop. With a titlebar focused, arrow keys move its window (Shift moves farther). ARRANGE restores the layout. Intranet opens company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
 
 Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. Colleagues hint at tricky code and react to your approvals or change requests. Their tone carries relationship signals; there are no visible relationship scores, stress percentages, or authority meters. Incoming messages mark conversations unread without opening them for you. Money remains explicit in payroll paperwork. Slouch is entirely fictional and local, with no connection to a real messaging service.
 
@@ -62,6 +62,7 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 - `native/desktop_window.gd` — draggable, focusable, minimizable native desktop windows.
 - `native/intro.gd` — animated terminal opening and skip controls.
 - `native/office_scene.gd`, `art/` — rasterized SVG office scenery and animation.
+- `native/computer_frame.gd` — physical monitor and animated rainy room around the desktop.
 - `native/save_store.gd`, `native/main.gd` — persistence and application wiring.
 - `tests/`, `scripts/`, `export_presets.cfg` — checks and native macOS packaging.
 

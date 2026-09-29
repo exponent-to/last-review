@@ -1,4 +1,10 @@
-# Native review-office pixel art
+# Native computer and office pixel art
+
+The current first-person view uses `native/computer_frame.gd`: hand-authored pixel geometry for a physical monitor, thin rainy-room edges, lower bezel, vents, power lamp, and a small stand. `get_screen_rect(size)` defines the desktop inset (left 30, top 32, right 30, bottom 58 pixels). At 1280×900 the screen is 1220×810. The interface owns everything inside that rectangle; there is no exterior HUD or office banner. `set_motion` and `set_story` retain the decorative renderer contract.
+
+The five `art/desktop-*.svg` app icons are original 32×32 vector pixel geometry imported as native textures and displayed with nearest-neighbor filtering. They identify Review, Handbook, Slouch, Intranet, and System. Font files are bundled separately under `art/fonts/` with their OFL license.
+
+The following office sprites remain reusable art components from the earlier room composition.
 
 `native/office_scene.gd` is a decorative Godot `Control` for Last Review. All SVGs are explicit, editable pixel geometry. The palette is midnight navy, blue-gray, cool off-white, cyan monitor light, and restrained red indicators. There are no brown/olive tones, gradients, glow filters, or generated images.
 
