@@ -14,7 +14,7 @@ Call `render_state(state: Dictionary)` after state changes. After New Game revea
 
 HOME starts with all applications closed and five original pixel icons: REVIEW, HANDBOOK, SLOUCH, INTRANET, and SYSTEM. Single-clicking an icon launches its application. The taskbar lists only launched applications. HOME minimizes visible applications while retaining their taskbar entries; closing an application removes its entry. Reopening retains the application's data.
 
-REVIEW combines the current author packet and read-only diff with the sign-off controls and a delivery confirmation. HANDBOOK is an independent searchable standards window. SLOUCH contains company messages and coworker DMs. INTRANET offers local home, procedure, and daily memo pages, including back navigation and links to other apps. SYSTEM provides save/load, confirmed reset, motion settings, and instructions. No browser engine, external network request, or nonfunctional chat composer is involved.
+REVIEW combines the current author packet and read-only diff with the sign-off controls and a delivery confirmation. HANDBOOK is an independent searchable standards window. SLOUCH contains company messages and coworker DMs. INTRANET offers local home, procedure, and daily memo pages, including back navigation and links to other apps. SYSTEM provides save/load, confirmed reset, and instructions. No browser engine, external network request, or nonfunctional chat composer is involved.
 
 Windows cascade at useful independent sizes rather than filling fixed columns. Their classic gray and blue chrome provides minimize, maximize/restore, and close controls. The player can drag a titlebar or focus it and use arrow keys, with Shift for larger moves. Titlebar clamping keeps windows reachable. Resizing the main game window fits ordinary windows to the monitor; maximized windows follow the desktop extent.
 
@@ -30,7 +30,7 @@ No trust, stress, automation, relationship, or final-score meters are displayed.
 
 ## Slouch behavior
 
-`content/chat.gd` supplies `messages(state, contact)` for company, Maya, Theo, Inez, and manager Morgan. Slouch renders authored author/text rows; it does not derive hints from hidden audit answers. Incoming messages never open, raise, or switch the app. The selected conversation remains under player control. Boolean unread dots appear on contacts, the Slouch desktop icon, and its taskbar entry without message counts.
+`content/chat.gd` supplies `messages(state, contact)` for company, Maya, Theo, Inez, and manager Morgan. Slouch renders authored author/text rows; it does not derive hints from hidden audit answers. Incoming messages never open, raise, or switch the app. The selected conversation remains under player control. Unread counts appear on conversations, red circular desktop-icon badges, and taskbar entries. Opening a conversation clears only its messages; the player’s own replies never increase the count.
 
 Opening a conversation clears its dot. New messages follow the bottom only when the player was reading the latest content; otherwise the previous scroll position is retained. Contact changes settle at the latest messages after native layout. The message viewport uses `SCROLL_MODE_SHOW_NEVER` horizontally so a hidden paragraph's temporary unwrapped width cannot inflate the floating window on first open.
 
@@ -51,3 +51,11 @@ Review's changed-file selector displays each file's own diff and remembers its c
 Startup displays New Game and Load Game inside the monitor. Load is disabled when neither a current save nor its backup exists. New Game opens directly into an untimed orientation with a compact, collapsible instruction panel. Players ask Maya a question, follow her PR link, inspect both changed files, consult the handbook, and submit a practice change request. Mistakes can be retried; practice is discarded before Monday.
 
 SYSTEM and the pause screen offer SAVE AND MAIN MENU. Loading resumes paused, including the current orientation step when applicable. Morgan’s final conversation offers a return to the menu.
+
+## Desktop notifications
+
+Every app has a notification source: arrived PRs for REVIEW, team messages for SLOUCH, newly introduced standards for HANDBOOK, daily memos for INTRANET, and save/load or local status for SYSTEM. Only arrived, unread items are counted; badges never reveal future work. Counts and read presentation remain session-local.
+
+`native/desktop_notifications.gd` stacks up to three clickable bubbles above the bottom-right taskbar. They coalesce by app and target, expire after nine seconds, and wait while paused or hovered. Clicking opens the corresponding PR, conversation, memo, or app. Dismissing a bubble leaves its unread badge intact. Notifications do not steal focus.
+
+Player messages align right in a blue bubble; coworkers align left. Newly sent questions show a typing indicator for 2.4 active seconds, with further response choices hidden until the answer arrives. Pending answers do not enter unread counts early; pause freezes delivery. Saved conversation history is immediately available after loading.

@@ -202,7 +202,7 @@ func _test_history_and_contract() -> void:
 		_check(history.size() <= Chat.HISTORY_LIMIT, "Large conversation histories must remain bounded.")
 		_check(history.is_empty() or history[0].kind != "response", "Truncation must not orphan a coworker response from the player's reply.")
 		for message: Dictionary in history:
-			_check(message.has_all(["author", "text", "kind"]) and message.size() in [3, 4], "Messages retain author/text/kind and only optional internal pr_id metadata.")
+			_check(message.has_all(["author", "text", "kind"]) and message.size() in [3, 4], "Messages retain author/text/kind and optional internal request or response metadata.")
 			_check(forbidden.search(message.text) == null, "Chat prose must not reveal scores, queue totals, audit rule IDs, or external URLs.")
 			if message.has("pr_id"):
 				_check(known.has(message.pr_id) and known[message.pr_id].author == contact, "Every link must identify an authored request from this coworker.")

@@ -13,6 +13,7 @@ signal tutorial_continue_requested
 
 const Simulation = preload("res://native/simulation.gd")
 const ComputerFrame = preload("res://native/computer_frame.gd")
+const Notifications = preload("res://native/desktop_notifications.gd")
 const DesktopWindow = preload("res://native/desktop_window.gd")
 const Chat = preload("res://content/chat.gd")
 const Catalog = preload("res://content/catalog.gd")
@@ -44,7 +45,10 @@ var _state: Dictionary = {}
 var _hud: Dictionary = {}
 var _chat_contacts: Dictionary = {}
 var _chat_unread: Dictionary = {}
-var _chat_signatures: Dictionary = {}
+var _chat_seen: Dictionary = {}
+var _known_replies: Dictionary = {}
+var _pending_replies: Dictionary = {}
+var _reply_history_initialized := false
 var _chat_contact: String = "Maya"
 var _chat_last_draw: String = ""
 var _chat_heading: Label
@@ -54,7 +58,13 @@ var _rule_rows: Array[Dictionary] = []
 var _monitor_screen: Control
 var _desktop_home: Control
 var _home_icons: Dictionary = {}
-var _toast: PanelContainer
+var _notifications: Notifications
+var _app_counts := {"review": 0, "rules": 0, "chat": 0, "browser": 0, "system": 0}
+var _app_badges: Dictionary = {}
+var _known_requests: Dictionary = {}
+var _unread_requests: Dictionary = {}
+var _notification_day := -1
+var _system_status: Label
 var _desktop: Control
 var _windows: Dictionary = {}
 var _dock_buttons: Dictionary = {}
@@ -88,12 +98,10 @@ var _consult: Button
 var _ai_note: Label
 var _feedback: Label
 var _footer: Label
-var _notice: Label
 var _confirmation: ConfirmationDialog
 var _briefing_dialog: AcceptDialog
 var _last_pr: String = ""
 var _last_day: int = -1
-var _notice_generation: int = 0
 var _workspace_presented: bool = false
 var _clock_label: Label
 var _pause_button: Button
@@ -128,15 +136,10 @@ func _ready() -> void:
 	_build_desktop(frame)
 	_build_dock(frame)
 	_build_tutorial_panel()
+	_notifications = Notifications.new()
+	_monitor_screen.add_child(_notifications)
+	_notifications.activated.connect(_open_notification)
 	_build_pause_overlay()
-	_toast = PanelContainer.new()
-	_toast.visible = false
-	_toast.z_index = 50
-	_toast.add_theme_stylebox_override("panel", _style(INSET, CYAN, 1, 12, 9))
-	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_monitor_screen.add_child(_toast)
-	_notice = _paragraph(_toast, "", 14, CYAN)
-	_notice.minimum_size_changed.connect(func() -> void: _fit_notice.call_deferred())
 	_confirmation = ConfirmationDialog.new()
 	_confirmation.title = "Start a new run"
 	_confirmation.dialog_text = "Discard this run and return to the first shift?\nYour disk save remains until overwritten."
@@ -159,10 +162,8 @@ func _layout_monitor() -> void:
 	var screen: Rect2 = ComputerFrame.get_screen_rect(size)
 	_monitor_screen.position = screen.position
 	_monitor_screen.size = screen.size
-	_toast.position = Vector2(18, maxf(0, screen.size.y - 90))
 	if is_instance_valid(_tutorial_panel):
 		_tutorial_panel.position = Vector2(maxf(0, screen.size.x - 450), 48)
-	_toast.size = Vector2(minf(620, screen.size.x - 36), 48)
 
 
 func _build_os_menu(parent: Node) -> void:
@@ -203,6 +204,7 @@ Resume when you're ready.", 15, DIM)
 
 func set_paused(paused: bool) -> void:
 	_paused = paused
+	_notifications.paused = paused
 	_pause_overlay.visible = paused
 	_pause_button.text = "RESUME" if paused else "PAUSE"
 	if paused:
@@ -427,6 +429,20 @@ func _build_home() -> void:
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		launcher.set_meta("caption", label)
 		_home_icons[id] = launcher
+		var badge := PanelContainer.new()
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.position = Vector2(73, 0)
+		badge.custom_minimum_size = Vector2(26, 26)
+		var badge_style := _style(Color("d44e57"), Color("ed8e94"), 1, 5, 1)
+		badge_style.set_corner_radius_all(14)
+		badge.add_theme_stylebox_override("panel", badge_style)
+		launcher.add_child(badge)
+		var number := _label(badge, "", 14, Color.WHITE)
+		number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		number.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.set_meta("number", number)
+		badge.hide()
+		_app_badges[id] = badge
 
 
 func _layout_home_icons() -> void:
@@ -596,6 +612,7 @@ func _open_app(id: String) -> void:
 		_open_chat_conversation()
 	var window: DesktopWindow = _windows[id]
 	window.restore_window()
+	_mark_app_read(id)
 	_update_dock()
 	var event_type: String = {"chat": "open-chat", "review": "open-review", "rules": "open-handbook"}.get(id, "")
 	if not event_type.is_empty(): tutorial_event.emit({"type": event_type})
@@ -607,6 +624,7 @@ func _focus_app(id: String) -> void:
 	for other_id: String in _windows:
 		var window: DesktopWindow = _windows[other_id]
 		window.set_active(other_id == id)
+	_mark_app_read(id)
 	_update_dock()
 
 
@@ -741,7 +759,7 @@ func _build_chat(page: VBoxContainer) -> void:
 		button.toggle_mode = true
 		button.add_theme_font_size_override("font_size", 13)
 		_chat_contacts[contact] = button
-		_chat_unread[contact] = false
+		_chat_unread[contact] = 0
 	var conversation: VBoxContainer = _column(columns, 8)
 	conversation.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_chat_heading = _label(conversation, "#engineering", 16, TEXT)
@@ -767,7 +785,8 @@ func _build_chat(page: VBoxContainer) -> void:
 func _select_chat_contact(contact: String) -> void:
 	_chat_contact = contact
 	_render_phase(_state)
-	_chat_unread[contact] = false
+	_chat_unread[contact] = 0
+	if is_instance_valid(_notifications): _notifications.clear_app("chat", contact)
 	_draw_chat(true)
 	_update_chat_badges()
 
@@ -776,49 +795,97 @@ func _open_chat_conversation() -> void:
 	_select_chat_contact(_chat_contact)
 
 
+func _track_chat_replies() -> void:
+	for reply: Dictionary in _state.get("chat_replies", []):
+		var key := str(reply.contact) + "|" + str(reply.pr_id) + "|" + str(reply.reply_id)
+		if not _known_replies.has(key):
+			_known_replies[key] = true
+			if _reply_history_initialized:
+				_pending_replies[key] = {"contact": str(reply.contact), "remaining": 2.4}
+	_reply_history_initialized = true
+
+
+func _visible_chat_messages(contact: String) -> Array:
+	var result: Array = []
+	for message: Dictionary in Chat.messages(_state, contact):
+		if not _pending_replies.has(str(message.get("reply_key", ""))): result.append(message)
+	return result
+
+
+func _waiting_for_reply(contact: String) -> bool:
+	for pending: Dictionary in _pending_replies.values():
+		if pending.contact == contact: return true
+	return false
+
+
+func _process(delta: float) -> void:
+	_tick_chat_replies(delta)
+
+
+func _tick_chat_replies(delta: float) -> void:
+	if _paused or not is_visible_in_tree(): return
+	var delivered := false
+	for key: String in _pending_replies.keys():
+		_pending_replies[key].remaining -= maxf(0, delta)
+		if _pending_replies[key].remaining <= 0:
+			_pending_replies.erase(key)
+			delivered = true
+	if delivered: _render_chat()
+
+
 func _render_chat() -> void:
-	var window: DesktopWindow = _windows["chat"]
+	var first_render := _chat_seen.is_empty()
 	for contact: String in _chat_contacts:
-		var messages: Array = Chat.messages(_state, contact)
-		var signature: String = JSON.stringify(messages)
-		if str(_chat_signatures.get(contact, "")) != signature:
-			if _chat_signatures.has(contact) and not (window.visible and contact == _chat_contact) and (str(_state.get("phase", "")) == "review" or contact == "manager"):
-				notify(("#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact) + " sent a message in SLOUCH.")
-			_chat_signatures[contact] = signature
-			_chat_unread[contact] = not messages.is_empty() and not (window.visible and contact == _chat_contact)
-	if window.visible:
-		_chat_unread[_chat_contact] = false
-		_draw_chat()
+		var messages: Array = _visible_chat_messages(contact)
+		var seen: Dictionary = _chat_seen.get(contact, {})
+		var occurrences: Dictionary = {}
+		var incoming: Array = []
+		for message: Dictionary in messages:
+			if message.author == "You": continue
+			var signature := JSON.stringify(message)
+			occurrences[signature] = int(occurrences.get(signature, 0)) + 1
+			var key := signature + ":" + str(occurrences[signature])
+			if not seen.has(key):
+				seen[key] = true
+				incoming.append(message)
+		_chat_seen[contact] = seen
+		var reading := _app_is_reading("chat") and contact == _chat_contact
+		if reading:
+			_chat_unread[contact] = 0
+		else:
+			_chat_unread[contact] = int(_chat_unread.get(contact, 0)) + incoming.size()
+			if not first_render and not incoming.is_empty():
+				var sender := "#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact
+				_notifications.push("chat", sender + ": " + str(incoming[-1].text), contact)
+	if _windows["chat"].visible: _draw_chat()
 	_update_chat_badges()
+	if first_render and int(_app_counts.chat) > 0:
+		_notifications.push("chat", "Your team has left you messages.", _chat_contact)
 
 
 func _update_chat_badges() -> void:
-	var any_unread: bool = false
+	var total := 0
 	for contact: String in _chat_contacts:
-		var unread: bool = bool(_chat_unread.get(contact, false))
-		any_unread = any_unread or unread
+		var unread := int(_chat_unread.get(contact, 0))
+		total += unread
 		var button: Button = _chat_contacts[contact]
-		button.text = ("#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact) + (" •" if unread else "")
+		button.text = ("#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact) + ("  %d" % unread if unread > 0 else "")
 		button.set_pressed_no_signal(contact == _chat_contact)
-	if _home_icons.has("chat"):
-		var caption: Label = _home_icons["chat"].get_meta("caption")
-		caption.text = "SLOUCH •" if any_unread else "SLOUCH"
-	if _dock_buttons.has("chat"):
-		var dock: Button = _dock_buttons["chat"]
-		dock.text = "SLOUCH •" if any_unread else "SLOUCH"
-		dock.tooltip_text = "Unread team messages" if any_unread else "Open Slouch"
+	_app_counts.chat = total
+	_update_app_badges()
 
 
 func _draw_chat(contact_changed: bool = false) -> void:
-	var messages: Array = Chat.messages(_state, _chat_contact)
-	var options: Array = Chat.reply_options(_state, _chat_contact)
+	var messages: Array = _visible_chat_messages(_chat_contact)
+	var waiting := _waiting_for_reply(_chat_contact)
+	var options: Array = [] if waiting else Chat.reply_options(_state, _chat_contact)
 	var reply_targets: Array[String] = []
 	for option: Dictionary in options:
 		if str(option.pr_id) not in reply_targets:
 			reply_targets.append(str(option.pr_id))
 	if _chat_reply_pr not in reply_targets:
 		_chat_reply_pr = "" if reply_targets.is_empty() else reply_targets[0]
-	var key: String = _chat_contact + JSON.stringify(messages) + JSON.stringify(options) + _chat_reply_pr + str(_state.get("phase", ""))
+	var key: String = _chat_contact + JSON.stringify(messages) + JSON.stringify(options) + _chat_reply_pr + str(waiting) + str(_state.get("phase", ""))
 	if key == _chat_last_draw and not contact_changed:
 		return
 	_chat_last_draw = key
@@ -830,11 +897,25 @@ func _draw_chat(contact_changed: bool = false) -> void:
 		_chat_messages.remove_child(child)
 		child.queue_free()
 	for message: Dictionary in messages:
-		var panel: PanelContainer = PanelContainer.new()
-		panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 0, 0))
-		_chat_messages.add_child(panel)
+		var outgoing: bool = str(message.author) == "You"
+		var row := _row(_chat_messages, 0)
+		var gap := Control.new()
+		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gap.size_flags_stretch_ratio = 0.18
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if outgoing: row.add_child(gap)
+		var panel := PanelContainer.new()
+		panel.set_meta("outgoing", outgoing)
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		panel.size_flags_stretch_ratio = 0.82
+		var bubble_style := _style(Color("263e55") if outgoing else INSET, Color("54738e") if outgoing else BORDER, 1, 0, 0)
+		bubble_style.set_corner_radius_all(7)
+		panel.add_theme_stylebox_override("panel", bubble_style)
+		row.add_child(panel)
+		if not outgoing: row.add_child(gap)
 		var body: VBoxContainer = _column(_margin(panel, 10, 8), 5)
-		_label(body, str(message.get("author", "")), 13, CYAN)
+		var author := _label(body, str(message.get("author", "")), 12, Color("b6cfe5") if outgoing else CYAN)
+		author.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if outgoing else HORIZONTAL_ALIGNMENT_LEFT
 		_paragraph(body, str(message.get("text", "")), 14, TEXT)
 		if message.has("pr_id"):
 			var pr_id: String = str(message.pr_id)
@@ -847,7 +928,9 @@ func _draw_chat(contact_changed: bool = false) -> void:
 	for child: Node in _chat_replies.get_children():
 		_chat_replies.remove_child(child)
 		child.queue_free()
-	if not options.is_empty():
+	if waiting:
+		_paragraph(_chat_replies, _chat_contact + " is typing…", 13, CYAN)
+	elif not options.is_empty():
 		var reply_header := _row(_chat_replies, 8)
 		_label(reply_header, "ASK ABOUT", 10, DIM)
 		var target := OptionButton.new()
@@ -893,19 +976,13 @@ func _set_chat_scroll(follow_latest: bool, previous_position: int, draw_key: Str
 func _build_system(page: VBoxContainer) -> void:
 	var content: VBoxContainer = _scroll_column(page)
 	_label(content, "LOCAL RECORD", 16, CYAN)
+	_system_status = _paragraph(content, "Local storage is ready.", 14, CYAN)
 	_paragraph(content, "One local save slot. Each shift lasts six real minutes, from 09:00 to 18:00. Reading code and Slouch messages uses time. Pause with Esc or the desktop clock control. Switching away pauses automatically.", 14, DIM)
 	var saves: HBoxContainer = _row(content)
 	_button(saves, "SAVE RUN", func() -> void: save_requested.emit())
 	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
 	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
-	_label(content, "DISPLAY", 16, CYAN)
-	var motion: CheckBox = CheckBox.new()
-	motion.text = "Office background motion"
-	motion.button_pressed = true
-	motion.toggled.connect(func(enabled: bool) -> void: motion_changed.emit(enabled))
-	content.add_child(motion)
-	_paragraph(content, "Disable decorative animation without changing the review simulation.", 14, DIM)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
 	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
 
@@ -949,6 +1026,7 @@ func _filter_rules() -> void:
 
 func render_state(state: Dictionary) -> void:
 	_state = state.duplicate(true)
+	_track_chat_replies()
 	render_clock(state)
 	var day: int = int(state.get("day", 1))
 	var phase: String = str(state.get("phase", "review"))
@@ -983,7 +1061,6 @@ func render_state(state: Dictionary) -> void:
 		_last_phase = phase
 		if phase != "review" and not previous_phase.is_empty():
 			_windows["review"].minimize_window()
-			notify("Morgan sent you a message in SLOUCH.")
 		elif phase == "review" and not previous_phase.is_empty():
 			_windows["review"].minimize_window()
 		_update_dock()
@@ -1013,6 +1090,7 @@ func render_state(state: Dictionary) -> void:
 	_feedback.text = "No review sent yet." if feedback.is_empty() else "%s · %s sent to %s." % [str(feedback.get("pr_id", "")), "Approval" if feedback.get("verdict") == "approve" else "Change request", str(feedback.get("author", ""))]
 	_render_phase(state)
 	_render_chat()
+	_sync_app_events()
 	_footer.text = "ORIENTATION" if _tutorial_active else "READY" if phase == "review" else "OFF THE CLOCK"
 
 
@@ -1021,29 +1099,84 @@ func _render_phase(state: Dictionary) -> void:
 	_complete_button.visible = _chat_contact == "manager" and state.get("phase") == "complete"
 
 
-func notify(message: String, is_error: bool = false) -> void:
-	_notice_generation += 1
-	var generation: int = _notice_generation
-	_notice.text = message
-	_notice.add_theme_color_override("font_color", RED if is_error else CYAN)
-	_toast.visible = true
-	_fit_notice.call_deferred()
-	await get_tree().create_timer(8.0).timeout
-	if generation == _notice_generation:
-		_toast.visible = false
+func notify(message: String, is_error: bool = false, app: String = "system") -> void:
+	if app == "system":
+		_system_status.text = message
+		_system_status.add_theme_color_override("font_color", RED if is_error else CYAN)
+	if not _app_is_reading(app): _app_counts[app] = int(_app_counts.get(app, 0)) + 1
+	_notifications.push(app, message, "", is_error)
+	_update_app_badges()
 
 
-func _fit_notice() -> void:
-	if not is_inside_tree(): return
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if is_inside_tree():
-		_toast.size.y = maxf(48, _toast.get_combined_minimum_size().y)
-		_toast.position.y = maxf(0, _monitor_screen.size.y - _toast.size.y - 42)
+func _app_is_reading(app: String) -> bool:
+	return is_visible_in_tree() and _windows.has(app) and _windows[app].visible and _windows[app]._active and not _paused
+
+
+func _mark_app_read(app: String) -> void:
+	if not is_instance_valid(_notifications): return
+	if app == "chat":
+		_chat_unread[_chat_contact] = 0
+		_notifications.clear_app(app, _chat_contact)
+		_update_chat_badges()
+	elif app != "review":
+		_app_counts[app] = 0
+		_notifications.clear_app(app)
+	_update_app_badges()
+
+
+func _update_app_badges() -> void:
+	for app: String in _app_counts:
+		var count := int(_app_counts[app])
+		if _app_badges.has(app):
+			var badge: PanelContainer = _app_badges[app]
+			badge.visible = count > 0
+			var number: Label = badge.get_meta("number")
+			number.text = "99+" if count > 99 else str(count)
+		if _dock_buttons.has(app):
+			_dock_buttons[app].text = str(Notifications.NAMES[app]) + (" (%d)" % count if count > 0 else "")
+
+
+func _sync_app_events() -> void:
+	var day := int(_state.get("day", 1))
+	if day != _notification_day:
+		_notification_day = day
+		var added := 0
+		for rule: Dictionary in Catalog.rules():
+			if int(rule.introduced_day) == day: added += 1
+		if added > 0 and not _app_is_reading("rules"):
+			_app_counts.rules += added
+			_notifications.push("rules", "New review standards are available. Read the handbook before signing off.")
+		if not _app_is_reading("browser"):
+			_app_counts.browser += 1
+			_notifications.push("browser", "A new daily memo is on the intranet.", "memo")
+	var pending: Dictionary = {}
+	for request: Dictionary in Simulation.available_requests(_state):
+		var id := str(request.id)
+		pending[id] = true
+		if not _known_requests.has(id):
+			_known_requests[id] = true
+			_unread_requests[id] = true
+			_notifications.push("review", "%s from %s: %s" % [id, request.author, request.title], id)
+	for id: String in _unread_requests.keys():
+		if not pending.has(id) or str(_state.get("active_request_id", "")) == id:
+			_unread_requests.erase(id)
+			_notifications.clear_app("review", id)
+	_app_counts.review = _unread_requests.size()
+	_update_app_badges()
+
+
+func _open_notification(app: String, target: String) -> void:
+	if _paused: return
+	if app == "review" and not target.is_empty():
+		_open_pr_link(target)
+		return
+	if app == "chat" and not target.is_empty(): _select_chat_contact(target)
+	if app == "browser" and target == "memo": _browse("memo")
+	_open_app(app)
 
 
 func focus_workspace() -> void:
-	# Intro handoff focuses a non-actionable control, so Enter release cannot
+	# Menu handoff focuses a non-actionable control, so Enter release cannot
 	# activate the first button. Later handoffs retain the player's read position.
 	focus_mode = Control.FOCUS_ALL
 	grab_focus()
@@ -1053,6 +1186,7 @@ func focus_workspace() -> void:
 	_diff.set_caret_line(0)
 	_diff.set_caret_column(0)
 	await get_tree().process_frame
+	if not is_inside_tree(): return
 	await get_tree().process_frame
 	_diff.scroll_vertical = 0
 	_diff.scroll_horizontal = 0
@@ -1103,6 +1237,7 @@ func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
 func _fit_tutorial() -> void:
 	if not is_inside_tree(): return
 	await get_tree().process_frame
+	if not is_inside_tree(): return
 	await get_tree().process_frame
 	if is_inside_tree():
 		_tutorial_panel.size.y = _tutorial_panel.get_combined_minimum_size().y

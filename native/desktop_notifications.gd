@@ -1,0 +1,101 @@
+extends Control
+## Small transient notifications. Dismissing a bubble never marks its app read.
+signal activated(app: String, target: String)
+const NAMES := {"chat": "SLOUCH", "review": "REVIEW", "rules": "HANDBOOK", "browser": "INTRANET", "system": "SYSTEM"}
+var _stack: VBoxContainer
+var _items: Array[Dictionary] = []
+var paused := false
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	z_index = 50
+	_stack = VBoxContainer.new()
+	_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stack.add_theme_constant_override("separation", 8)
+	add_child(_stack)
+	_stack.minimum_size_changed.connect(_fit.call_deferred)
+	resized.connect(_fit.call_deferred)
+	_fit.call_deferred()
+
+func push(app: String, text: String, target: String = "", is_error: bool = false) -> void:
+	for item: Dictionary in _items.duplicate():
+		if item.app == app and item.target == target: _remove(item)
+	if _items.size() == 3: _remove(_items[0])
+	var card := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("172536")
+	style.border_color = Color("bd7179") if is_error else Color("677e92")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(9)
+	style.content_margin_left = 14
+	style.content_margin_right = 12
+	style.content_margin_top = 10
+	style.content_margin_bottom = 12
+	card.add_theme_stylebox_override("panel", style)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card.focus_mode = Control.FOCUS_ALL
+	card.tooltip_text = "Open " + str(NAMES[app])
+	_stack.add_child(card)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 5)
+	card.add_child(content)
+	var header := HBoxContainer.new()
+	content.add_child(header)
+	var title := Label.new()
+	title.text = str(NAMES[app])
+	title.add_theme_font_size_override("font_size", 11)
+	title.add_theme_color_override("font_color", Color("a3c9d4"))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	var dismiss := Button.new()
+	dismiss.text = "×"
+	dismiss.flat = true
+	dismiss.custom_minimum_size = Vector2(24, 24)
+	dismiss.tooltip_text = "Dismiss notification"
+	header.add_child(dismiss)
+	var body := Label.new()
+	body.text = text
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_font_size_override("font_size", 13)
+	body.max_lines_visible = 3
+	body.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	content.add_child(body)
+	var item := {"app": app, "target": target, "card": card, "remaining": 9.0}
+	_items.append(item)
+	dismiss.pressed.connect(_remove.bind(item))
+	card.gui_input.connect(func(event: InputEvent) -> void:
+		if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) or (event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ENTER, KEY_SPACE]):
+			card.accept_event()
+			_remove(item)
+			activated.emit(app, target))
+	_fit.call_deferred()
+
+func clear_app(app: String, target: String = "") -> void:
+	for item: Dictionary in _items.duplicate():
+		if item.app == app and (target.is_empty() or item.target == target): _remove(item)
+
+func _remove(item: Dictionary) -> void:
+	if item not in _items: return
+	_items.erase(item)
+	_stack.remove_child(item.card)
+	item.card.queue_free()
+	_fit.call_deferred()
+
+func _fit() -> void:
+	if not is_inside_tree(): return
+	_stack.size.x = minf(350, maxf(200, size.x - 32))
+	await get_tree().process_frame
+	if not is_inside_tree(): return
+	await get_tree().process_frame
+	if not is_inside_tree(): return
+	_stack.size.y = _stack.get_combined_minimum_size().y
+	_stack.position = Vector2(size.x - _stack.size.x - 16, maxf(40, size.y - _stack.size.y - 48))
+
+func _process(delta: float) -> void:
+	if paused or not is_visible_in_tree(): return
+	for item: Dictionary in _items.duplicate():
+		if item.card.get_global_rect().has_point(get_global_mouse_position()): continue
+		item.remaining -= delta
+		if item.remaining <= 0: _remove(item)

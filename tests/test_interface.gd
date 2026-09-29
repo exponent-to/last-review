@@ -90,7 +90,7 @@ func _run() -> void:
 		state = Simulation.advance(state, maxi(0, Catalog.arrival_seconds(str(packet.id)) - int(state.shift_seconds)))
 		ui.render_state(state)
 		ui._open_pr_link(str(packet.id))
-		var previous_messages: String = str(ui._chat_signatures.get(str(packet.author), ""))
+		var previous_messages: String = str(ui._chat_seen.get(str(packet.author), ""))
 		for rule_id: String in packet.violations:
 			_command({"type": "toggle-rule", "rule_id": rule_id})
 		if packet.violations.is_empty():
@@ -100,7 +100,7 @@ func _run() -> void:
 		check(ui._feedback.text.contains(str(packet.id)), "Audit must identify the previous PR")
 		check(not ui._feedback.text.contains("CORRECT") and not ui._feedback.text.contains("Required:"), "Sent confirmation must not grade a review or reveal its answers")
 		check(not ui._feedback.text.contains("Trust +") and not ui._feedback.text.contains("Trust -"), "Audit must omit numeric social/stat deltas")
-		check(str(ui._chat_signatures.get(str(packet.author), "")) != previous_messages, "Completed review must update its author's Slouch messages")
+		check(str(ui._chat_seen.get(str(packet.author), "")) != previous_messages, "Completed review must update its author's Slouch messages")
 		check(ui._chat_contact == "Theo", "Incoming coworker messages must never switch the player's selected conversation")
 		var has_reaction: bool = false
 		for message: Dictionary in Chat.messages(state, str(packet.author)):
@@ -262,7 +262,7 @@ func _test_slouch() -> void:
 	var top_window: Node = ui._desktop.get_child(ui._desktop.get_child_count() - 1)
 	ui.render_state(state)
 	check(ui._desktop.get_child(ui._desktop.get_child_count() - 1) == top_window, "Chat refresh must not steal native window focus")
-	check(ui._dock_buttons["chat"].text.begins_with("SLOUCH"), "Taskbar must expose Slouch with an unread dot, not a message count")
+	check(ui._dock_buttons["chat"].text.begins_with("SLOUCH"), "Taskbar must expose the Slouch application and its unread count")
 
 func _test_chat_first_open() -> void:
 	var initial: Dictionary = Simulation.initial_state()

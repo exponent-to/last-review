@@ -107,6 +107,7 @@ static func _request_history(history: Array, state: Dictionary, contact: String,
 		seen.append(reply_id)
 		_append(history, "You", str(option.text), "reply")
 		_append(history, contact, str(option.response), "response")
+		history[-1]["reply_key"] = contact + "|" + pr_id + "|" + reply_id
 	var decision := _decision_for(state, pr_id)
 	if not decision.is_empty():
 		# Reactions follow the chosen verdict; audit correctness is never consulted.

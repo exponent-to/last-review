@@ -22,3 +22,5 @@ Windows packaging, notarized distribution, audio, and comprehensive assistive-te
 - Manager feedback: 20 checks pass for incident timing, authored defects, handoffs, hidden grades, and immutable message generation. Interface checks verify evening controls in Morgan’s conversation and the absence of a results window. Application checks exercise the full orientation and reset into Monday.
 
 - Browser menu/orientation playtest: New Game, compact lesson instructions, Maya’s contextual question, SAVE AND MAIN MENU, page reload, and Load Game all passed. Loading preserved the lesson and reply history and resumed paused.
+
+- Desktop notifications: 22 checks cover real unread counts, duplicate suppression, conversation-specific reading, hidden future PRs, direct PR and memo routing, focus preservation, System status, dismissal, pause, and bounded bottom-right layout.
