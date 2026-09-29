@@ -41,4 +41,20 @@ static func briefing(day: int) -> String:
 	for entry: Dictionary in _briefings:
 		if int(entry.day) == day:
 			return str(entry.text)
-	return "This three-day assignment is complete."
+	return "This assignment is complete."
+
+## Internal scheduling metadata. Do not announce queue sizes to the player.
+static func campaign_days() -> Array:
+	var days: Array = []
+	for request: Dictionary in requests():
+		var day: int = int(request.day)
+		if day not in days:
+			days.append(day)
+	return days
+
+static func requests_for_day(day: int) -> Array:
+	var packets: Array = []
+	for request: Dictionary in requests():
+		if int(request.day) == day:
+			packets.append(request)
+	return packets
