@@ -4,7 +4,12 @@ config_version=5
 [application]
 boot_splash/show_image=false
 boot_splash/bg_color=Color(0.062745, 0.090196, 0.133333, 1)
-config/name="Last Review"
+config/name="PRs please"
+; Keep existing saves when the public title changes.
+config/use_custom_user_dir=true
+config/custom_user_dir_name="godot/app_userdata/Last Review"
+config/custom_user_dir_name.macos="Godot/app_userdata/Last Review"
+config/custom_user_dir_name.windows="Godot/app_userdata/Last Review"
 run/main_scene="res://native/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/description="A software engineering life sim at the edge of automation."

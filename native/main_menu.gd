@@ -44,7 +44,7 @@ func _ready() -> void:
 	_content.custom_minimum_size.x = 510
 	_content.add_theme_constant_override("separation", 13)
 	center.add_child(_content)
-	_label("LAST REVIEW", 48, INK)
+	_label("PRs please", 48, INK)
 	var divider := HSeparator.new()
 	divider.add_theme_constant_override("separation", 24)
 	_content.add_child(divider)
@@ -52,7 +52,7 @@ func _ready() -> void:
 	_new_game.pressed.connect(func() -> void: new_game_requested.emit())
 	_load_game = _button("Load Game", "Continue your saved run.")
 	_load_game.pressed.connect(func() -> void: load_game_requested.emit())
-	_quit = _button("Quit", "Close Last Review.")
+	_quit = _button("Quit", "Close PRs please.")
 	_quit.visible = not OS.has_feature("web")
 	_quit.pressed.connect(func() -> void: quit_requested.emit())
 	_error = _label(_error_text, 14, Color("f2acac"))

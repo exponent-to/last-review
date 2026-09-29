@@ -14,7 +14,7 @@ sh scripts/build-web.sh
 python3 scripts/serve-web.py
 ```
 
-Open [Last Review locally](http://127.0.0.1:8060/) in a desktop browser. Use a reasonably large browser window for the computer desktop interface. The server binds only to `127.0.0.1`; stop it with Ctrl-C. Choose a different port with `--port 8061` if necessary.
+Open [PRs please locally](http://127.0.0.1:8060/) in a desktop browser. Use a reasonably large browser window for the computer desktop interface. The server binds only to `127.0.0.1`; stop it with Ctrl-C. Choose a different port with `--port 8061` if necessary.
 
 The build is written to `build/web/index.html` with its matching JavaScript, WebAssembly, asset pack, and images. Open it through the local HTTP server rather than double-clicking the HTML file. Keep these generated files together and retain their names.
 

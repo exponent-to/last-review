@@ -1,4 +1,4 @@
-# Last Review architecture
+# PRs please architecture
 
 Godot 4.7.2 owns the native desktop window, Control menus, input, and texture rendering. The simulation is deterministic GDScript. The application advances it in whole elapsed seconds only while the shift is active and the game is unpaused. Decoration never drives the clock. A workday lasts 360 seconds, with arrivals scheduled inside the shift and payroll at closing time.
 
@@ -28,7 +28,7 @@ The first loop separates technical trust from relationships. Approval can make a
 
 State version 4 stores a bounded timed action journal including PR selection, decisions, consultations, chat replies, shift closure, and evening choices. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized. Earlier careers remain on disk separately; their old shift boundaries cannot be replayed against timed arrivals.
 
-The filesystem adapter writes a temporary file, rotates the previous save to a backup, and atomically renames the new file. Load failures preserve the active session. Saves are local to the Last Review application-data directory. There is no automatic load, autosave, or cloud storage.
+The filesystem adapter writes a temporary file, rotates the previous save to a backup, and atomically renames the new file. Load failures preserve the active session. Saves remain in the original Last Review application-data directory so the title change preserves existing progress. There is no automatic load, autosave, or cloud storage.
 
 Because validation replays authored content and economics, incompatible changes require a migration or version bump. Do not silently change scenario outcomes while expecting old saves to remain valid.
 

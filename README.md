@@ -1,14 +1,14 @@
-# Last Review
+# PRs please
 
 A native software-engineering life sim built with Godot 4.7.2. You review pull requests at a company handing more authority to an AGI assistant. Technical correctness, coworker approval, and your own ability to cope do not always align.
 
-The playable slice opens at a main menu with New Game and Load Game. New Game opens directly into an untimed orientation on a computer desktop inside a large physical monitor. Launch Review, Handbook, Slouch, Intranet, or System from the home-screen icons. The windowed desktop uses bundled IBM Plex Mono and hand-authored pixel art, with a rainy room visible around the monitor. The rulebook starts small and expands as management issues new policies. Last Review is a working title.
+The playable slice opens at a main menu with New Game and Load Game. New Game opens directly into an untimed orientation on a computer desktop inside a large physical monitor. Launch Review, Handbook, Slouch, Intranet, or System from the home-screen icons. The windowed desktop uses bundled IBM Plex Mono and hand-authored pixel art, with a rainy room visible around the monitor. The rulebook starts small and expands as management issues new policies.
 
 ## Play
 
 [Play in your desktop browser](https://travis.show/last-review/). Browser progress is saved locally and is separate from the native app.
 
-Open `build/Last Review.app`, or run from source:
+Open `build/PRs please.app`, or run from source:
 
 ```sh
 sh scripts/run.sh
@@ -21,7 +21,7 @@ On a fresh macOS checkout:
 ```sh
 sh scripts/bootstrap-macos.sh
 sh scripts/build-macos.sh
-open 'build/Last Review.app'
+open 'build/PRs please.app'
 ```
 
 The bootstrap downloads the pinned editor and export template from Godot's official download service. Binaries and builds are ignored by Git. The app runs locally with no browser, server, external LLM, or account.

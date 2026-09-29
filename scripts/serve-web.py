@@ -36,7 +36,7 @@ def main():
         parser.error("Port must be between 1 and 65535.")
     handler = partial(GameHandler, directory=str(directory))
     with ThreadingHTTPServer(("127.0.0.1", args.port), handler) as server:
-        print(f"Last Review: http://127.0.0.1:{args.port}/ (Ctrl-C to stop)", flush=True)
+        print(f"PRs please: http://127.0.0.1:{args.port}/ (Ctrl-C to stop)", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

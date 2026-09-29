@@ -1,4 +1,4 @@
-# Last Review simulation
+# PRs please simulation
 
 `native/simulation.gd` implements deterministic review rules with incoming requests and a continuous workday. Simulation state is independent of scenes, timers, and disk storage. Public transitions deeply copy their input; the application replaces its current state with the returned value.
 

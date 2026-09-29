@@ -6,7 +6,7 @@ The five `art/desktop-*.svg` app icons are original 32×32 vector pixel geometry
 
 The following office sprites remain reusable art components from the earlier room composition.
 
-`native/office_scene.gd` is a decorative Godot `Control` for Last Review. All SVGs are explicit, editable pixel geometry. The palette is midnight navy, blue-gray, cool off-white, cyan monitor light, and restrained red indicators. There are no brown/olive tones, gradients, glow filters, or generated images.
+`native/office_scene.gd` is a decorative Godot `Control` for PRs please. All SVGs are explicit, editable pixel geometry. The palette is midnight navy, blue-gray, cool off-white, cyan monitor light, and restrained red indicators. There are no brown/olive tones, gradients, glow filters, or generated images.
 
 ## Source assets
 

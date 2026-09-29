@@ -1,6 +1,6 @@
-# Last Review: first playable slice
+# PRs please: first playable slice
 
-Working title: Last Review. Native Godot desktop game. Grounded workplace tension with gradual AGI authority; cold midnight blue, cool paper, cyan and restrained red. Reference is the functional clarity and human stakes of Papers, Please, not its assets or exact UI.
+Working title: PRs please. Native Godot desktop game. Grounded workplace tension with gradual AGI authority; cold midnight blue, cool paper, cyan and restrained red. Reference is the functional clarity and human stakes of Papers, Please, not its assets or exact UI.
 
 ## Content API
 
