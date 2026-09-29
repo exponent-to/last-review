@@ -13,6 +13,7 @@ func _initialize() -> void:
 	_test_delivery()
 	_test_replies()
 	_test_reactions()
+	_test_expired_history()
 	_test_purity()
 	_test_history_and_contract()
 	print("Team chat checks: %d passed, %d failed." % [checks - failures, failures])
@@ -147,6 +148,19 @@ func _test_reactions() -> void:
 		_check(_kind(Chat.messages(state, contact), "ambient")[0].text == authored.contacts[contact].warm, "Warm relationships use qualitative human language.")
 		state.coworkers[contact] = 20
 		_check(_kind(Chat.messages(state, contact), "ambient")[0].text == authored.contacts[contact].distant, "Strained relationships use qualitative human language.")
+
+
+func _test_expired_history() -> void:
+	var request: Dictionary = Catalog.request_at(0)
+	var state := _state(int(request.day), Catalog.arrival_seconds(str(request.id)))
+	var clarification := _save_choice(state, request, "clarify")
+	state.day += 1
+	state.shift_seconds = 0
+	var history := Chat.messages(state, str(request.author))
+	_check(authored.requests[request.id].request in _texts(history), "A handed-off PR's coworker message must survive the next shift without a decision.")
+	_check(clarification.text in _texts(history) and clarification.response in _texts(history), "Player questions and answers must survive expiration of unresolved work.")
+	_check(_kind(history, "reaction").is_empty(), "Expiration must not invent an approval or rejection reaction.")
+	_check(_options_for(state, request).is_empty(), "Historical handed-off work remains readable without offering new pre-review replies.")
 
 
 func _test_purity() -> void:

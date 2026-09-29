@@ -39,7 +39,8 @@ static func _arrived(state: Dictionary, request: Dictionary) -> bool:
 	var request_day := int(request.day)
 	var today := int(state.get("day", 1))
 	if request_day < today:
-		return not _decision_for(state, str(request.id)).is_empty()
+		# Every earlier shift closed after all deliveries, including handed-off work.
+		return true
 	if request_day > today:
 		return false
 	return Catalog.arrival_seconds(str(request.id)) <= float(state.get("shift_seconds", 0.0))
