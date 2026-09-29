@@ -105,7 +105,6 @@ func _divider() -> void:
 
 func _masthead() -> void:
 	_text("h   Hackerish News", 23)
-	_text(["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"][(_day - 1) % 5] + " / new · work · things that used to need people", 11, MUTED)
 	_divider()
 
 func _news() -> void:
@@ -114,7 +113,6 @@ func _news() -> void:
 		_link(str(article.title), "story/" + str(article.id))
 		_text(str(article.source) + " · " + str(article.byline), 11, MUTED)
 		_divider()
-	_text("You've reached the bottom. Something to try in the real world.", 12, MUTED)
 
 func _story(article: Dictionary) -> void:
 	_link("← Front page", "news", 13)
