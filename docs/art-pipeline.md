@@ -6,22 +6,23 @@
 
 | File | Source size | Contents / frames |
 | --- | --- | --- |
-| `art/office.svg` | 640 × 72 | Night-office cutaway, ribbon city windows, four desks, server cabinets |
+| `art/office.svg` | 640 × 96 | Night-office room, tall rainy city windows, server cabinets |
+| `art/office-foreground.svg` | 640 × 96 | Four review desks; masks outdoor rain behind monitors |
 | `art/office-worker.svg` | 32 × 27 | Two horizontal 16 × 27 seated typing poses |
 | `art/office-terminal.svg` | 72 × 12 | Three 24 × 12 states: human code review, assistant, autonomous agent |
-| `art/office-rain.svg` | 77 × 28 | Transparent window rain tile, wrapped vertically |
+| `art/office-rain.svg` | 77 × 52 | Transparent curtain of rain, wrapped vertically, with longer near-glass streaks |
 | `art/office-indicator.svg` | 6 × 2 | Three 2 × 2 states: standby, cyan activity, red authority indicator |
 | `art/app-icon.svg` | 512 × 512, 32 × 32 viewBox | Review terminal app icon |
 
-Keep shapes and sprite bounds on integer coordinates. Desk repeats in the base SVG are editable `<use>` instances. Update `ASSET_SIZES` in the renderer when changing source dimensions. The icon uses Godot's normal texture import; office sprites use adjacent `.svg.import` files with `importer="keep"` so original SVG text survives native exports.
+Keep shapes and sprite bounds on integer coordinates. Desk repeats in the foreground SVG are editable `<use>` instances. Update `ASSET_SIZES` in the renderer when changing source dimensions. The icon uses Godot's normal texture import; office sprites use adjacent `.svg.import` files with `importer="keep"` so original SVG text survives native exports.
 
 ## Native rendering
 
 On `_ready()`, the renderer reads each office SVG with `FileAccess.get_file_as_string`, rasterizes it once with `Image.load_svg_from_string`, validates its dimensions, and creates a cached `ImageTexture`. Godot documents [SVG rasterization in the Image API](https://docs.godotengine.org/en/stable/classes/class_image.html#class-image-method-load-svg-from-string) and [source-file preservation in FileAccess](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html).
 
-`_draw()` composites those raster textures with nearest-neighbor filtering and integer source coordinates. Height determines integer scaling: a 144-pixel panel displays the 640 × 72 source at 2×. Widths below 1280 crop unimportant side-room scenery symmetrically, preserving all four workstations and server cabinets at the supported 1120-pixel window minimum. Larger widths center the office against its navy background. Host containers own outer panel padding; `clip_contents` prevents any draw outside the scene Control.
+`_draw()` composites those raster textures with nearest-neighbor filtering and integer source coordinates. Height determines integer scaling: a 192-pixel panel displays the 640 × 96 source at 2×. Widths below 1280 crop unimportant side-room scenery symmetrically, preserving all four workstations and server cabinets at the supported 1120-pixel window minimum. Larger widths center the office against its navy background. Host containers own outer panel padding; `clip_contents` prevents any draw outside the scene Control.
 
-Rain wraps only inside the window band. Worker poses switch at two frames per second. Server indicators pulse slowly. No runtime image generation, SVG decoding, or texture allocation occurs in the animation loop.
+Rain wraps only inside the taller window band at 17 source pixels per second. The cached foreground texture masks rain behind desk and monitor silhouettes. A stopped scene retains visible raindrops rather than an empty sky. Worker poses switch at two frames per second. Server indicators pulse slowly. No runtime image generation, SVG decoding, or texture allocation occurs in the animation loop.
 
 ## Story contract
 

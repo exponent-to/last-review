@@ -1,12 +1,13 @@
 extends Control
 ## A decorative office whose staffing and terminals reflect the review story.
 
-const SOURCE_SIZE := Vector2(640.0, 72.0)
+const SOURCE_SIZE := Vector2(640.0, 96.0)
 const ASSET_SIZES := {
-	"office": Vector2i(640, 72),
+	"office": Vector2i(640, 96),
+	"office-foreground": Vector2i(640, 96),
 	"office-worker": Vector2i(32, 27),
 	"office-terminal": Vector2i(72, 12),
-	"office-rain": Vector2i(77, 28),
+	"office-rain": Vector2i(77, 52),
 	"office-indicator": Vector2i(6, 2),
 }
 
@@ -19,7 +20,7 @@ var _asset_error := false
 
 
 func _init() -> void:
-	custom_minimum_size = Vector2(640.0, 144.0)
+	custom_minimum_size = Vector2(640.0, 192.0)
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -91,6 +92,7 @@ func _draw() -> void:
 	draw_set_transform(offset, 0.0, Vector2.ONE * pixel_scale)
 	draw_texture(_textures["office"], Vector2.ZERO)
 	_draw_rain()
+	draw_texture(_textures["office-foreground"], Vector2.ZERO)
 
 	for desk in range(4):
 		var automated := desk >= 4 - _automated_terminal_count()
@@ -98,11 +100,11 @@ func _draw() -> void:
 		if automated:
 			terminal_frame = 2 if _day == 3 or _autonomy >= 65 else 1
 		draw_texture_rect_region(_textures["office-terminal"],
-			Rect2(110 + desk * 116, 37, 24, 12), Rect2(terminal_frame * 24, 0, 24, 12))
+			Rect2(110 + desk * 116, 61, 24, 12), Rect2(terminal_frame * 24, 0, 24, 12))
 		if _desk_occupied(desk):
 			var pose := int(floorf(_elapsed * 2.0 + desk * 0.5)) % 2 if _motion else 0
 			draw_texture_rect_region(_textures["office-worker"],
-				Rect2(92 + desk * 116, 35, 16, 27), Rect2(pose * 16, 0, 16, 27))
+				Rect2(92 + desk * 116, 59, 16, 27), Rect2(pose * 16, 0, 16, 27))
 
 	var live_servers := clampi(_day * 2 + int(_autonomy / 20.0), 1, 8)
 	for index in range(8):
@@ -116,7 +118,7 @@ func _draw() -> void:
 			elif _motion and int(floorf(_elapsed * 0.8 + index)) % 5 == 0:
 				indicator_frame = 0
 		draw_texture_rect_region(_textures["office-indicator"],
-			Rect2(555 + column * 29, 21 + row * 9, 2, 2), Rect2(indicator_frame * 2, 0, 2, 2))
+			Rect2(555 + column * 29, 45 + row * 9, 2, 2), Rect2(indicator_frame * 2, 0, 2, 2))
 	draw_set_transform(Vector2.ZERO)
 
 
@@ -133,16 +135,16 @@ func _desk_occupied(desk: int) -> bool:
 
 
 func _draw_rain() -> void:
-	var phase := (28 - int(floorf(_elapsed * 5.0)) % 28) % 28
+	var phase := (52 - int(floorf(_elapsed * 17.0)) % 52) % 52
 	for tile in range(6):
 		var x := 46 + tile * 77
 		var width := mini(77, 504 - x)
 		# Wrap the source strip inside the window; never draw over desks or walls.
 		draw_texture_rect_region(_textures["office-rain"],
-			Rect2(x, 13, width, 28 - phase), Rect2(0, phase, width, 28 - phase))
+			Rect2(x, 13, width, 52 - phase), Rect2(0, phase, width, 52 - phase))
 		if phase > 0:
 			draw_texture_rect_region(_textures["office-rain"],
-				Rect2(x, 41 - phase, width, phase), Rect2(0, 0, width, phase))
+				Rect2(x, 65 - phase, width, phase), Rect2(0, 0, width, phase))
 
 
 func _fail_asset(path: String, reason: String) -> void:

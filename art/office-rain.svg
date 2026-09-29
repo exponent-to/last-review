@@ -1,3 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="77" height="28" viewBox="0 0 77 28" shape-rendering="crispEdges">
-  <path fill="#43677d" d="M8 2h1v3H8zm18 11h1v4h-1zm23-6h1v3h-1zm17 14h1v3h-1z"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="77" height="52" viewBox="0 0 77 52" shape-rendering="crispEdges">
+  <!-- A wrapped curtain of rain: short distant drops and longer near-glass trails. -->
+  <path fill="#456c85" d="M4 2h1v6H4zm15 28h1v5h-1zm17-15h1v6h-1zm13 24h1v6h-1zm14-32h1v5h-1zm8 19h1v5h-1z"/>
+  <path fill="#6b93a9" d="M10 13h1v9h-1zm18 26h1v10h-1zm18-35h1v9h-1zm13 21h1v8h-1z"/>
+  <path fill="#91b0bf" d="M10 20h1v2h-1zm18 27h1v2h-1zm18-36h1v2h-1zm13 20h1v2h-1z"/>
 </svg>

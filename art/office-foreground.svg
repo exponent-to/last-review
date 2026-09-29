@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="96" viewBox="0 0 640 96" shape-rendering="crispEdges">
+  <g transform="translate(0 24)">
+  <!-- Four review desks; screens and seated people are separate sprites. -->
+  <g id="desk">
+    <path fill="#101c29" d="M79 61h68v3H79z"/>
+    <path fill="#8796a1" d="M79 51h68v3H79z"/>
+    <path fill="#d2dcdf" d="M79 50h68v2H79z"/>
+    <path fill="#566b7c" d="M83 54h3v8h-3zm56 0h3v8h-3z"/>
+    <path fill="#111e2b" d="M108 36h28v14h-28z"/>
+    <path fill="#627c8e" d="M109 35h26v1h-26z"/>
+    <path fill="#576b78" d="M120 49h3v1h-3zm-12 3h23v1h-23z"/>
+    <path fill="#9fb0b9" d="M108 49h22v1h-22z"/>
+    <path fill="#aebdc4" d="M139 46h4v4h-4z"/>
+    <path fill="#6b8393" d="M142 47h3v2h-3z"/>
+    <path fill="#152736" d="M88 47h4v12h-4zM88 57h17v3H88zM96 60h2v4h-2zM90 64h14v1H90z"/>
+  </g>
+  <use href="#desk" x="116"/>
+  <use href="#desk" x="232"/>
+  <use href="#desk" x="348"/>
+  </g>
+</svg>
