@@ -7,6 +7,7 @@ signal load_requested
 signal reset_requested
 signal motion_changed(enabled: bool)
 
+const DesktopWindow = preload("res://native/desktop_window.gd")
 const Catalog = preload("res://content/catalog.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 const BACK: Color = Color("101824")
@@ -36,7 +37,15 @@ var _state: Dictionary = {}
 var _hud: Dictionary = {}
 var _people: Dictionary = {}
 var _rule_rows: Array[Dictionary] = []
-var _review_columns: HBoxContainer
+var _desktop: Control
+var _windows: Dictionary = {}
+var _dock_buttons: Dictionary = {}
+var _last_phase: String = ""
+var _browser_address: LineEdit
+var _browser_text: Label
+var _browser_back: Button
+var _browser_history: Array[String] = []
+var _browser_path: String = "home"
 var _phase_panel: VBoxContainer
 var _phase_title: Label
 var _phase_detail: Label
@@ -68,6 +77,7 @@ var _briefing_dialog: AcceptDialog
 var _last_pr: String = ""
 var _last_day: int = -1
 var _notice_generation: int = 0
+var _workspace_presented: bool = false
 
 
 func _ready() -> void:
@@ -87,13 +97,8 @@ func _ready() -> void:
 	var briefing_row: HBoxContainer = _row(frame)
 	_briefing = _paragraph(briefing_row, "", 13, DIM)
 	_button(briefing_row, "BRIEFING", func() -> void: _briefing_dialog.popup_centered())
-	var tabs: TabContainer = TabContainer.new()
-	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	frame.add_child(tabs)
-	_build_review(_tab(tabs, "REVIEW"))
-	_build_people(_tab(tabs, "PEOPLE"))
-	_build_system(_tab(tabs, "SYSTEM"))
+	_build_desktop(frame)
+	_build_dock(frame)
 	_notice = _paragraph(frame, "", 14, CYAN)
 	_notice.visible = false
 	_footer = _label(frame, "REVIEW DESK  /  Reading takes no game time.", 12, DIM)
@@ -111,6 +116,7 @@ func _ready() -> void:
 	_briefing_dialog.get_label().autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_briefing_dialog.get_label().custom_minimum_size.x = 600
 	add_child(_briefing_dialog)
+	_arrange_windows.call_deferred()
 
 
 func _build_theme() -> Theme:
@@ -269,17 +275,58 @@ func _build_scene(parent: Node) -> void:
 	parent.add_child(panel)
 	scene_host = Control.new()
 	scene_host.name = "SceneHost"
-	scene_host.custom_minimum_size = Vector2(640, 144)
+	scene_host.custom_minimum_size = Vector2(640, 192)
 	scene_host.clip_contents = true
 	panel.add_child(scene_host)
 
 
-func _build_review(page: VBoxContainer) -> void:
-	_review_columns = _row(page, 10)
-	_review_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var code: VBoxContainer = _column(_review_columns)
-	code.size_flags_stretch_ratio = 1.5
-	code.custom_minimum_size.x = 385
+func _build_desktop(parent: Node) -> void:
+	_desktop = Control.new()
+	_desktop.name = "TerminalDesktop"
+	_desktop.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_desktop.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_desktop.custom_minimum_size.y = 340
+	_desktop.clip_contents = true
+	parent.add_child(_desktop)
+	var back: Panel = Panel.new()
+	back.add_theme_stylebox_override("panel", _style(Color("0b121c"), Color("2c3a4b"), 2, 0, 0))
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_desktop.add_child(back)
+	_build_review_content(_new_window("review", "REVIEW / PULL REQUEST").body)
+	_build_rulebook(_new_window("rules", "INTRANET / RULEBOOK").body)
+	_build_decision(_new_window("decision", "DISPOSITION / SIGN-OFF").body)
+	_build_people(_new_window("people", "DIRECTORY / COLLEAGUES").body)
+	_build_system(_new_window("system", "TERMINAL / SYSTEM").body)
+	_build_browser(_new_window("browser", "INTRANET / LOCAL BROWSER").body)
+	var phase_window: DesktopWindow = _new_window("shift", "PERSONNEL / SHIFT RECORD")
+	_phase_panel = _scroll_column(phase_window.body)
+	_phase_title = _label(_phase_panel, "", 22, CYAN)
+	_phase_detail = _paragraph(_phase_panel, "", 16)
+	_evening_buttons = _row(_phase_panel)
+	for choice: String in ["rest", "socialize", "study"]:
+		var button: Button = _button(_evening_buttons, choice.to_upper(), _emit_command.bind({"type": "next-day", "choice": choice}))
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_complete_button = _button(_phase_panel, "START NEW RUN", func() -> void: _confirmation.popup_centered())
+	_phase_feedback = _paragraph(_phase_panel, "", 14, DIM)
+
+	for id: String in ["people", "system", "browser", "shift"]:
+		_windows[id].hide()
+	_desktop.resized.connect(_arrange_windows)
+
+
+func _new_window(id: String, title: String) -> DesktopWindow:
+	var window: DesktopWindow = DesktopWindow.new()
+	window.window_id = id
+	window.window_title = title
+	window.activated.connect(_focus_app)
+	window.minimized.connect(func(_id: String) -> void: _update_dock())
+	_desktop.add_child(window)
+	_windows[id] = window
+	return window
+
+
+func _build_review_content(code: VBoxContainer) -> void:
 	var title_row: HBoxContainer = _row(code)
 	_pr_id = _label(title_row, "PULL REQUEST", 12, CYAN)
 	_spacer(title_row)
@@ -305,22 +352,117 @@ func _build_review(page: VBoxContainer) -> void:
 	_diff.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	_diff.custom_minimum_size.y = 130
 	code.add_child(_diff)
-	_build_rulebook(_review_columns)
-	_build_decision(_review_columns)
-	_phase_panel = _scroll_column(page)
-	_phase_panel.get_parent().visible = false
-	_phase_title = _label(_phase_panel, "", 22, CYAN)
-	_phase_detail = _paragraph(_phase_panel, "", 16)
-	_evening_buttons = _row(_phase_panel)
-	for choice: String in ["rest", "socialize", "study"]:
-		var button: Button = _button(_evening_buttons, choice.to_upper(), _emit_command.bind({"type": "next-day", "choice": choice}))
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_complete_button = _button(_phase_panel, "START NEW RUN", func() -> void: _confirmation.popup_centered())
-	_phase_feedback = _paragraph(_phase_panel, "", 14, DIM)
+
+
+func _build_dock(parent: Node) -> void:
+	var dock: HBoxContainer = _row(parent, 5)
+	for item: Array in [["review", "PR"], ["rules", "RULEBOOK"], ["decision", "SIGN-OFF"], ["browser", "BROWSER"], ["people", "PEOPLE"], ["system", "SYSTEM"], ["shift", "SHIFT"]]:
+		var id: String = str(item[0])
+		var button: Button = _button(dock, str(item[1]), _open_app.bind(id))
+		button.toggle_mode = true
+		button.add_theme_font_size_override("font_size", 12)
+		_dock_buttons[id] = button
+	_spacer(dock)
+	var arrange: Button = _button(dock, "ARRANGE", _arrange_windows)
+	arrange.tooltip_text = "Reset window positions. Drag titlebars or focus one and use the arrow keys."
+	arrange.add_theme_font_size_override("font_size", 12)
+
+
+func _arrange_windows() -> void:
+	if not is_instance_valid(_desktop) or _windows.is_empty():
+		return
+	var extent: Vector2 = _desktop.size
+	var review_width: float = maxf(430.0, extent.x * 0.465)
+	var rule_width: float = maxf(320.0, extent.x * 0.28)
+	var decision_width: float = maxf(266.0, extent.x * 0.225)
+	var layouts: Dictionary = {
+		"review": Rect2(Vector2(5, 4), Vector2(review_width, extent.y - 10)),
+		"rules": Rect2(Vector2(review_width - 8, 13), Vector2(rule_width, extent.y - 21)),
+		"decision": Rect2(Vector2(extent.x - decision_width - 6, 24), Vector2(decision_width, extent.y - 32)),
+		"people": Rect2(Vector2(50, 24), Vector2(minf(620, extent.x - 100), extent.y - 48)),
+		"system": Rect2(Vector2(100, 32), Vector2(minf(700, extent.x - 150), extent.y - 56)),
+		"browser": Rect2(Vector2(70, 18), Vector2(minf(780, extent.x - 100), extent.y - 38)),
+		"shift": Rect2(Vector2(28, 10), Vector2(extent.x - 56, extent.y - 22)),
+	}
+	for id: String in _windows:
+		var window: DesktopWindow = _windows[id]
+		var layout: Rect2 = layouts[id]
+		window.position = layout.position
+		window.size = layout.size
+		window.clamp_to_desktop()
+
+
+func _open_app(id: String) -> void:
+	var phase: String = str(_state.get("phase", "review"))
+	if id in ["review", "rules", "decision"] and phase != "review":
+		id = "shift"
+	if id == "shift" and phase == "review":
+		notify("No shift record is available yet.")
+		return
+	var window: DesktopWindow = _windows[id]
+	window.restore_window()
+	_update_dock()
+
+
+func _focus_app(id: String) -> void:
+	for other_id: String in _windows:
+		var window: DesktopWindow = _windows[other_id]
+		window.set_active(other_id == id)
+	_update_dock()
+
+
+func _update_dock() -> void:
+	for id: String in _dock_buttons:
+		var button: Button = _dock_buttons[id]
+		var window: DesktopWindow = _windows[id]
+		button.set_pressed_no_signal(window.visible)
+		button.tooltip_text = ("Focus " if window.visible else "Reopen ") + window.window_title
+
+
+func _build_browser(page: VBoxContainer) -> void:
+	var navigation: HBoxContainer = _row(page, 5)
+	_browser_back = _button(navigation, "<", _browser_go_back)
+	_browser_back.tooltip_text = "Previous intranet page"
+	_browser_address = LineEdit.new()
+	_browser_address.editable = false
+	_browser_address.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_browser_address.add_theme_font_size_override("font_size", 13)
+	navigation.add_child(_browser_address)
+	_button(navigation, "HOME", _browse.bind("home"))
+	var links: HBoxContainer = _row(page)
+	_button(links, "PROCEDURE", _browse.bind("procedure"))
+	_button(links, "DAILY MEMO", _browse.bind("memo"))
+	_button(links, "STANDARDS", _open_app.bind("rules"))
+	_button(links, "DIRECTORY", _open_app.bind("people"))
+	var content: VBoxContainer = _scroll_column(page)
+	_browser_text = _paragraph(content, "", 15)
+	_browse("home")
+
+
+func _browse(path: String, record: bool = true) -> void:
+	if record and _browser_path != path:
+		_browser_history.append(_browser_path)
+	_browser_path = path
+	_browser_address.text = "intranet://engineering/" + path
+	_browser_back.disabled = _browser_history.is_empty()
+	match path:
+		"procedure":
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. Request changes with precise citations.\nThe audit is issued after your decision. Colleague approval and technical correctness are separate.\nHelios recommendations are optional and can be wrong."
+		"memo":
+			_browser_text.text = "DAILY OPERATIONS MEMO\n\n" + Catalog.briefing(int(_state.get("day", 1)))
+		_:
+			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nOpen STANDARDS to consult the active rulebook, DIRECTORY to inspect colleague relationships, or DAILY MEMO for the current instructions.\n\nExternal access restricted by company policy."
+
+
+func _browser_go_back() -> void:
+	if not _browser_history.is_empty():
+		var previous: String = _browser_history.pop_back()
+		_browse(previous, false)
 
 
 func _build_rulebook(parent: Node) -> void:
 	var column: VBoxContainer = _column(parent)
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.size_flags_stretch_ratio = 1.05
 	column.custom_minimum_size.x = 300
 	_label(column, "ENGINEERING RULEBOOK", 13, CYAN)
@@ -361,6 +503,7 @@ func _build_rulebook(parent: Node) -> void:
 
 func _build_decision(parent: Node) -> void:
 	var holder: VBoxContainer = _column(parent)
+	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	holder.size_flags_stretch_ratio = 0.9
 	holder.custom_minimum_size.x = 240
 	_label(holder, "REVIEW DISPOSITION", 13, CYAN)
@@ -469,6 +612,8 @@ func render_state(state: Dictionary) -> void:
 		_briefing.text = "DAY %d / %s" % [day, briefing.left(115) + ("…" if briefing.length() > 115 else "")]
 		_briefing_dialog.dialog_text = briefing
 		_filter_rules()
+		if _browser_path == "memo":
+			_browse("memo", false)
 	for entry: Dictionary in _rule_rows:
 		var rule: Dictionary = entry["rule"]
 		var check: CheckBox = entry["check"]
@@ -481,8 +626,16 @@ func render_state(state: Dictionary) -> void:
 	_reject.disabled = selected.is_empty() or phase != "review"
 	_reject.tooltip_text = "Cite at least one rule first." if selected.is_empty() else "Request changes for every cited rule."
 	_consult.disabled = consulted or phase != "review"
-	_review_columns.visible = phase == "review"
-	_phase_panel.get_parent().visible = phase != "review"
+	if phase != _last_phase:
+		_last_phase = phase
+		for id: String in ["review", "rules", "decision"]:
+			_windows[id].visible = phase == "review"
+		_windows["shift"].visible = phase != "review"
+		if phase != "review":
+			_windows["shift"].focus_window()
+		else:
+			_windows["decision"].focus_window()
+		_update_dock()
 	if phase == "review":
 		# Deliberately never read audit-only violations or explanation here.
 		var request: Dictionary = Catalog.request_at(index)
@@ -494,6 +647,8 @@ func render_state(state: Dictionary) -> void:
 			_pr_context.text = "%s: %s\n\n%s" % [str(request.get("author", "")), str(request.get("message", "")), str(request.get("description", ""))]
 			_file_label.text = str(request.get("file", ""))
 			_diff.text = str(request.get("diff", ""))
+			_diff.set_caret_line(0)
+			_diff.set_caret_column(0)
 			_diff.scroll_vertical = 0
 			_diff.scroll_horizontal = 0
 			_packet_scroll.scroll_vertical = 0
@@ -559,3 +714,19 @@ func notify(message: String, is_error: bool = false) -> void:
 	await get_tree().create_timer(8.0).timeout
 	if generation == _notice_generation:
 		_notice.visible = false
+
+
+func focus_workspace() -> void:
+	# Intro handoff focuses a non-actionable control, so Enter release cannot
+	# activate the first button. Later handoffs retain the player's read position.
+	focus_mode = Control.FOCUS_ALL
+	grab_focus()
+	if _workspace_presented:
+		return
+	_workspace_presented = true
+	_diff.set_caret_line(0)
+	_diff.set_caret_column(0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_diff.scroll_vertical = 0
+	_diff.scroll_horizontal = 0
