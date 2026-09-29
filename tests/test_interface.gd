@@ -1,6 +1,7 @@
 extends SceneTree
 ## Integration smoke test: native controls, authored content, and real transitions.
 const Simulation = preload("res://native/simulation.gd")
+const Chat = preload("res://content/chat.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Interface = preload("res://native/interface.gd")
 const Office = preload("res://native/office_scene.gd")
@@ -29,11 +30,14 @@ func _run() -> void:
 		await process_frame
 	ui.render_state(state)
 	await _test_desktop()
+	_test_slouch()
 	check(ui.theme.default_font is FontFile, "Interface must use the bundled terminal font")
 	check(ui.theme.default_font.resource_path.ends_with("IBMPlexMono-Regular.ttf"), "Terminal typography must not depend on installed system fonts")
 	check(ui._rule_rows.size() == Catalog.rules().size(), "Rulebook must include the authored catalog")
 	_check_active_rules(int(state.day))
-	check(ui._hud["day"].text == str(state.day), "Day display must not expose campaign length")
+	check(not ui._hud["day"].text.is_valid_int(), "Workday must use an in-world name instead of a score counter")
+	for stat: String in ["credits", "trust", "stress", "autonomy"]:
+		check(not ui._hud.has(stat), "Top chrome must not expose numeric player statistics")
 	check(ui._pr_id.text == str(Catalog.request_at(0).id) + " / AWAITING REVIEW", "Request header must omit queue size and position")
 	check(not ui._footer.text.contains(" OF "), "Footer must not reveal queue totals")
 	ui._search.text = "timeout"
@@ -53,6 +57,7 @@ func _run() -> void:
 	var packets: Array = Catalog.requests()
 	for index in range(packets.size()):
 		var packet: Dictionary = Catalog.request_at(index)
+		var previous_messages: String = str(ui._chat_signatures.get(str(packet.author), ""))
 		for rule_id: String in packet.violations:
 			_command({"type": "toggle-rule", "rule_id": rule_id})
 		if packet.violations.is_empty():
@@ -61,6 +66,16 @@ func _run() -> void:
 			ui._reject.pressed.emit()
 		check(ui._feedback.text.contains(str(packet.id)), "Audit must identify the previous PR")
 		check(ui._feedback.text.contains("CORRECT"), "Valid disposition should pass its audit")
+		check(not ui._feedback.text.contains("Trust +") and not ui._feedback.text.contains("Trust -"), "Audit must omit numeric social/stat deltas")
+		check(str(ui._chat_signatures.get(str(packet.author), "")) != previous_messages, "Completed review must update its author's Slouch messages")
+		check(ui._chat_contact == "Theo", "Incoming coworker messages must never switch the player's selected conversation")
+		var has_reaction: bool = false
+		for message: Dictionary in Chat.messages(state, str(packet.author)):
+			if str(message.get("kind", "")) == "reaction":
+				has_reaction = true
+		check(has_reaction, "Coworker conversation must contain a review reaction")
+		if str(packet.author) != "Theo":
+			check(bool(ui._chat_unread.get(str(packet.author), false)), "Other coworker reactions must receive an unread indicator")
 		check(ui._search.text == "timeout", "Review updates must preserve search text")
 		if state.phase == "debrief":
 			check(ui._evening_buttons.visible, "Each shift needs an evening choice")
@@ -68,7 +83,7 @@ func _run() -> void:
 			office.set_story(int(state.day), int(state.autonomy))
 			_check_active_rules(int(state.day))
 	check(state.phase == "complete", "Authored campaign must finish")
-	check(ui._phase_detail.text.contains("%d correct reviews." % packets.size()), "Ending must show retrospective correctness without a queue denominator")
+	check(not ui._phase_detail.text.contains("%") and not ui._phase_detail.text.contains("correct reviews"), "Ending must communicate consequences without a numerical score report")
 	office.set_motion(false)
 	check(not office.is_processing(), "Motion setting must stop decorative animation")
 	ui.queue_free()
@@ -165,3 +180,24 @@ func _test_desktop() -> void:
 	ui._diff.text = original_diff
 	ui._diff.set_caret_line(0)
 	ui._diff.scroll_vertical = 0
+
+func _test_slouch() -> void:
+	var chat = ui._windows["chat"]
+	check(not chat.visible, "Slouch must remain closed until the player opens it")
+	check(chat.window_title.begins_with("SLOUCH"), "Chat must be its own named native application")
+	ui._open_app("chat")
+	check(chat.visible, "Taskbar must open the separate Slouch window")
+	ui._select_chat_contact("Theo")
+	check(ui._chat_heading.text.begins_with("Theo"), "Selecting a DM must display that coworker's conversation")
+	check(not bool(ui._chat_unread.get("Theo", false)), "Reading a conversation must clear its unread indicator")
+	check(ui._chat_messages.get_child_count() > 0, "Slouch must render authored message rows")
+	chat.minimize_window()
+	ui.render_state(state)
+	check(not chat.visible, "Incoming refresh must not reopen minimized chat")
+	ui._open_app("chat")
+	check(ui._chat_contact == "Theo", "Reopening Slouch must preserve the player's selected conversation")
+	ui._open_app("decision")
+	var top_window: Node = ui._desktop.get_child(ui._desktop.get_child_count() - 1)
+	ui.render_state(state)
+	check(ui._desktop.get_child(ui._desktop.get_child_count() - 1) == top_window, "Chat refresh must not steal native window focus")
+	check(ui._dock_buttons["chat"].text.begins_with("SLOUCH"), "Taskbar must expose Slouch with an unread dot, not a message count")
