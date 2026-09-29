@@ -7,3 +7,6 @@ coverage/
 .env.*
 !.env.example
 .godot/
+.tools/
+build/
+*.tmp
