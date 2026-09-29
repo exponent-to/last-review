@@ -3,17 +3,15 @@ extends Node
 const Simulation = preload("res://native/simulation.gd")
 const SaveStore = preload("res://native/save_store.gd")
 const GameInterface = preload("res://native/interface.gd")
-const WorkshopScene = preload("res://native/workshop_scene.gd")
-const Clock = preload("res://native/clock.gd")
+const OfficeScene = preload("res://native/office_scene.gd")
 
 var state: Dictionary = {}
-var clock = Clock.new()
 var interface: GameInterface
-var scenery: WorkshopScene
-var focused: bool = true
+var scenery: OfficeScene
+var motion_enabled: bool = true
 
 func _ready() -> void:
-	get_window().min_size = Vector2i(960, 720)
+	get_window().min_size = Vector2i(1120, 800)
 	state = Simulation.initial_state()
 	interface = GameInterface.new()
 	interface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -23,29 +21,19 @@ func _ready() -> void:
 	interface.load_requested.connect(_on_load)
 	interface.reset_requested.connect(_on_reset)
 	interface.motion_changed.connect(_on_motion)
-	scenery = WorkshopScene.new()
+	scenery = OfficeScene.new()
 	interface.scene_host.add_child(scenery)
 	scenery.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_render()
 	get_window().focus_exited.connect(_on_focus_exited)
 	get_window().focus_entered.connect(_on_focus_entered)
 
-func _process(delta: float) -> void:
-	if not focused or state.is_empty():
-		return
-	var ticks: int = clock.consume(delta, int(state.speed))
-	if ticks > 0:
-		state = Simulation.advance(state, ticks)
-		_render()
-
 func _render() -> void:
 	interface.render_state(state)
-	scenery.set_working(state.speed > 0 and state.production == "parts" and state.materials > 0)
+	scenery.set_story(int(state.day), int(state.autonomy))
 
 func _on_command(command: Dictionary) -> void:
 	state = Simulation.dispatch(state, command)
-	if command.get("type") == "set-speed":
-		clock.reset()
 	_render()
 
 func _on_save() -> void:
@@ -58,24 +46,23 @@ func _on_load() -> void:
 		interface.notify(str(result.error), true)
 		return
 	state = result.state
-	clock.reset()
 	_render()
 	interface.notify(str(result.error) if not str(result.get("error", "")).is_empty() else "Saved game loaded.")
 
 func _on_reset() -> void:
 	state = Simulation.initial_state()
-	clock.reset()
 	_render()
-	interface.notify("New workshop started. Your last save remains available.")
+	interface.notify("New review career started. Your last save remains available.")
 
 func _on_motion(enabled: bool) -> void:
+	motion_enabled = enabled
 	if is_instance_valid(scenery):
 		scenery.set_motion(enabled)
 
 func _on_focus_exited() -> void:
-	focused = false
-	clock.reset()
+	if is_instance_valid(scenery):
+		scenery.set_motion(false)
 
 func _on_focus_entered() -> void:
-	focused = true
-	clock.reset()
+	if is_instance_valid(scenery):
+		scenery.set_motion(motion_enabled)
