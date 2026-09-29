@@ -3,7 +3,7 @@
 Verified on Apple Silicon macOS with Godot 4.7.2.
 
 - Simulation: 219 checks passed. Coverage includes progressive rules, variable shift boundaries, alternate catalog schedules, precise citations, AI mistakes, immutable transitions, one-time wages, evenings, and malformed saves.
-- Authored conversations: 505 checks passed. Future requests and notices stay hidden; reactions follow the player's verdict independently of audit correctness; relationship tone is qualitative; returned messages cannot mutate career state or cached content.
+- Authored conversations: 512 checks passed. Future requests and notices stay hidden; reactions follow the player's verdict independently of audit correctness; relationship tone is qualitative; returned messages cannot mutate career state or cached content.
 - Pointer windows: 59 checks passed using actual viewport press/motion/release events. The regression reproduced four movement failures before switching from polled cursor position to event coordinates. Native and headless checks cover scaled desktop coordinates, clamping, offscreen release, all eight resize handles, usable minimum sizes, anchored opposite edges, maximizing, desktop resize, and closing/reopening without discarding content.
 - Native interface integration: zero failures across the authored campaign. It exercises citation controls, AI disclosure, search preservation, window movement/focus/minimization, browser history, unread conversations, and preservation of the player's selected Slouch conversation. Both supported window sizes are covered, including home-icon containment and the exposed office margins.
 - Application handoff: zero failures. New Game opens the tutorial directly; releasing Enter cannot submit a review or open an unrelated control. Neutral keyboard focus and disabled-motion preferences survive the transition and focus changes.
@@ -24,3 +24,5 @@ Windows packaging, notarized distribution, audio, and comprehensive assistive-te
 - Browser menu/orientation playtest: New Game, compact lesson instructions, Maya’s contextual question, SAVE AND MAIN MENU, page reload, and Load Game all passed. Loading preserved the lesson and reply history and resumed paused.
 
 - Desktop notifications: 22 checks cover real unread counts, duplicate suppression, conversation-specific reading, hidden future PRs, direct PR and memo routing, focus preservation, System status, dismissal, pause, and bounded bottom-right layout.
+
+Chronology regressions cover returning to an older PR, same-tick exchanges across PRs, interleaved review reactions, stable timestamps across clock ticks, and JSON save/load ordering.

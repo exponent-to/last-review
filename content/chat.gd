@@ -19,13 +19,43 @@ static func _authored() -> Dictionary:
 	return _content
 
 
-static func _append(history: Array, author: String, text: String, kind: String, pr_id: String = "") -> void:
+static func _append(history: Array, author: String, text: String, kind: String, pr_id: String = "", day: int = 1, seconds: float = 0.0, sequence: int = -100) -> void:
 	if text.is_empty():
 		return
-	var message := {"author": author, "text": text, "kind": kind}
+	var message := {"author": author, "text": text, "kind": kind,
+		"sent_day": day, "sent_seconds": seconds, "sent_order": sequence,
+		"id": "%d|%s|%s|%s|%s" % [day, author, kind, pr_id, text.sha256_text()]}
 	if not pr_id.is_empty():
 		message["pr_id"] = pr_id
 	history.append(message)
+
+
+static func timestamp(message: Dictionary) -> String:
+	var minutes := 540 + int(floor(float(message.sent_seconds) * 1.5))
+	var days := ["Mon", "Tue", "Wed", "Thu", "Fri"]
+	return "%s %02d:%02d" % [days[(int(message.sent_day) - 1) % days.size()], int(minutes / 60), minutes % 60]
+
+
+static func _chronological(history: Array) -> Array:
+	# Arrival time first, then the saved command order for actions on the same tick.
+	# Never use the current clock or catalog iteration order for sent messages.
+	history.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		for field: String in ["sent_day", "sent_seconds", "sent_order"]:
+			if a[field] != b[field]: return a[field] < b[field]
+		return str(a.id) < str(b.id))
+	var start := maxi(0, history.size() - HISTORY_LIMIT)
+	if start > 0 and history[start].kind == "response": start += 1
+	return history.slice(start).duplicate(true)
+
+
+static func _event_order(state: Dictionary, kind: String, pr_id: String, reply_id: String = "", fallback: int = 0) -> int:
+	var actions: Array = state.get("actions", [])
+	for index in range(actions.size()):
+		var event: Dictionary = actions[index]
+		if event.get("type") == kind and event.get("pr_id") == pr_id and (reply_id.is_empty() or event.get("reply_id") == reply_id):
+			return (index + 1) * 2
+	# Older/synthetic saves without a journal still retain reply-array order.
+	return (fallback + 1) * 2
 
 
 static func _decision_for(state: Dictionary, pr_id: String) -> Dictionary:
@@ -93,9 +123,11 @@ static func reply_options(state: Dictionary, contact: String) -> Array:
 static func _request_history(history: Array, state: Dictionary, contact: String, request: Dictionary) -> void:
 	var pr_id := str(request.id)
 	var packet: Dictionary = _authored().get("requests", {}).get(pr_id, {})
-	_append(history, contact, str(packet.get("request", "")), "request", pr_id)
+	_append(history, contact, str(packet.get("request", "")), "request", pr_id, int(request.day), Catalog.arrival_seconds(pr_id), -1)
 	var seen: Array = []
-	for saved: Dictionary in state.get("chat_replies", []):
+	var replies: Array = state.get("chat_replies", [])
+	for index in range(replies.size()):
+		var saved: Dictionary = replies[index]
 		if saved.get("contact") != contact or saved.get("pr_id") != pr_id:
 			continue
 		var reply_id := str(saved.get("reply_id", ""))
@@ -105,13 +137,19 @@ static func _request_history(history: Array, state: Dictionary, contact: String,
 		if option.is_empty():
 			continue
 		seen.append(reply_id)
-		_append(history, "You", str(option.text), "reply")
-		_append(history, contact, str(option.response), "response")
+		var day := int(saved.get("day", request.day))
+		var seconds := float(saved.get("shift_seconds", Catalog.arrival_seconds(pr_id)))
+		var sequence := _event_order(state, "chat-reply", pr_id, reply_id, index)
+		_append(history, "You", str(option.text), "reply", "", day, seconds, sequence)
+		history[-1].id = contact + "|" + pr_id + "|" + reply_id + "|reply"
+		_append(history, contact, str(option.response), "response", "", day, seconds, sequence + 1)
+		history[-1].id = contact + "|" + pr_id + "|" + reply_id + "|response"
 		history[-1]["reply_key"] = contact + "|" + pr_id + "|" + reply_id
 	var decision := _decision_for(state, pr_id)
 	if not decision.is_empty():
 		# Reactions follow the chosen verdict; audit correctness is never consulted.
-		_append(history, contact, str(packet.get(str(decision.get("verdict", "")), "")), "reaction")
+		_append(history, contact, str(packet.get(str(decision.get("verdict", "")), "")), "reaction", "", int(request.day), float(decision.get("shift_seconds", 360)), _event_order(state, "review", pr_id, "", replies.size()))
+		history[-1].id = contact + "|" + pr_id + "|reaction"
 
 
 static func messages(state: Dictionary, contact: String) -> Array:
@@ -124,31 +162,31 @@ static func messages(state: Dictionary, contact: String) -> Array:
 	if contact == "company":
 		for notice: Dictionary in authored.get("company", []):
 			if int(notice.day) <= int(state.get("day", 1)):
-				_append(history, str(notice.author), str(notice.text), "notice")
+				_append(history, str(notice.author), str(notice.text), "notice", "", int(notice.day), 0)
 		if int(state.get("autonomy", 0)) >= 65:
 			_append(history, "Operations", "Helios has been added to the approval planning channel. The next staffing discussion is being prepared from its recommendations.", "ambient")
 		elif int(state.get("autonomy", 0)) >= 35:
 			_append(history, "Operations", "Helios is being copied on implementation handoffs now. Please keep a human owner named in the thread.", "ambient")
 		var active_id := str(state.get("active_request_id", ""))
 		if state.get("phase") == "review" and not active_id.is_empty() and active_id in state.get("consulted_requests", []):
-			_append(history, "Helios", "I've attached my recommendation to the open review. You can refer to it while preparing your decision.", "notice")
+			for event: Dictionary in state.get("actions", []):
+				if event.get("type") == "consult-ai" and event.get("pr_id") == active_id:
+					_append(history, "Helios", "I've attached my recommendation to the open review. You can refer to it while preparing your decision.", "notice", "", int(event.day), float(event.shift_seconds), _event_order(state, "consult-ai", active_id))
+					history[-1].id = "consult|" + active_id
+					break
 		if state.get("phase") == "complete":
-			_append(history, "Operations", "Your review assignment has closed. Keep the conversation history; ownership questions may come back after the rollout.", "notice")
+			_append(history, "Operations", "Your review assignment has closed. Keep the conversation history; ownership questions may come back after the rollout.", "notice", "", int(state.get("day", 1)), 360, 100)
 	else:
 		var person: Dictionary = authored.get("contacts", {}).get(contact, {})
 		_append(history, contact, str(person.get("intro", "")), "intro")
 		var relationship := int(state.get("coworkers", {}).get(contact, 50))
 		var tone := "warm" if relationship >= 65 else ("distant" if relationship <= 35 else "neutral")
 		if tone != "neutral":
-			_append(history, contact, str(person.get(tone, "")), "ambient")
+			_append(history, contact, str(person.get(tone, "")), "ambient", "", 1, 0, -90)
 		for request: Dictionary in Catalog.requests():
 			if request.author == contact and _arrived(state, request):
 				_request_history(history, state, contact, request)
-	var start := maxi(0, history.size() - HISTORY_LIMIT)
-	# Do not start a clipped history with a response whose player reply was removed.
-	if start > 0 and history[start].kind == "response":
-		start += 1
-	return history.slice(start).duplicate(true)
+	return _chronological(history)
 
 
 static func _manager_messages(state: Dictionary) -> Array:
@@ -156,6 +194,7 @@ static func _manager_messages(state: Dictionary) -> Array:
 	var copy: Dictionary = _authored().get("manager", {})
 	_append(history, "Morgan / Engineering Manager", str(copy.get("intro", "")), "intro")
 	for shift: Dictionary in state.get("shift_history", []):
+		var first := history.size()
 		var had_incident := false
 		var had_friction := false
 		var held := false
@@ -176,6 +215,11 @@ static func _manager_messages(state: Dictionary) -> Array:
 		elif not had_incident and not had_friction:
 			_append(history, "Morgan", str(copy.held if held else copy.quiet), "notice")
 		_append(history, "Morgan", str(copy.closing), "notice")
+		for index in range(first, history.size()):
+			history[index].sent_day = int(shift.day)
+			history[index].sent_seconds = 360.0
+			history[index].sent_order = index - first
+			history[index].id = str(shift.day) + "|" + history[index].id
 	if state.get("phase") == "complete":
 		var ending := "The assignment is over. We're keeping human review, although leadership wants a closer look at how it works. You'll hear from me about the next rotation."
 		if int(state.get("autonomy", 0)) >= 70:
@@ -183,5 +227,5 @@ static func _manager_messages(state: Dictionary) -> Array:
 		elif int(state.get("trust", 0)) < 40:
 			ending = "I'm moving you to the incident queue for the next rotation. Someone will sit with you on reviews for a while. We should talk before you head out."
 		if int(state.get("stress", 0)) >= 70: ending += " You look exhausted. Please take tonight off."
-		_append(history, "Morgan", ending, "notice")
-	return history.slice(maxi(0, history.size() - HISTORY_LIMIT)).duplicate(true)
+		_append(history, "Morgan", ending, "notice", "", int(state.get("day", 1)), 360, 100)
+	return _chronological(history)

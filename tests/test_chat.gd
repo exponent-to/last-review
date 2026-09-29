@@ -14,6 +14,7 @@ func _initialize() -> void:
 	_test_replies()
 	_test_reactions()
 	_test_expired_history()
+	_test_chronology()
 	_test_purity()
 	_test_history_and_contract()
 	print("Team chat checks: %d passed, %d failed." % [checks - failures, failures])
@@ -206,9 +207,44 @@ func _test_history_and_contract() -> void:
 		_check(history.size() <= Chat.HISTORY_LIMIT, "Large conversation histories must remain bounded.")
 		_check(history.is_empty() or history[0].kind != "response", "Truncation must not orphan a coworker response from the player's reply.")
 		for message: Dictionary in history:
-			_check(message.has_all(["author", "text", "kind"]) and message.size() in [3, 4], "Messages retain author/text/kind and optional internal request or response metadata.")
+			_check(message.has_all(["author", "text", "kind", "id", "sent_day", "sent_seconds", "sent_order"]) and message.size() in [7, 8], "Messages retain author/text/kind and optional internal request or response metadata.")
 			_check(forbidden.search(message.text) == null, "Chat prose must not reveal scores, queue totals, audit rule IDs, or external URLs.")
 			if message.has("pr_id"):
 				_check(known.has(message.pr_id) and known[message.pr_id].author == contact, "Every link must identify an authored request from this coworker.")
 	state.phase = "complete"
 	_check(_kind(Chat.messages(state, "company"), "notice")[-1].text.contains("assignment has closed"), "Completion keeps a qualitative company notice.")
+
+
+func _test_chronology() -> void:
+	# A reviewer can ask about a later PR and then return to an older one.
+	var original := Catalog.requests()
+	var packets := original.duplicate(true)
+	packets[1].author = packets[0].author
+	Catalog._requests = packets
+	var first: Dictionary = packets[0]
+	var second: Dictionary = packets[1]
+	var state := _state(1, 300)
+	_save_choice(state, second, "clarify")
+	state.shift_seconds = 310
+	_save_choice(state, first, "clarify")
+	var history := Chat.messages(state, str(first.author))
+	var answers := _kind(history, "response")
+	_check(answers.size() == 2 and answers[0].reply_key.contains(str(second.id)) and answers[1].reply_key.contains(str(first.id)), "Replies to older PRs stay after replies already sent about newer PRs.")
+	_check(_kind(history, "request").size() == 2 and history[1].kind == "request" and history[2].kind == "request", "Delivered PR messages keep their arrival positions instead of grouping with later replies.")
+	state.shift_seconds = 350
+	_check(Chat.messages(state, str(first.author)) == history, "Advancing the clock cannot change sent timestamps, IDs, or message order.")
+	state.chat_replies[1].shift_seconds = 300
+	history = Chat.messages(state, str(first.author))
+	answers = _kind(history, "response")
+	_check(answers[0].reply_key.contains(str(second.id)) and answers[1].reply_key.contains(str(first.id)), "Same-tick replies retain saved send order across PRs, including the untimed tutorial.")
+	state.actions = [
+		{"type": "chat-reply", "pr_id": second.id, "reply_id": "clarify"},
+		{"type": "review", "pr_id": second.id},
+		{"type": "chat-reply", "pr_id": first.id, "reply_id": "clarify"}]
+	state.decisions = [{"pr_id": second.id, "verdict": "approve", "shift_seconds": 300}]
+	history = Chat.messages(state, str(first.author))
+	_check(history[5].kind == "reaction" and history[6].kind == "reply", "The action journal orders a review reaction between two questions sent on the same tick.")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(state))
+	_check(Chat.messages(saved, str(first.author)) == history, "Chronological history survives save/load without new or reordered messages.")
+	_check(Chat.timestamp(history[-1]) == "Mon 16:30", "Bubble timestamps use the same accelerated office clock as the desktop.")
+	Catalog._requests = original

@@ -837,13 +837,10 @@ func _render_chat() -> void:
 	for contact: String in _chat_contacts:
 		var messages: Array = _visible_chat_messages(contact)
 		var seen: Dictionary = _chat_seen.get(contact, {})
-		var occurrences: Dictionary = {}
 		var incoming: Array = []
 		for message: Dictionary in messages:
 			if message.author == "You": continue
-			var signature := JSON.stringify(message)
-			occurrences[signature] = int(occurrences.get(signature, 0)) + 1
-			var key := signature + ":" + str(occurrences[signature])
+			var key := str(message.id)
 			if not seen.has(key):
 				seen[key] = true
 				incoming.append(message)
@@ -913,8 +910,10 @@ func _draw_chat(contact_changed: bool = false) -> void:
 		row.add_child(panel)
 		if not outgoing: row.add_child(gap)
 		var body: VBoxContainer = _column(_margin(panel, 10, 8), 5)
-		var author := _label(body, str(message.get("author", "")), 12, Color("b6cfe5") if outgoing else CYAN)
-		author.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if outgoing else HORIZONTAL_ALIGNMENT_LEFT
+		var heading := _row(body, 8)
+		var author := _label(heading, str(message.get("author", "")), 12, Color("b6cfe5") if outgoing else CYAN)
+		author.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_label(heading, Chat.timestamp(message), 10, DIM)
 		_paragraph(body, str(message.get("text", "")), 14, TEXT)
 		if message.has("pr_id"):
 			var pr_id: String = str(message.pr_id)
