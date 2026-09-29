@@ -1,5 +1,5 @@
 extends Control
-## A native workshop control desk. State and disk persistence belong to the app.
+## Native review desk. Decisions and persistence are owned by the application.
 
 signal command_requested(command: Dictionary)
 signal save_requested
@@ -7,26 +7,64 @@ signal load_requested
 signal reset_requested
 signal motion_changed(enabled: bool)
 
-const DESK: Color = Color("343b36")
-const PAPER: Color = Color("b8b6a1")
-const PAPER_LIGHT: Color = Color("cecab2")
-const INK: Color = Color("262b26")
-const MUTED: Color = Color("5e6458")
-const LINE: Color = Color("777e6c")
-const RUST: Color = Color("833f32")
+const Catalog = preload("res://content/catalog.gd")
+const BACK: Color = Color("101824")
+const SURFACE: Color = Color("192637")
+const INSET: Color = Color("0d1520")
+const BORDER: Color = Color("34465b")
+const TEXT: Color = Color("e0e8ef")
+const DIM: Color = Color("96a9be")
+const CYAN: Color = Color("76c8dd")
+const RED: Color = Color("e39499")
+const GREEN: Color = Color("9ed6bb")
+
+class DiffHighlighter extends SyntaxHighlighter:
+	func _get_line_syntax_highlighting(line: int) -> Dictionary:
+		var text: String = get_text_edit().get_line(line)
+		var color: Color = Color("d6e1eb")
+		if text.begins_with("+"):
+			color = Color("9ed6bb")
+		elif text.begins_with("-"):
+			color = Color("e39499")
+		elif text.begins_with("@@") or text.begins_with("diff"):
+			color = Color("76c8dd")
+		return {0: {"color": color}}
 
 var scene_host: Control
-var _values: Dictionary = {}
-var _command_buttons: Array[Button] = []
-var _production_buttons: Array[Button] = []
-var _speed_buttons: Dictionary = {}
-var _production_note: Label
-var _scene_status: Label
-var _log_labels: Array[Label] = []
-var _clock_label: Label
+var _state: Dictionary = {}
+var _hud: Dictionary = {}
+var _people: Dictionary = {}
+var _rule_rows: Array[Dictionary] = []
+var _review_columns: HBoxContainer
+var _phase_panel: VBoxContainer
+var _phase_title: Label
+var _phase_detail: Label
+var _evening_buttons: HBoxContainer
+var _complete_button: Button
+var _phase_feedback: Label
+var _pr_id: Label
+var _pr_title: Label
+var _pr_context: Label
+var _file_label: Label
+var _diff: CodeEdit
+var _search: LineEdit
+var _category: OptionButton
+var _rule_count: Label
+var _selected_label: Label
+var _clear_button: Button
+var _approve: Button
+var _reject: Button
+var _consult: Button
+var _ai_note: Label
+var _feedback: Label
+var _people_log: Label
+var _briefing: Label
+var _footer: Label
 var _notice: Label
 var _confirmation: ConfirmationDialog
-var _last_log: String = ""
+var _briefing_dialog: AcceptDialog
+var _last_pr: String = ""
+var _last_day: int = -1
 var _notice_generation: int = 0
 
 
@@ -34,96 +72,109 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = _build_theme()
 	var background: ColorRect = ColorRect.new()
-	background.color = DESK
+	background.color = BACK
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
-	var outer: MarginContainer = _margin(self, 14, 10)
-	outer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var frame: VBoxContainer = _column(outer, 8)
+	var margin: MarginContainer = _margin(self, 12, 10)
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var frame: VBoxContainer = _column(margin, 8)
 	_build_header(frame)
-	_build_resources(frame)
+	_build_hud(frame)
 	_build_scene(frame)
+	var briefing_row: HBoxContainer = _row(frame)
+	_briefing = _paragraph(briefing_row, "", 13, DIM)
+	_button(briefing_row, "BRIEFING", func() -> void: _briefing_dialog.popup_centered())
 	var tabs: TabContainer = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tabs.tab_alignment = TabBar.ALIGNMENT_LEFT
 	frame.add_child(tabs)
-	_build_control(_tab(tabs, "CONTROL"))
-	_build_records(_tab(tabs, "RECORDS"))
+	_build_review(_tab(tabs, "REVIEW"))
+	_build_people(_tab(tabs, "PEOPLE"))
 	_build_system(_tab(tabs, "SYSTEM"))
-	_build_footer(frame)
+	_notice = _paragraph(frame, "", 14, CYAN)
+	_notice.visible = false
+	_footer = _label(frame, "REVIEW DESK  /  Reading takes no game time.", 12, DIM)
 	_confirmation = ConfirmationDialog.new()
-	_confirmation.title = "Reset workshop"
-	_confirmation.dialog_text = "Discard the current workshop and start a new run?\nSaved progress remains on disk until overwritten."
-	_confirmation.ok_button_text = "Reset workshop"
-	_confirmation.cancel_button_text = "Cancel"
-	_confirmation.min_size = Vector2i(490, 160)
+	_confirmation.title = "Start a new run"
+	_confirmation.dialog_text = "Discard this run and return to day one?\nYour disk save remains until overwritten."
+	_confirmation.ok_button_text = "Start new run"
+	_confirmation.cancel_button_text = "Keep reviewing"
+	_confirmation.min_size = Vector2i(460, 160)
 	_confirmation.confirmed.connect(func() -> void: reset_requested.emit())
 	add_child(_confirmation)
+	_briefing_dialog = AcceptDialog.new()
+	_briefing_dialog.title = "Daily briefing"
+	_briefing_dialog.min_size = Vector2i(660, 250)
+	_briefing_dialog.get_label().autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_briefing_dialog.get_label().custom_minimum_size.x = 600
+	add_child(_briefing_dialog)
 
 
 func _build_theme() -> Theme:
 	var result: Theme = Theme.new()
-	var mono: SystemFont = SystemFont.new()
-	mono.font_names = PackedStringArray(["Menlo", "Courier New", "monospace"])
-	result.default_font = mono
+	var font: SystemFont = SystemFont.new()
+	font.font_names = PackedStringArray(["Menlo", "Consolas", "Courier New", "monospace"])
+	result.default_font = font
 	result.default_font_size = 15
-	result.set_color("font_color", "Label", INK)
-	result.set_color("font_color", "TooltipLabel", PAPER_LIGHT)
-	result.set_stylebox("panel", "TooltipPanel", _style(DESK, LINE, 1, 10, 7))
-	result.set_stylebox("panel", "AcceptDialog", _style(PAPER, INK, 2, 16, 14))
-	result.set_color("font_color", "Button", PAPER_LIGHT)
-	result.set_color("font_hover_color", "Button", PAPER_LIGHT)
-	result.set_color("font_focus_color", "Button", PAPER_LIGHT)
-	result.set_color("font_pressed_color", "Button", PAPER_LIGHT)
-	result.set_color("font_disabled_color", "Button", Color("888f7e"))
-	result.set_stylebox("normal", "Button", _style(DESK, INK, 1, 10, 7))
-	result.set_stylebox("hover", "Button", _style(Color("454f43"), INK, 1, 10, 7))
-	result.set_stylebox("pressed", "Button", _style(RUST, INK, 1, 10, 7))
-	result.set_stylebox("disabled", "Button", _style(Color("51584b"), LINE, 1, 10, 7))
-	var focus: StyleBoxFlat = _style(Color.TRANSPARENT, PAPER_LIGHT, 2, 0, 0)
+	for type_name: String in ["Label", "Button", "CheckBox", "OptionButton", "LineEdit", "TextEdit", "CodeEdit", "PopupMenu"]:
+		result.set_color("font_color", type_name, TEXT)
+		result.set_color("font_hover_color", type_name, TEXT)
+		result.set_color("font_focus_color", type_name, TEXT)
+		result.set_color("font_pressed_color", type_name, CYAN)
+		result.set_color("font_disabled_color", type_name, Color("677b92"))
+	var focus: StyleBoxFlat = _style(Color.TRANSPARENT, CYAN, 2, 0, 0)
 	focus.draw_center = false
-	focus.set_expand_margin_all(2)
-	result.set_stylebox("focus", "Button", focus)
-	result.set_stylebox("panel", "PanelContainer", _style(PAPER, INK, 1, 0, 0))
-	result.set_stylebox("panel", "TabContainer", _style(PAPER, INK, 1, 9, 9))
-	result.set_stylebox("tab_selected", "TabContainer", _style(PAPER, INK, 1, 20, 8))
-	result.set_stylebox("tab_unselected", "TabContainer", _style(Color("454c42"), INK, 1, 20, 8))
-	result.set_stylebox("tab_hovered", "TabContainer", _style(Color("5c6455"), INK, 1, 20, 8))
+	for type_name: String in ["Button", "CheckBox", "OptionButton"]:
+		result.set_stylebox("normal", type_name, _style(SURFACE, BORDER, 1, 9, 7))
+		result.set_stylebox("hover", type_name, _style(Color("263950"), CYAN, 1, 9, 7))
+		result.set_stylebox("pressed", type_name, _style(Color("203f53"), CYAN, 1, 9, 7))
+		result.set_stylebox("disabled", type_name, _style(INSET, BORDER, 1, 9, 7))
+		result.set_stylebox("focus", type_name, focus)
+	for type_name: String in ["LineEdit", "TextEdit", "CodeEdit"]:
+		result.set_stylebox("normal", type_name, _style(INSET, BORDER, 1, 9, 8))
+		result.set_stylebox("read_only", type_name, _style(INSET, BORDER, 1, 9, 8))
+		result.set_stylebox("focus", type_name, focus)
+		result.set_color("font_readonly_color", type_name, TEXT)
+		result.set_color("font_placeholder_color", type_name, DIM)
+		result.set_color("caret_color", type_name, CYAN)
+		result.set_color("selection_color", type_name, Color("345673"))
+	result.set_color("line_number_color", "CodeEdit", Color("61788f"))
+	result.set_stylebox("panel", "PanelContainer", _style(SURFACE, BORDER, 1, 0, 0))
+	result.set_stylebox("panel", "TabContainer", _style(SURFACE, BORDER, 1, 8, 8))
+	result.set_stylebox("tab_selected", "TabContainer", _style(SURFACE, CYAN, 1, 20, 7))
+	result.set_stylebox("tab_unselected", "TabContainer", _style(INSET, BORDER, 1, 20, 7))
+	result.set_stylebox("tab_hovered", "TabContainer", _style(SURFACE, DIM, 1, 20, 7))
 	result.set_stylebox("tab_focus", "TabContainer", focus)
-	result.set_color("font_selected_color", "TabContainer", INK)
-	result.set_color("font_unselected_color", "TabContainer", PAPER_LIGHT)
-	result.set_color("font_hovered_color", "TabContainer", PAPER_LIGHT)
+	result.set_color("font_selected_color", "TabContainer", CYAN)
+	result.set_color("font_unselected_color", "TabContainer", DIM)
+	result.set_color("font_hovered_color", "TabContainer", TEXT)
 	result.set_font_size("font_size", "TabContainer", 14)
-	result.set_constant("separation", "VBoxContainer", 8)
-	result.set_constant("separation", "HBoxContainer", 8)
-	result.set_color("font_color", "CheckBox", PAPER_LIGHT)
-	result.set_color("font_hover_color", "CheckBox", PAPER_LIGHT)
-	result.set_color("font_pressed_color", "CheckBox", PAPER_LIGHT)
-	result.set_color("font_hover_pressed_color", "CheckBox", PAPER_LIGHT)
-	result.set_stylebox("focus", "CheckBox", focus)
+	result.set_stylebox("panel", "AcceptDialog", _style(SURFACE, BORDER, 1, 16, 14))
+	result.set_stylebox("panel", "PopupMenu", _style(SURFACE, BORDER, 1, 8, 8))
+	result.set_stylebox("panel", "TooltipPanel", _style(INSET, BORDER, 1, 10, 8))
+	result.set_color("font_color", "TooltipLabel", TEXT)
 	return result
 
 
-func _style(fill: Color, border: Color, width: int, horizontal: int, vertical: int) -> StyleBoxFlat:
+func _style(fill: Color, border: Color, width: int, x: int, y: int) -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = fill
 	style.border_color = border
 	style.set_border_width_all(width)
-	style.content_margin_left = horizontal
-	style.content_margin_right = horizontal
-	style.content_margin_top = vertical
-	style.content_margin_bottom = vertical
+	style.content_margin_left = x
+	style.content_margin_right = x
+	style.content_margin_top = y
+	style.content_margin_bottom = y
 	return style
 
 
-func _margin(parent: Node, horizontal: int = 12, vertical: int = 10) -> MarginContainer:
+func _margin(parent: Node, x: int = 10, y: int = 10) -> MarginContainer:
 	var margin: MarginContainer = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", horizontal)
-	margin.add_theme_constant_override("margin_right", horizontal)
-	margin.add_theme_constant_override("margin_top", vertical)
-	margin.add_theme_constant_override("margin_bottom", vertical)
+	margin.add_theme_constant_override("margin_left", x)
+	margin.add_theme_constant_override("margin_right", x)
+	margin.add_theme_constant_override("margin_top", y)
+	margin.add_theme_constant_override("margin_bottom", y)
 	parent.add_child(margin)
 	return margin
 
@@ -144,7 +195,7 @@ func _row(parent: Node, separation: int = 8) -> HBoxContainer:
 	return row
 
 
-func _label(parent: Node, text: String, font_size: int = 15, color: Color = INK) -> Label:
+func _label(parent: Node, text: String, font_size: int = 15, color: Color = TEXT) -> Label:
 	var label: Label = Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", font_size)
@@ -153,8 +204,8 @@ func _label(parent: Node, text: String, font_size: int = 15, color: Color = INK)
 	return label
 
 
-func _paragraph(parent: Node, text: String, font_size: int = 15) -> Label:
-	var label: Label = _label(parent, text, font_size)
+func _paragraph(parent: Node, text: String, font_size: int = 15, color: Color = TEXT) -> Label:
+	var label: Label = _label(parent, text, font_size, color)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return label
@@ -175,230 +226,328 @@ func _spacer(parent: Node) -> void:
 	parent.add_child(spacer)
 
 
-func _form(parent: Node, title: String) -> VBoxContainer:
-	var panel: PanelContainer = PanelContainer.new()
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", _style(PAPER_LIGHT, LINE, 1, 0, 0))
-	parent.add_child(panel)
-	var body: VBoxContainer = _column(_margin(panel), 9)
-	_label(body, title, 14, RUST)
-	return body
-
-
 func _tab(parent: TabContainer, title: String) -> VBoxContainer:
+	var page: VBoxContainer = VBoxContainer.new()
+	page.name = title
+	page.add_theme_constant_override("separation", 10)
+	parent.add_child(page)
+	return page
+
+
+func _scroll_column(parent: Node) -> VBoxContainer:
 	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.name = title
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus = true
 	parent.add_child(scroll)
-	var body: VBoxContainer = _column(scroll, 10)
-	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return body
+	return _column(scroll, 10)
 
 
 func _build_header(parent: Node) -> void:
 	var row: HBoxContainer = _row(parent)
-	_label(row, "YARD  /  WORKSHOP 01", 16, PAPER_LIGHT)
+	_label(row, "LAST REVIEW", 19, TEXT)
+	_label(row, " / ENGINEERING OPERATIONS", 12, DIM)
 	_spacer(row)
-	_label(row, "OPERATIONS TERMINAL  ·  001", 12, Color("929b85"))
+	_label(row, "HUMAN REVIEWER · TERMINAL 04", 12, CYAN)
 
 
-func _build_resources(parent: Node) -> void:
+func _build_hud(parent: Node) -> void:
 	var panel: PanelContainer = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _style(Color("242c27"), Color("697462"), 1, 0, 0))
+	panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 0, 0))
 	parent.add_child(panel)
-	var row: HBoxContainer = _row(_margin(panel, 14, 9), 18)
-	for item: Array in [["FUNDS", "credits"], ["MATERIALS", "materials"], ["PARTS", "goods"], ["CREW", "workers"]]:
-		var cell: HBoxContainer = _row(row, 12)
-		_label(cell, str(item[0]), 12, Color("929b85"))
-		var value: Label = _label(cell, "0", 19, PAPER_LIGHT)
-		_register_value(str(item[1]), value)
+	var row: HBoxContainer = _row(_margin(panel, 12, 8), 16)
+	for item: Array in [["DAY", "day"], ["CASH", "credits"], ["TRUST", "trust"], ["STRESS", "stress"], ["AI AUTHORITY", "autonomy"]]:
+		var cell: HBoxContainer = _row(row, 10)
+		_label(cell, str(item[0]), 11, DIM)
+		_hud[str(item[1])] = _label(cell, "—", 17, CYAN if str(item[1]) == "autonomy" else TEXT)
 
 
 func _build_scene(parent: Node) -> void:
 	var panel: PanelContainer = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _style(Color("1b241e"), INK, 2, 4, 4))
+	panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 2, 2))
 	parent.add_child(panel)
-	var column: VBoxContainer = _column(panel, 3)
-	var heading: HBoxContainer = _row(column)
-	_label(heading, " EXTERIOR / WORKSHOP", 11, Color("929b85"))
-	_spacer(heading)
-	_scene_status = _label(heading, "STANDING BY ", 11, PAPER_LIGHT)
 	scene_host = Control.new()
 	scene_host.name = "SceneHost"
-	scene_host.custom_minimum_size = Vector2(640, 240)
-	scene_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scene_host.custom_minimum_size = Vector2(640, 144)
 	scene_host.clip_contents = true
-	column.add_child(scene_host)
+	panel.add_child(scene_host)
 
 
-func _register_value(key: String, label: Label) -> void:
-	if not _values.has(key):
-		_values[key] = []
-	var labels: Array = _values[key]
-	labels.append(label)
-
-
-func _build_control(page: VBoxContainer) -> void:
-	var columns: HBoxContainer = _row(page, 10)
-	var orders: VBoxContainer = _form(columns, "PRODUCTION ORDER / 01")
-	_production_note = _paragraph(orders, "Line idle. Select MAKE PARTS.", 14)
-	var modes: HBoxContainer = _row(orders, 6)
-	for mode: String in ["idle", "parts"]:
-		var command: Dictionary = {"type": "set-production", "production": mode}
-		var button: Button = _button(modes, "STOP LINE" if mode == "idle" else "MAKE PARTS", _emit_command.bind(command))
-		button.toggle_mode = true
+func _build_review(page: VBoxContainer) -> void:
+	_review_columns = _row(page, 10)
+	_review_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var code: VBoxContainer = _column(_review_columns)
+	code.size_flags_stretch_ratio = 1.5
+	code.custom_minimum_size.x = 385
+	var title_row: HBoxContainer = _row(code)
+	_pr_id = _label(title_row, "PULL REQUEST", 12, CYAN)
+	_spacer(title_row)
+	_label(title_row, "DIFF / READ ONLY", 11, DIM)
+	_pr_title = _paragraph(code, "", 17)
+	var packet_scroll: ScrollContainer = ScrollContainer.new()
+	packet_scroll.custom_minimum_size.y = 84
+	packet_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	packet_scroll.follow_focus = true
+	code.add_child(packet_scroll)
+	_pr_context = _paragraph(packet_scroll, "", 13, DIM)
+	_file_label = _paragraph(code, "", 12, CYAN)
+	_diff = CodeEdit.new()
+	_diff.name = "PullRequestDiff"
+	_diff.editable = false
+	_diff.gutters_draw_line_numbers = true
+	_diff.gutters_line_numbers_min_digits = 2
+	_diff.syntax_highlighter = DiffHighlighter.new()
+	_diff.add_theme_font_size_override("font_size", 14)
+	_diff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_diff.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_diff.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	_diff.custom_minimum_size.y = 130
+	code.add_child(_diff)
+	_build_rulebook(_review_columns)
+	_build_decision(_review_columns)
+	_phase_panel = _scroll_column(page)
+	_phase_panel.get_parent().visible = false
+	_phase_title = _label(_phase_panel, "", 22, CYAN)
+	_phase_detail = _paragraph(_phase_panel, "", 16)
+	_evening_buttons = _row(_phase_panel)
+	for choice: String in ["rest", "socialize", "study"]:
+		var button: Button = _button(_evening_buttons, choice.to_upper(), _emit_command.bind({"type": "next-day", "choice": choice}))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.set_meta("production", mode)
-		_production_buttons.append(button)
-	_command(orders, "REQUISITION 10 MATERIALS    $30", "buy-materials")
-	_command(orders, "DISPATCH ALL PARTS     $12 / UNIT", "sell-goods")
-	_command(orders, "ASSIGN WORKER             $100", "hire-worker")
-	var log: VBoxContainer = _form(columns, "DISPATCH REGISTER / LATEST")
-	var log_label: Label = _paragraph(log, "No entries.", 14)
-	log_label.set_meta("limit", 5)
-	_log_labels.append(log_label)
+	_complete_button = _button(_phase_panel, "START NEW RUN", func() -> void: _confirmation.popup_centered())
+	_phase_feedback = _paragraph(_phase_panel, "", 14, DIM)
 
 
-func _command(parent: Node, text: String, command_type: String) -> void:
-	var button: Button = _button(parent, text, _emit_command.bind({"type": command_type}))
-	button.set_meta("command", command_type)
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_command_buttons.append(button)
+func _build_rulebook(parent: Node) -> void:
+	var column: VBoxContainer = _column(parent)
+	column.size_flags_stretch_ratio = 1.05
+	column.custom_minimum_size.x = 300
+	_label(column, "ENGINEERING RULEBOOK", 13, CYAN)
+	_search = LineEdit.new()
+	_search.placeholder_text = "Search ID, title, or text"
+	_search.clear_button_enabled = true
+	_search.custom_minimum_size.y = 35
+	_search.text_changed.connect(func(_text: String) -> void: _filter_rules())
+	column.add_child(_search)
+	_category = OptionButton.new()
+	_category.add_item("All categories")
+	_category.custom_minimum_size.y = 34
+	_category.item_selected.connect(func(_index: int) -> void: _filter_rules())
+	column.add_child(_category)
+	_rule_count = _label(column, "", 12, DIM)
+	var rules_body: VBoxContainer = _scroll_column(column)
+	var categories: Array[String] = []
+	var all_rules: Array = Catalog.rules()
+	for rule: Dictionary in all_rules:
+		var category: String = str(rule.get("category", "General"))
+		if not categories.has(category):
+			categories.append(category)
+			_category.add_item(category)
+		var panel: PanelContainer = PanelContainer.new()
+		panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 0, 0))
+		rules_body.add_child(panel)
+		var body: VBoxContainer = _column(_margin(panel, 8, 8), 5)
+		var check: CheckBox = CheckBox.new()
+		check.text = str(rule.get("id", "")) + "  / CITE"
+		check.add_theme_font_size_override("font_size", 13)
+		var id: String = str(rule.get("id", ""))
+		check.toggled.connect(func(_pressed: bool) -> void: _emit_command({"type": "toggle-rule", "rule_id": id}))
+		body.add_child(check)
+		_paragraph(body, str(rule.get("title", "")), 14, TEXT)
+		_paragraph(body, str(rule.get("text", "")), 13, DIM)
+		_rule_rows.append({"rule": rule, "panel": panel, "check": check})
 
 
-func _balance(parent: Node, title: String, key: String) -> void:
-	var row: HBoxContainer = _row(parent)
-	_label(row, title, 15)
-	_spacer(row)
-	_register_value(key, _label(row, "0", 15))
+func _build_decision(parent: Node) -> void:
+	var holder: VBoxContainer = _column(parent)
+	holder.size_flags_stretch_ratio = 0.9
+	holder.custom_minimum_size.x = 240
+	_label(holder, "REVIEW DISPOSITION", 13, CYAN)
+	var column: VBoxContainer = _scroll_column(holder)
+	_paragraph(column, "Approve clean work. For changes, cite every violated rule.", 13, DIM)
+	_selected_label = _paragraph(column, "CITATIONS: NONE", 13)
+	_clear_button = _button(column, "CLEAR CITATIONS", _clear_citations)
+	_approve = _button(column, "APPROVE", _emit_command.bind({"type": "review", "verdict": "approve"}))
+	_approve.add_theme_color_override("font_color", GREEN)
+	_reject = _button(column, "REQUEST CHANGES", _emit_command.bind({"type": "review", "verdict": "request_changes"}))
+	_reject.add_theme_color_override("font_color", RED)
+	_consult = _button(column, "CONSULT AI", _emit_command.bind({"type": "consult-ai"}))
+	_consult.tooltip_text = "Ask for a recommendation. Stress -2; AI authority +4. Advice can be wrong."
+	_ai_note = _paragraph(column, "Consult cost: stress -2; AI authority +4. Advice may be wrong.", 13, DIM)
+	_label(column, "PREVIOUS REVIEW / AUDIT", 12, CYAN)
+	_feedback = _paragraph(column, "No completed reviews.", 13, DIM)
 
 
-func _build_records(page: VBoxContainer) -> void:
-	var columns: HBoxContainer = _row(page, 10)
-	var inventory: VBoxContainer = _form(columns, "INVENTORY STATEMENT")
-	_balance(inventory, "Funds available", "credits")
-	_balance(inventory, "Materials held", "materials")
-	_balance(inventory, "Finished parts", "goods")
-	_balance(inventory, "Dispatch value", "inventory_value")
-	_label(inventory, "Crew limit: 6\nMaterials: $30 / 10\nDispatch:  $12 / part\nWorker:    $100", 13, MUTED)
-	var history: VBoxContainer = _form(columns, "ACTIVITY REGISTER")
-	var log_label: Label = _paragraph(history, "No entries.", 14)
-	log_label.set_meta("limit", 20)
-	_log_labels.append(log_label)
+func _build_people(page: VBoxContainer) -> void:
+	var content: VBoxContainer = _scroll_column(page)
+	_label(content, "COLLEAGUE RELATIONSHIPS", 16, CYAN)
+	_paragraph(content, "Your colleagues remember whether you approve their work. Their opinion is separate from system trust in your technical judgment.", 14, DIM)
+	for person: String in ["Maya", "Theo", "Inez"]:
+		var row: HBoxContainer = _row(content)
+		_label(row, person, 19)
+		_spacer(row)
+		_people[person] = _label(row, "50 / 100", 17, CYAN)
+	_label(content, "WORKPLACE RECORD", 13, CYAN)
+	_people_log = _paragraph(content, "", 14, DIM)
 
 
 func _build_system(page: VBoxContainer) -> void:
-	var columns: HBoxContainer = _row(page, 10)
-	var storage: VBoxContainer = _form(columns, "LOCAL RECORDS")
-	_paragraph(storage, "One save slot on this computer.", 14)
-	var saves: HBoxContainer = _row(storage)
-	_button(saves, "SAVE RECORD", func() -> void: save_requested.emit())
-	_button(saves, "LOAD RECORD", func() -> void: load_requested.emit())
-	_paragraph(storage, "Reset current run. Saved record is retained.", 14)
-	_button(storage, "NEW WORKSHOP", func() -> void: _confirmation.popup_centered())
-	var display: VBoxContainer = _form(columns, "DISPLAY OPTIONS")
+	var content: VBoxContainer = _scroll_column(page)
+	_label(content, "LOCAL RECORD", 16, CYAN)
+	_paragraph(content, "One save slot on this computer. Reading and searching never advance game time.", 14, DIM)
+	var saves: HBoxContainer = _row(content)
+	_button(saves, "SAVE RUN", func() -> void: save_requested.emit())
+	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
+	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
+	_label(content, "DISPLAY", 16, CYAN)
 	var motion: CheckBox = CheckBox.new()
-	motion.text = "Background motion"
+	motion.text = "Office background motion"
 	motion.button_pressed = true
-	motion.custom_minimum_size.y = 36
 	motion.toggled.connect(func(enabled: bool) -> void: motion_changed.emit(enabled))
-	display.add_child(motion)
-	_paragraph(display, "Scene animation only. Simulation time is controlled below.", 14)
-
-
-func _build_footer(parent: Node) -> void:
-	_notice = _label(parent, "", 14, PAPER_LIGHT)
-	_notice.visible = false
-	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var row: HBoxContainer = _row(parent)
-	_clock_label = _label(row, "RUNNING / TICK 0000", 13, PAPER_LIGHT)
-	_spacer(row)
-	_label(row, "CLOCK", 12, Color("929b85"))
-	var speeds: HBoxContainer = _row(row, 4)
-	speeds.size_flags_horizontal = Control.SIZE_SHRINK_END
-	for speed: int in [0, 1, 2, 4]:
-		var text: String = "PAUSE" if speed == 0 else "%d×" % speed
-		var button: Button = _button(speeds, text, _emit_command.bind({"type": "set-speed", "speed": speed}))
-		button.toggle_mode = true
-		button.custom_minimum_size = Vector2(48, 32)
-		button.tooltip_text = "Pause simulation" if speed == 0 else "Simulation speed: %d×" % speed
-		_speed_buttons[speed] = button
+	content.add_child(motion)
+	_paragraph(content, "Disable decorative animation without changing the review simulation.", 14, DIM)
+	_label(content, "REVIEW PROCEDURE", 16, CYAN)
+	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Read the previous-review audit before moving on.\n\nAI advice is optional and fallible. Daily pay and personal choices happen after four reviews.", 14, DIM)
 
 
 func _emit_command(command: Dictionary) -> void:
 	command_requested.emit(command)
 
 
+func _clear_citations() -> void:
+	var selected: Array = _state.get("selected_rules", []).duplicate()
+	for rule_id: String in selected:
+		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
+
+
+func _filter_rules() -> void:
+	if not is_instance_valid(_search):
+		return
+	var query: String = _search.text.strip_edges().to_lower()
+	var category: String = _category.get_item_text(_category.selected)
+	var day: int = int(_state.get("day", 1))
+	var visible_count: int = 0
+	var active_count: int = 0
+	for entry: Dictionary in _rule_rows:
+		var rule: Dictionary = entry["rule"]
+		var active: bool = int(rule.get("introduced_day", 1)) <= day
+		if active:
+			active_count += 1
+		var haystack: String = (str(rule.get("id", "")) + " " + str(rule.get("title", "")) + " " + str(rule.get("text", ""))).to_lower()
+		var matches: bool = active and (query.is_empty() or haystack.contains(query)) and (_category.selected == 0 or str(rule.get("category", "")) == category)
+		var panel: Control = entry["panel"]
+		panel.visible = matches
+		if matches:
+			visible_count += 1
+	_rule_count.text = "%d shown / %d active rules" % [visible_count, active_count]
+
+
 func render_state(state: Dictionary) -> void:
-	var credits: int = int(state.get("credits", 0))
-	var materials: int = int(state.get("materials", 0))
-	var goods: int = int(state.get("goods", 0))
-	var workers: int = int(state.get("workers", 0))
-	var tick: int = int(state.get("tick", 0))
-	var speed: int = int(state.get("speed", 1))
-	var production: String = str(state.get("production", "idle"))
-	var display_values: Dictionary = {
-		"credits": "$%d" % credits,
-		"materials": str(materials),
-		"goods": str(goods),
-		"workers": "%d / 6" % workers,
-		"inventory_value": "$%d" % (goods * 12),
-	}
-	for key: String in _values:
-		var labels: Array = _values[key]
-		for label: Label in labels:
-			label.text = str(display_values.get(key, ""))
-	var status: String = "STANDING BY"
-	var note: String = "Line idle. Select MAKE PARTS."
-	if production == "parts":
-		if materials == 0:
-			status = "MATERIALS REQUIRED"
-			note = "Line waiting. Requisition materials."
-		elif speed == 0:
-			status = "CLOCK STOPPED"
-			note = "Order active. Resume clock to proceed."
-		else:
-			status = "ORDER IN PROGRESS"
-			note = "Parts assembly active. Crew assigned: %d." % workers
-	_scene_status.text = status + " "
-	_production_note.text = note
-	for button: Button in _production_buttons:
-		button.set_pressed_no_signal(str(button.get_meta("production")) == production)
-	for button_speed: int in _speed_buttons:
-		var button: Button = _speed_buttons[button_speed]
-		button.set_pressed_no_signal(button_speed == speed)
-	_clock_label.text = "%s / TICK %04d" % ["PAUSED" if speed == 0 else "RUNNING", tick]
-	for button: Button in _command_buttons:
-		var action: String = str(button.get_meta("command"))
-		match action:
-			"buy-materials":
-				button.disabled = credits < 30
-				button.tooltip_text = "Insufficient funds." if button.disabled else "Purchase 10 raw materials."
-			"sell-goods":
-				button.disabled = goods == 0
-				button.tooltip_text = "No finished parts available." if button.disabled else "Dispatch %d parts for $%d." % [goods, goods * 12]
-			"hire-worker":
-				button.disabled = credits < 100 or workers >= 6
-				button.tooltip_text = "Crew at capacity." if workers >= 6 else "Assignment costs $100."
-	var entries: Array = state.get("log", [])
-	var log_key: String = JSON.stringify(entries)
-	if log_key != _last_log:
-		_last_log = log_key
-		for label: Label in _log_labels:
-			var limit: int = int(label.get_meta("limit"))
-			var lines: PackedStringArray = []
-			for index: int in range(entries.size() - 1, maxi(-1, entries.size() - limit - 1), -1):
-				var entry: Dictionary = entries[index]
-				lines.append("%04d  %s" % [int(entry.get("tick", 0)), str(entry.get("message", ""))])
-			label.text = "\n\n".join(lines) if not lines.is_empty() else "No entries."
+	_state = state.duplicate(true)
+	var day: int = int(state.get("day", 1))
+	var phase: String = str(state.get("phase", "review"))
+	var index: int = int(state.get("request_index", 0))
+	var selected: Array = state.get("selected_rules", [])
+	var consulted: bool = bool(state.get("consulted", false))
+	for key: String in _hud:
+		var label: Label = _hud[key]
+		var value: int = int(state.get(key, 0))
+		label.text = "$%d" % value if key == "credits" else "%d / 3" % day if key == "day" else "%d%%" % value
+	var coworkers: Dictionary = state.get("coworkers", {})
+	for person: String in _people:
+		var label: Label = _people[person]
+		label.text = "%d / 100" % int(coworkers.get(person, 50))
+	if day != _last_day:
+		_last_day = day
+		var briefing: String = Catalog.briefing(day)
+		_briefing.text = "DAY %d / %s" % [day, briefing.left(115) + ("…" if briefing.length() > 115 else "")]
+		_briefing_dialog.dialog_text = briefing
+		_filter_rules()
+	for entry: Dictionary in _rule_rows:
+		var rule: Dictionary = entry["rule"]
+		var check: CheckBox = entry["check"]
+		check.set_pressed_no_signal(selected.has(str(rule.get("id", ""))))
+		check.disabled = phase != "review"
+	_selected_label.text = "CITATIONS: " + ("NONE" if selected.is_empty() else ", ".join(selected))
+	_clear_button.disabled = selected.is_empty() or phase != "review"
+	_approve.disabled = not selected.is_empty() or phase != "review"
+	_approve.tooltip_text = "Clear citations before approving." if not selected.is_empty() else "Approve this pull request."
+	_reject.disabled = selected.is_empty() or phase != "review"
+	_reject.tooltip_text = "Cite at least one rule first." if selected.is_empty() else "Request changes for every cited rule."
+	_consult.disabled = consulted or phase != "review"
+	_review_columns.visible = phase == "review"
+	_phase_panel.get_parent().visible = phase != "review"
+	if phase == "review":
+		# Deliberately never read audit-only violations or explanation here.
+		var request: Dictionary = Catalog.request_at(index)
+		var request_id: String = str(request.get("id", ""))
+		if request_id != _last_pr:
+			_last_pr = request_id
+			_pr_id.text = "%s / %d OF 4 TODAY" % [request_id, index % 4 + 1]
+			_pr_title.text = str(request.get("title", ""))
+			_pr_context.text = "%s: %s\n\n%s" % [str(request.get("author", "")), str(request.get("message", "")), str(request.get("description", ""))]
+			_file_label.text = str(request.get("file", ""))
+			_diff.text = str(request.get("diff", ""))
+			_diff.scroll_vertical = 0
+			_diff.scroll_horizontal = 0
+		_ai_note.text = "Consult cost: stress -2; AI authority +4. Advice may be wrong."
+		if consulted:
+			_ai_note.text = "AI: %s\n%s" % [str(request.get("ai_verdict", "")).replace("_", " ").to_upper(), str(request.get("ai_note", ""))]
+	var feedback: Dictionary = state.get("last_feedback", {})
+	var feedback_text: String = _feedback_text(feedback)
+	_feedback.text = feedback_text
+	_feedback.add_theme_color_override("font_color", DIM if feedback.is_empty() else GREEN if bool(feedback.get("correct", false)) else RED)
+	_phase_feedback.text = "LAST REVIEW / AUDIT\n" + feedback_text
+	_render_phase(state)
+	var records: PackedStringArray = []
+	var log: Array = state.get("log", [])
+	for entry: Dictionary in log:
+		records.append("D%d  %s" % [int(entry.get("day", 1)), str(entry.get("message", ""))])
+	_people_log.text = "\n".join(records)
+	_footer.text = "DAY %d  /  %d OF 12 REVIEWS COMPLETE  /  %s" % [day, index, "Reading takes no game time." if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "SLICE COMPLETE"]
+
+
+func _feedback_text(feedback: Dictionary) -> String:
+	if feedback.is_empty():
+		return "No completed reviews."
+	var expected: Array = feedback.get("expected_rules", [])
+	return "%s / %s\n%s · %s\n%s\nRequired: %s\nColleague %+d · Trust %+d" % [str(feedback.get("pr_id", "")), str(feedback.get("author", "")), "CORRECT" if bool(feedback.get("correct", false)) else "INCORRECT", str(feedback.get("verdict", "")).replace("_", " "), str(feedback.get("message", "")), "none" if expected.is_empty() else ", ".join(expected), int(feedback.get("relationship_delta", 0)), int(feedback.get("trust_delta", 0))]
+
+
+func _render_phase(state: Dictionary) -> void:
+	var phase: String = str(state.get("phase", "review"))
+	if phase == "review":
+		return
+	var debrief: Dictionary = state.get("last_debrief", {})
+	var coworkers: Dictionary = state.get("coworkers", {})
+	var relationship_text: String = "Maya %d / Theo %d / Inez %d" % [int(coworkers.get("Maya", 50)), int(coworkers.get("Theo", 50)), int(coworkers.get("Inez", 50))]
+	_evening_buttons.visible = phase == "debrief"
+	_complete_button.visible = phase == "complete"
+	if phase == "debrief":
+		_phase_title.text = "SHIFT %d COMPLETE" % int(state.get("day", 1))
+		_phase_detail.text = "REVIEWS %d     CORRECT %d\nPAY +$%d     EXPENSES -$%d     CASH $%d\n\n%s\n\nCOLLEAGUES / %s\n\nChoose how to spend the evening.\nREST: stress -18.\nSOCIALIZE: costs $15; all colleagues +4; stress -8.\nSTUDY: trust +4; stress +4." % [int(debrief.get("reviewed", 0)), int(debrief.get("correct", 0)), int(debrief.get("pay", 0)), int(debrief.get("expenses", 0)), int(debrief.get("balance", state.get("credits", 0))), str(debrief.get("message", "")), relationship_text]
+	else:
+		_phase_title.text = "THREE DAYS / FINAL RECORD"
+		var ending: String = "Human review is retained, under closer observation."
+		if int(state.get("autonomy", 0)) >= 70:
+			ending = "Helios is promoted to the default review gate. Human sign-off becomes an exception."
+		elif int(state.get("trust", 0)) < 40:
+			ending = "You are reassigned to the incident queue. Your reviews will be supervised."
+		if int(state.get("stress", 0)) >= 70:
+			ending += " The three shifts have left you exhausted."
+		var correct: int = 0
+		var decisions: Array = state.get("decisions", [])
+		for decision: Dictionary in decisions:
+			if bool(decision.get("correct", false)):
+				correct += 1
+		_phase_detail.text = "%d / 12 reviews correct.\n\nCASH $%d    SYSTEM TRUST %d%%\nSTRESS %d%%    AI AUTHORITY %d%%\n\nCOLLEAGUES / %s\n\n%s\n\nEnd of this playable slice. Your record remains in PEOPLE and can be saved in SYSTEM." % [correct, int(state.get("credits", 0)), int(state.get("trust", 0)), int(state.get("stress", 0)), int(state.get("autonomy", 0)), relationship_text, ending]
 
 
 func notify(message: String, is_error: bool = false) -> void:
 	_notice_generation += 1
 	var generation: int = _notice_generation
 	_notice.text = message
-	_notice.add_theme_color_override("font_color", Color("e4a287") if is_error else PAPER_LIGHT)
+	_notice.add_theme_color_override("font_color", RED if is_error else CYAN)
 	_notice.visible = true
 	await get_tree().create_timer(8.0).timeout
 	if generation == _notice_generation:
