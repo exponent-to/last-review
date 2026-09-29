@@ -1,52 +1,54 @@
-# Native pixel scene pipeline
+# Native review-office pixel art
 
-The workshop is a provisional theme demonstrating a replaceable presentation layer. All source SVGs are explicitly authored, editable geometry. No image-generation service, external fonts, gradients, blur, or scanline overlays are involved.
+`native/office_scene.gd` is a decorative Godot `Control` for Last Review. All SVGs are explicit, editable pixel geometry. The palette is midnight navy, blue-gray, cool off-white, cyan monitor light, and restrained red indicators. There are no brown/olive tones, gradients, glow filters, or generated images.
 
-## Source files
+## Source assets
 
-| File | Source pixels | Purpose |
+| File | Source size | Contents / frames |
 | --- | --- | --- |
-| `art/workshop.svg` | 320 × 120 | Sky, hills, pines, buildings, crates, truck, and yard |
-| `art/surroundings.svg` | 640 × 120 | Landscape continuation for wider native windows |
-| `art/cloud.svg` | 47 × 13 | Two slowly drifting cloud instances |
-| `art/smoke.svg` | 7 × 5 | Three chimney puffs while the workshop is working |
-| `art/worker.svg` | 32 × 22 | Two horizontal 16 × 22 worker frames, left foot then right foot |
+| `art/office.svg` | 640 × 72 | Night-office cutaway, ribbon city windows, four desks, server cabinets |
+| `art/office-worker.svg` | 32 × 27 | Two horizontal 16 × 27 seated typing poses |
+| `art/office-terminal.svg` | 72 × 12 | Three 24 × 12 states: human code review, assistant, autonomous agent |
+| `art/office-rain.svg` | 77 × 28 | Transparent window rain tile, wrapped vertically |
+| `art/office-indicator.svg` | 6 × 2 | Three 2 × 2 states: standby, cyan activity, red authority indicator |
+| `art/app-icon.svg` | 512 × 512, 32 × 32 viewBox | Review terminal app icon |
 
-Use integer coordinates and axis-aligned steps to preserve the pixel grid. The palette uses gray-green scenery, concrete and tan masonry, subdued ochre details, and dark desaturated brick roofing, matching the utilitarian olive-and-charcoal menus. Sprite backgrounds are transparent. Keep edits inside each declared viewBox; change source dimensions and `ASSET_SIZES` in the renderer together.
+Keep shapes and sprite bounds on integer coordinates. Desk repeats in the base SVG are editable `<use>` instances. Update `ASSET_SIZES` in the renderer when changing source dimensions. The icon uses Godot's normal texture import; office sprites use adjacent `.svg.import` files with `importer="keep"` so original SVG text survives native exports.
 
-The adjacent `.svg.import` files set `importer="keep"`, corresponding to Godot's **Keep File (exported as is)** setting. Commit these metadata files: runtime SVG loading needs the original source text preserved in exported builds. They deliberately bypass texture import because this renderer performs its own rasterization. See Godot's [FileAccess documentation](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html).
+## Native rendering
 
-## Rasterization and rendering
+On `_ready()`, the renderer reads each office SVG with `FileAccess.get_file_as_string`, rasterizes it once with `Image.load_svg_from_string`, validates its dimensions, and creates a cached `ImageTexture`. Godot documents [SVG rasterization in the Image API](https://docs.godotengine.org/en/stable/classes/class_image.html#class-image-method-load-svg-from-string) and [source-file preservation in FileAccess](https://docs.godotengine.org/en/stable/classes/class_fileaccess.html).
 
-`native/workshop_scene.gd` extends Godot `Control`. In `_ready()`, it reads each SVG using `FileAccess.get_file_as_string`, rasterizes it at scale 1.0 using `Image.load_svg_from_string`, validates its size, and creates one `ImageTexture`. Godot documents this conversion in its [Image API](https://docs.godotengine.org/en/stable/classes/class_image.html#class-image-method-load-svg-from-string).
+`_draw()` composites those raster textures with nearest-neighbor filtering and integer source coordinates. Height determines integer scaling: a 144-pixel panel displays the 640 × 72 source at 2×. Widths below 1280 crop unimportant side-room scenery symmetrically, preserving all four workstations and server cabinets at the supported 1120-pixel window minimum. Larger widths center the office against its navy background. Host containers own outer panel padding; `clip_contents` prevents any draw outside the scene Control.
 
-The Control draws these cached raster textures around a 320 × 120 central logical grid through `_draw()`. It disables texture smoothing with `TEXTURE_FILTER_NEAREST`, uses integer sprite positions, and scales the artwork by the largest fitting integer factor. The minimum requested size is 640 × 240. A wider SVG landscape continues behind the central workshop, filling the standard desktop window without stretching pixels. Clouds are clipped to the central artwork edge. If a host forcibly provides less than the source size, the renderer shrinks to fit while preserving the 8:3 aspect ratio.
+Rain wraps only inside the window band. Worker poses switch at two frames per second. Server indicators pulse slowly. No runtime image generation, SVG decoding, or texture allocation occurs in the animation loop.
 
-Worker frames advance at three frames per second. Clouds and smoke advance slowly in discrete pixels. `_process(delta)` controls decoration only: simulation state and elapsed game time must never depend on it.
-
-## Host integration and lifecycle
+## Story contract
 
 ```gdscript
-const WorkshopScene = preload("res://native/workshop_scene.gd")
-
-var scene := WorkshopScene.new()
+const OfficeScene = preload("res://native/office_scene.gd")
+var scene := OfficeScene.new()
 scene.set_motion(player_wants_animation)
-scene.set_working(simulation_is_running)
-parent_container.add_child(scene)
+scene.set_story(state.day, state.autonomy)
+scene_host.add_child(scene)
 ```
 
-The script sets horizontal `SIZE_EXPAND_FILL`, ignores mouse input, and clips draws to its own rect. Parent menus should present all production state as text and controls; the illustration is decorative and must never be the sole indicator of progress.
+`set_story(day, autonomy)` clamps its inputs to days 1–3 and autonomy 0–100. Story changes redraw even when motion is disabled.
 
-`set_motion(false)` stops processing and displays a complete still frame. The host owns the user's motion preference; set it before adding the node to avoid an unwanted initial animation. `set_working(false)` removes chimney smoke and places the worker at rest while ambient clouds can continue. Hidden controls stop processing; minimized windows do not advance decorative time. Godot releases the node's textures and signal connections when it is freed; there is no external timer or animation loop to clean up.
+| Day | Human occupancy | Baseline AGI terminals | Visual interpretation |
+| --- | --- | --- | --- |
+| 1 | Four desks | One assistant screen | Coworkers remain present; assistance is peripheral |
+| 2 | Three desks | Two assistant screens | One empty chair, more machine activity |
+| 3 | One desk | Three autonomous screens | The reviewer is isolated as the server presence grows |
 
-A missing, empty, malformed, or incorrectly sized SVG produces a native text fallback and logs the failing asset path without affecting simulation. No texture decoding occurs inside `_draw()` or `_process()`.
+Higher autonomy activates extra terminals and rack indicators. These visual cues reflect state only; the scene never mutates simulation state or measures game time. The native UI must describe the story and resources independently, since the artwork is decorative.
 
-## Extending the art
+## Motion, errors, and cleanup
 
-1. Add a hand-authored SVG under `art/` using a small explicit viewBox and flat palette.
-2. Add its dimensions to `ASSET_SIZES` and a matching `.svg.import` file with the `keep` importer.
-3. For sprite strips, document frame size, frame count, and timing here. Select frames with source rectangles in `draw_texture_rect_region`.
-4. Connect new presentation states through controller methods instead of importing game rules into the renderer.
-5. Check animation enabled/disabled, idle production, minimum and large windows, hidden and minimized windows, asset failure fallback, and the exported native application.
+`set_motion(false)` stops processing and shows a complete still scene. Set it before adding the node when restoring a saved preference. Hidden or unfocused windows stop decorative processing; minimized windows do not advance decoration time. Focus restoration resumes without catching up elapsed time. Godot automatically releases textures and signal connections when the scene node is freed.
 
-The workshop can be replaced by a farm, station, shop, or another simulator setting while retaining the controller contract and native menus.
+Missing, empty, malformed, or incorrectly sized assets display a short native fallback message and log the failing path. The game's review controls continue to function. Keep the office `.svg.import` metadata in version control and verify packaged builds retain each source SVG.
+
+## Extending the scene
+
+Add new SVGs under `art/office*.svg`, record their dimensions and frames above, and give runtime-rasterized assets a `keep` importer. Prefer controller parameters for additional story presentation states; do not import game rules into this renderer. Verify all three days with low/high autonomy, motion disabled, hidden/unfocused windows, the minimum window size, and the packaged native app.
