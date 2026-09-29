@@ -12,6 +12,10 @@ Content contains audit answers, but the active UI never reads `violations` or `e
 
 The office receives only day, automation authority, and motion preference. It rasterizes hand-authored SVGs once into ImageTextures, then animates frames with nearest filtering. Human occupancy and lit terminals reflect the narrative state. Losing window focus freezes decorative movement; it cannot change a review or economic result.
 
+The workstation is a local fictional computer. Floating native windows own their movement, focus, stacking, and minimization; the interface manages taskbar restoration and layout reset. A local intranet view links authored procedures and the current memo to the rulebook and directory. It has no web engine or network access. Desktop arrangement is presentation state and does not enter the career save.
+
+The opening sequence hides the workstation until skipped or acknowledged. The handoff focuses a neutral surface so releasing Enter cannot activate a review control. Keyboard shortcuts, reduced motion, and focus pause apply to the opening independently of the simulation.
+
 ## Content and gameplay
 
 `content/rules.json` contains a larger standards index, with four rules active initially, eight on the second day, and thirteen on the third. Remaining standards are future-dated for later content. `requests.json` assigns each ordered PR to a day; the current development fixture has 3/5/4 requests. Catalog-derived boundaries close shifts without a fixed modulo or player-facing queue counter. Every expected violation references an active rule. Confident AI comments and recursive helpers obscure the defects without changing the exact audit criteria.

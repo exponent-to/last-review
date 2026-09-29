@@ -23,11 +23,17 @@ func _run() -> void:
 	var skip := InputEventKey.new()
 	skip.pressed = true
 	skip.keycode = KEY_ENTER
-	app.intro._input(skip)
+	root.push_input(skip)
+	await process_frame
+	var release := InputEventKey.new()
+	release.keycode = KEY_ENTER
+	release.pressed = false
+	root.push_input(release)
 	await process_frame
 	_check(app.interface.visible and not is_instance_valid(app.intro), "Skipping must reveal the workstation and dispose the intro.")
 	_check(app.state.request_index == 0 and app.state.decisions.is_empty(), "Skipping must not approve the first PR.")
-	_check(root.gui_get_focus_owner() != null, "Workstation handoff must restore keyboard focus.")
+	_check(root.gui_get_focus_owner() == app.interface, "Workstation handoff must focus a neutral surface.")
+	_check(not app.interface._briefing_dialog.visible, "Skip key release must not open an unrelated control.")
 	app._on_motion(false)
 	app._on_focus_exited()
 	app._on_focus_entered()

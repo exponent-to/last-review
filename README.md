@@ -2,7 +2,7 @@
 
 A native software-engineering life sim built with Godot 4.7.2. You review pull requests at a company handing more authority to an AGI assistant. Technical correctness, coworker approval, and your own ability to cope do not always align.
 
-The playable slice opens with a terminal onboarding sequence and a small rulebook that expands as management issues new policies. Its cool midnight-blue workstation uses native controls, bundled IBM Plex Mono, a searchable rulebook, and animated SVG-derived pixel art. Last Review is a working title.
+The playable slice opens with a terminal onboarding sequence and a small rulebook that expands as management issues new policies. Its midnight-blue computer desktop uses overlapping movable windows, bundled IBM Plex Mono, a searchable rulebook, and animated SVG-derived pixel art outside a rainy office window. Last Review is a working title.
 
 ## Play
 
@@ -36,6 +36,8 @@ Helios can advise you, but its scripted recommendations may be wrong. Generated 
 
 Reading and searching never consume game time. Skip the opening with Enter, Escape, or its on-screen control. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. SYSTEM contains save/load, confirmed new-run controls, instructions, and the background-motion toggle.
 
+Drag window titlebars to arrange the review desk. Click a window to bring it forward; minimize it with the titlebar button and reopen it from the taskbar. With a titlebar focused, arrow keys move its window (Shift moves farther). ARRANGE restores the layout. The in-game BROWSER opens company procedures, daily memos, standards, and the colleague directory. It is an authored local interface, not a real web browser.
+
 ## Saves
 
 Saves are explicit, use one local slot plus the previous-save backup, and do not load automatically. The v3 file is `user://review-save-v3.json`; on macOS this normally lives under `~/Library/Application Support/Godot/app_userdata/Last Review/`. Earlier review careers and workshop saves remain separate and unchanged. The revised rule progression and shift schedule require a fresh career. Starting a new run preserves the disk save until you save again.
@@ -54,6 +56,7 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 - `content/` — editable JSON rules, PR packets, and daily briefings.
 - `native/simulation.gd` — pure turn-based decisions and life-sim consequences.
 - `native/interface.gd` — review desk, rule search, people, evenings, and system controls.
+- `native/desktop_window.gd` — draggable, focusable, minimizable native desktop windows.
 - `native/intro.gd` — animated terminal opening and skip controls.
 - `native/office_scene.gd`, `art/` — rasterized SVG office scenery and animation.
 - `native/save_store.gd`, `native/main.gd` — persistence and application wiring.

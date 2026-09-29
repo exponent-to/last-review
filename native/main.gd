@@ -38,9 +38,7 @@ func _on_intro_finished() -> void:
 	if is_instance_valid(intro):
 		intro.queue_free()
 	interface.show()
-	var first_control: Control = interface.find_next_valid_focus()
-	if first_control != null:
-		first_control.grab_focus()
+	interface.focus_workspace()
 
 func _render() -> void:
 	interface.render_state(state)
