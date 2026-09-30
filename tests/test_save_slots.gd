@@ -9,7 +9,9 @@ func check(ok: bool, message: String) -> void:
  if not ok:
   failures += 1
   push_error(message)
-func _initialize() -> void: run.call_deferred()
+func _initialize() -> void:
+ load("res://content/catalog.gd").campaign_version = 4
+ run.call_deferred()
 func run() -> void:
  Store.storage_root = "user://save-slot-test-%d" % Time.get_ticks_usec()
  DirAccess.make_dir_recursive_absolute(Store.storage_root)
@@ -26,7 +28,7 @@ func run() -> void:
  check(Store.load_game(2).tutorial.stage == 0, "Tutorial progress loads independently.")
  check(Store.load_game(3).state.shift_seconds == 70, "Career time loads independently.")
  var summaries := Store.list_slots()
- check(summaries.size() == 3 and summaries[1].summary == "Orientation" and summaries[2].summary.contains("10:45"), "Slot picker summaries reflect each run.")
+ check(summaries.size() == 3 and summaries[1].summary.begins_with("Orientation") and summaries[2].summary.contains("10:45"), "Slot picker summaries reflect each run.")
  check(Store.save_game(Sim.advance(Sim.initial_state(), 80), {}, 3).ok, "Updating a slot preserves its previous backup.")
  var corrupt := FileAccess.open(Store.slot_path(3), FileAccess.WRITE)
  corrupt.store_string("broken")

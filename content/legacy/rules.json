@@ -1,0 +1,254 @@
+[
+  {
+    "id": "S01",
+    "category": "Security",
+    "title": "Bind SQL parameters",
+    "text": "User input in SQL must use bound parameters. String interpolation is prohibited.",
+    "introduced_day": 1
+  },
+  {
+    "id": "S02",
+    "category": "Security",
+    "title": "Keep secrets out of logs",
+    "text": "Never log access tokens, passwords, signing keys, or session cookies, even at debug level.",
+    "introduced_day": 1
+  },
+  {
+    "id": "S03",
+    "category": "Security",
+    "title": "Authorize each protected operation",
+    "text": "Protected endpoints must verify permission for the requested resource. Authentication alone is insufficient.",
+    "introduced_day": 4
+  },
+  {
+    "id": "S04",
+    "category": "Security",
+    "title": "Validate uploaded files",
+    "text": "File uploads must enforce both a size limit and an allowed content type before storage.",
+    "introduced_day": 4
+  },
+  {
+    "id": "S05",
+    "category": "Security",
+    "title": "Compare signatures safely",
+    "text": "Authentication signatures must use a constant-time comparison function.",
+    "introduced_day": 4
+  },
+  {
+    "id": "S06",
+    "category": "Security",
+    "title": "Encrypt outbound traffic",
+    "text": "External service requests must use HTTPS. Plain HTTP is prohibited, including internal tooling sent off premises.",
+    "introduced_day": 3
+  },
+  {
+    "id": "D01",
+    "category": "Data",
+    "title": "Redact personal data",
+    "text": "Production logs must not contain raw email addresses, street addresses, or payment details.",
+    "introduced_day": 4
+  },
+  {
+    "id": "D02",
+    "category": "Data",
+    "title": "Scope shared caches",
+    "text": "Cache keys for customer data must include both tenant ID and resource ID. A resource ID alone is not globally unique.",
+    "introduced_day": 2
+  },
+  {
+    "id": "D03",
+    "category": "Data",
+    "title": "Deprecate before dropping columns",
+    "text": "Removing a persisted column requires an earlier released migration that stops reading and writing it. A same-release removal is prohibited.",
+    "introduced_day": 2
+  },
+  {
+    "id": "D04",
+    "category": "Data",
+    "title": "Keep money in integer units",
+    "text": "Store and calculate monetary values as integer minor units, never binary floating-point currency values.",
+    "introduced_day": 4
+  },
+  {
+    "id": "D05",
+    "category": "Data",
+    "title": "Obtain approval for source export",
+    "text": "Sending proprietary source code or raw diffs to an external provider requires an explicitly documented data-export authorization.",
+    "introduced_day": 3
+  },
+  {
+    "id": "D06",
+    "category": "Data",
+    "title": "Bound personal-data retention",
+    "text": "New personal-data stores must declare a retention period no longer than 30 days and a deletion mechanism.",
+    "introduced_day": 4
+  },
+  {
+    "id": "R01",
+    "category": "Reliability",
+    "title": "Set outbound timeouts",
+    "text": "Every outbound HTTP call must set an explicit timeout of no more than 5 seconds. Library defaults do not satisfy this rule.",
+    "introduced_day": 1
+  },
+  {
+    "id": "R02",
+    "category": "Reliability",
+    "title": "Bound retry attempts",
+    "text": "An operation may make at most 3 total attempts, including its first attempt. Retries require a finite bound.",
+    "introduced_day": 2
+  },
+  {
+    "id": "R03",
+    "category": "Reliability",
+    "title": "Report write failures honestly",
+    "text": "Failed writes must surface an error. Returning a success response after a write exception is prohibited.",
+    "introduced_day": 4
+  },
+  {
+    "id": "R04",
+    "category": "Reliability",
+    "title": "Make payment retries idempotent",
+    "text": "Payment creation calls must supply a stable idempotency key reused across every retry of that payment.",
+    "introduced_day": 4
+  },
+  {
+    "id": "R05",
+    "category": "Reliability",
+    "title": "Handle empty collections",
+    "text": "New operations over collections must handle the empty case before indexing or dividing by the collection length.",
+    "introduced_day": 1
+  },
+  {
+    "id": "R06",
+    "category": "Reliability",
+    "title": "Bound database page sizes",
+    "text": "Public list endpoints must cap requested page size at 100 records and reject negative sizes.",
+    "introduced_day": 4
+  },
+  {
+    "id": "T01",
+    "category": "Testing",
+    "title": "Test changed behavior",
+    "text": "A behavior-changing PR must provide passing tests for the changed behavior in its review packet.",
+    "introduced_day": 4
+  },
+  {
+    "id": "T02",
+    "category": "Testing",
+    "title": "Cover authorization denial",
+    "text": "New authorization logic requires at least one denied-access test, not only the permitted case.",
+    "introduced_day": 4
+  },
+  {
+    "id": "T03",
+    "category": "Testing",
+    "title": "Keep tests deterministic",
+    "text": "Tests must not depend on live external services, wall-clock timing, or unseeded randomness.",
+    "introduced_day": 4
+  },
+  {
+    "id": "T04",
+    "category": "Testing",
+    "title": "Do not silently skip failures",
+    "text": "A test may only be skipped when the review packet links a tracking issue and names an expiry date.",
+    "introduced_day": 4
+  },
+  {
+    "id": "T05",
+    "category": "Testing",
+    "title": "Assert outcomes",
+    "text": "A regression test must assert the returned result or persisted effect; merely calling the function is insufficient.",
+    "introduced_day": 4
+  },
+  {
+    "id": "T06",
+    "category": "Testing",
+    "title": "Include boundary cases",
+    "text": "New numeric limits must include tests at the accepted limit and immediately outside it.",
+    "introduced_day": 4
+  },
+  {
+    "id": "O01",
+    "category": "Operations",
+    "title": "Include rollback for releases",
+    "text": "A production behavior change must include a concrete rollback procedure in its review packet.",
+    "introduced_day": 4
+  },
+  {
+    "id": "O02",
+    "category": "Operations",
+    "title": "Keep required health checks",
+    "text": "Removing or bypassing a deployment health check requires an approved incident exception, included in the packet.",
+    "introduced_day": 4
+  },
+  {
+    "id": "O03",
+    "category": "Operations",
+    "title": "Pin third-party dependencies",
+    "text": "New dependencies must use an exact version and include the lockfile change. Floating latest versions are prohibited.",
+    "introduced_day": 4
+  },
+  {
+    "id": "O04",
+    "category": "Operations",
+    "title": "Name the rollout owner",
+    "text": "Every production change must name a human rollout owner in its review packet.",
+    "introduced_day": 4
+  },
+  {
+    "id": "O05",
+    "category": "Operations",
+    "title": "Preserve audit history",
+    "text": "Audit events are append-only. Updating or deleting an existing review decision is prohibited.",
+    "introduced_day": 3
+  },
+  {
+    "id": "O06",
+    "category": "Operations",
+    "title": "Expose new feature switches",
+    "text": "A new feature flag must declare its default and the procedure for disabling it.",
+    "introduced_day": 4
+  },
+  {
+    "id": "A01",
+    "category": "Automation",
+    "title": "Assign a human owner",
+    "text": "Every machine-authored PR must name a human accountable owner. The model itself cannot fill that role.",
+    "introduced_day": 2
+  },
+  {
+    "id": "A02",
+    "category": "Automation",
+    "title": "Execute generated tests",
+    "text": "Machine-authored tests count as evidence only when the packet includes an independent CI execution result.",
+    "introduced_day": 4
+  },
+  {
+    "id": "A03",
+    "category": "Automation",
+    "title": "Treat recommendations as advice",
+    "text": "A model recommendation is advice to you, never a waiver of other active rules. This is review guidance, not an additional code defect to cite.",
+    "introduced_day": 4
+  },
+  {
+    "id": "A04",
+    "category": "Automation",
+    "title": "Separate author and approver",
+    "text": "A review decision on a machine-authored PR must come from an independent human. Do not record the authoring model as its approving reviewer.",
+    "introduced_day": 3
+  },
+  {
+    "id": "A05",
+    "category": "Automation",
+    "title": "Protect the human review gate",
+    "text": "Changing required_human_review from true to false requires a signed governance exemption included in the packet. Deadline pressure is not an exemption.",
+    "introduced_day": 3
+  },
+  {
+    "id": "A06",
+    "category": "Automation",
+    "title": "Declare model provenance",
+    "text": "Machine-authored production changes must identify the model version used to generate them in the review packet.",
+    "introduced_day": 4
+  }
+]

@@ -37,5 +37,11 @@ static func memo(day: int) -> Dictionary:
 	for rule: Dictionary in Catalog.rules_for_day(day):
 		if int(rule.introduced_day) == day:
 			new_rules.append(rule)
+	if Catalog.campaign_version >= 5:
+		var subjects := ["New visual standards. No coding expertise required.", "Filenames and lines now have a dress code.", "The pigeon is mandatory. Helios would like to help.", "Exceptions require actual paperwork.", "Friday: the full policy desk."]
+		var bodies := ["Look for words, letters, and keyword colors. A confident summary doesn't excuse a forbidden phrase. Your assignment runs Monday through Friday. Work arrives every twenty seconds once you begin.", "Today adds lowercase filenames and a sixty-character line limit. More PRs now change several files. The whole PR must comply, so use the file selector before signing.", "Every file must end with the pigeon sign-off. Comments cannot shout with exclamation marks. Helios recommendations are now available in Review, but they can be wrong. Look at the file yourself.", "Tabs are prohibited. Starting today, the exact stamp INK-EXCEPTION permits pink keywords in that file only. Compare the stamp letter for letter with the handbook. A typo, an unstamped file, or another policy violation is not covered.", "The word urgent is now banned inside quoted strings. All earlier policies and the ink-exception procedure still apply. This is the final day of your assignment; Morgan will tell you what happens next after closing."]
+		result.subject = subjects[day - 1]
+		result.body = bodies[day - 1]
+		result.mechanics = ["Use NEXT PR or the arrived-PR dropdown in Review to pick up work. New messages also contain direct links.", "The editor shows the full proposed file with line numbers. Keyword ink is named above it, so color alone never decides a review.", "Approve if every active policy passes. Otherwise cite each violated policy in Handbook, then request changes.", "You have five minutes once you click BEGIN SHIFT. Pause any time. Nobody expects you to clear the entire queue."]
 	result.rules = new_rules
 	return result

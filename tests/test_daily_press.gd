@@ -6,6 +6,7 @@ var checks: int = 0
 var failures: int = 0
 
 func _initialize() -> void:
+	load("res://content/catalog.gd").campaign_version = 4
 	_test_editions()
 	_test_gating()
 	_test_purity()

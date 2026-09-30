@@ -10,6 +10,7 @@ static var _content: Dictionary = {}
 
 
 static func _authored() -> Dictionary:
+	if Catalog.campaign_version >= 5: return load("res://content/policy_chat.gd").authored()
 	if _content.is_empty():
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://content/messages.json"))
 		if parsed is Dictionary:
@@ -31,7 +32,7 @@ static func _append(history: Array, author: String, text: String, kind: String, 
 
 
 static func timestamp(message: Dictionary) -> String:
-	var minutes := 540 + int(floor(float(message.sent_seconds) * 1.5))
+	var minutes := 540 + int(floor(float(message.sent_seconds) * 540.0 / float(Catalog.shift_seconds())))
 	var days := ["Mon", "Tue", "Wed", "Thu", "Fri"]
 	return "%s %02d:%02d" % [days[(int(message.sent_day) - 1) % days.size()], int(minutes / 60), minutes % 60]
 
@@ -45,6 +46,13 @@ static func _chronological(history: Array) -> Array:
 		return str(a.id) < str(b.id))
 	var start := maxi(0, history.size() - HISTORY_LIMIT)
 	if start > 0 and history[start].kind == "response": start += 1
+	if Catalog.campaign_version >= 5 and not history.is_empty():
+		# Keep today's unanswered PR links reachable even when the chat is busy.
+		var recent: Array = []
+		for message: Dictionary in history.slice(0, start):
+			if message.kind == "request" and int(message.sent_day) == int(history[-1].sent_day): recent.append(message)
+		recent.append_array(history.slice(start))
+		return recent.duplicate(true)
 	return history.slice(start).duplicate(true)
 
 
@@ -148,7 +156,7 @@ static func _request_history(history: Array, state: Dictionary, contact: String,
 	var decision := _decision_for(state, pr_id)
 	if not decision.is_empty():
 		# Reactions follow the chosen verdict; audit correctness is never consulted.
-		_append(history, contact, str(packet.get(str(decision.get("verdict", "")), "")), "reaction", "", int(request.day), float(decision.get("shift_seconds", 360)), _event_order(state, "review", pr_id, "", replies.size()))
+		_append(history, contact, str(packet.get(str(decision.get("verdict", "")), "")), "reaction", "", int(request.day), float(decision.get("shift_seconds", Catalog.shift_seconds())), _event_order(state, "review", pr_id, "", replies.size()))
 		history[-1].id = contact + "|" + pr_id + "|reaction"
 
 
@@ -175,7 +183,7 @@ static func messages(state: Dictionary, contact: String) -> Array:
 					history[-1].id = "consult|" + active_id
 					break
 		if state.get("phase") == "complete":
-			_append(history, "Operations", "Your review assignment has closed. Keep the conversation history; ownership questions may come back after the rollout.", "notice", "", int(state.get("day", 1)), 360, 100)
+			_append(history, "Operations", "Your review assignment has closed. Keep the conversation history; ownership questions may come back after the rollout.", "notice", "", int(state.get("day", 1)), Catalog.shift_seconds(), 100)
 	else:
 		var person: Dictionary = authored.get("contacts", {}).get(contact, {})
 		_append(history, contact, str(person.get("intro", "")), "intro")
@@ -203,8 +211,10 @@ static func _manager_messages(state: Dictionary) -> Array:
 			if decision.is_empty(): continue
 			if decision.verdict == "approve" and not bool(decision.get("correct", true)):
 				var incident: String = str(_authored().get("requests", {}).get(request.id, {}).get("incident", ""))
-				if not incident.is_empty():
-					_append(history, "Morgan", incident, "notice")
+				if not incident.is_empty() and (Catalog.campaign_version == 4 or not had_incident):
+					# One concrete example, rather than an identical warning per bad approval.
+					if Catalog.campaign_version >= 5: incident = str(request.id) + ": " + incident
+					_append(history, "Morgan", incident, "notice", str(request.id))
 					had_incident = true
 			elif decision.verdict == "request_changes":
 				held = true
@@ -217,7 +227,7 @@ static func _manager_messages(state: Dictionary) -> Array:
 		_append(history, "Morgan", str(copy.closing), "notice")
 		for index in range(first, history.size()):
 			history[index].sent_day = int(shift.day)
-			history[index].sent_seconds = 360.0
+			history[index].sent_seconds = float(Catalog.shift_seconds())
 			history[index].sent_order = index - first
 			history[index].id = str(shift.day) + "|" + history[index].id
 	if state.get("phase") == "complete":
@@ -227,5 +237,5 @@ static func _manager_messages(state: Dictionary) -> Array:
 		elif int(state.get("trust", 0)) < 40:
 			ending = "I'm moving you to the incident queue for the next rotation. Someone will sit with you on reviews for a while. We should talk before you head out."
 		if int(state.get("stress", 0)) >= 70: ending += " You look exhausted. Please take tonight off."
-		_append(history, "Morgan", ending, "notice", "", int(state.get("day", 1)), 360, 100)
+		_append(history, "Morgan", ending, "notice", "", int(state.get("day", 1)), Catalog.shift_seconds(), 100)
 	return _chronological(history)

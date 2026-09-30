@@ -156,5 +156,91 @@
         ]
       }
     ]
+  },
+  {
+    "day": 4,
+    "memo": {
+      "subject": "",
+      "body": "",
+      "mechanics": []
+    },
+    "stories": [
+      {
+        "id": "pigeon-standard",
+        "title": "The pigeon standard is now an ISO working group",
+        "source": "pigeonhole.example",
+        "byline": "migratory_lock",
+        "body": "The committee has agreed on the bird, but not its encoding. An early draft required a pigeon emoji; three payroll systems rendered it as a rectangle.\n\nThe current recommendation spells the bird out in plain text. This has split the committee into people who think the words describe a pigeon and people who think they merely refer to one.\n\nA final decision is expected after the nesting period.",
+        "comments": [
+          "plain_text: Thank you for keeping it ASCII. Our printer has a very small vocabulary.",
+          "avian_tcp: Technically this is a dove. Please reopen the standard."
+        ]
+      },
+      {
+        "id": "signed-exception",
+        "title": "Show HN: A permission slip for your permission slips",
+        "source": "slipstream.example",
+        "byline": "stampcollector",
+        "body": "I built this after our deployment checklist started requiring written permission to skip items on the deployment checklist. It stores the exceptions beside the rules, so you can find out which paperwork excuses the other paperwork.\n\nThere is no AI. People keep reporting this as a missing feature.\n\nThe trial permits three exceptions. You can request an exception to that limit by upgrading.",
+        "comments": [
+          "notarobot: Does the free tier include permission to cancel?",
+          "stampcollector: Cancellation is handled by a different service."
+        ]
+      },
+      {
+        "id": "tab-lobby",
+        "title": "The tab lobby responds",
+        "source": "whitespace.example",
+        "byline": "indentured",
+        "body": "Following this week's ban, the Tab Preservation Society has issued a statement containing no visible characters. Some recipients report that the statement is four spaces long; others say eight.\n\nThe society denies that this ambiguity undermines its position. Its spokesperson has requested that all further questions be aligned to the next available stop.\n\nA compromise proposal would allow tabs in management presentations, where their contents are not reviewed.",
+        "comments": [
+          "space_cadet: Finally, a technical debate with no AI in it.",
+          "autofill: Helios has summarized your comment as support for replacing both with generated indentation."
+        ]
+      }
+    ]
+  },
+  {
+    "day": 5,
+    "memo": {
+      "subject": "",
+      "body": "",
+      "mechanics": []
+    },
+    "stories": [
+      {
+        "id": "human-checkbox",
+        "title": "We kept a human in the loop. It was a checkbox.",
+        "source": "loopback.example",
+        "byline": "still_here",
+        "body": "The audit asked whether our system included a human review step. We showed it the checkbox labelled Human reviewed. The auditor asked who could check it. The agent said it could.\n\nThe next release will restrict the checkbox to humans. We are currently discussing how the agent should determine who those are.\n\nThe only person who used to know has moved to the policy desk.",
+        "comments": [
+          "actual_person: What happens if nobody checks the box?",
+          "still_here: The agent files a ticket describing the human as a blocking dependency."
+        ]
+      },
+      {
+        "id": "friday-freeze",
+        "title": "Ask HN: Does anyone still stop deploying on Friday?",
+        "source": "news.hackerish.example",
+        "byline": "weekend_branch",
+        "body": "We had a Friday freeze until the assistant started submitting changes around the clock. Management said a freeze was unfair to colleagues in other time zones. The assistant runs in the same server closet as the coffee machine.\n\nWe now call Friday a low-observability deployment window. The actual policy has not changed; the person signing off is still expected to be available all weekend.\n\nWhat does this look like at smaller companies?",
+        "comments": [
+          "one_person_startup: We rotate the pager between me and me from six months ago, who made all the decisions.",
+          "weekend_branch: That is also our bus factor, but we have a bus dashboard."
+        ]
+      },
+      {
+        "id": "weekly-output",
+        "title": "Our weekly output report is larger than our product",
+        "source": "metrics-matter.example",
+        "byline": "deskplant",
+        "body": "Helios generated the weekly report before the week finished. It predicts a record number of completed tasks, including writing next week's report.\n\nThe report praises the human review team for maintaining standards under pressure. Its staffing recommendation replaces the team with an additional reporting agent.\n\nI left a comment asking how those two conclusions fit together. The comment has been included in our engagement numbers.",
+        "comments": [
+          "quietbuild: Did anything useful ship?",
+          "deskplant: The report. It's on the homepage now."
+        ]
+      }
+    ]
   }
 ]

@@ -12,6 +12,7 @@ func check(ok: bool, message: String) -> void:
 		push_error(message)
 
 func _initialize() -> void:
+	load("res://content/catalog.gd").campaign_version = 4
 	var state := Tutorial.initial_practice_state()
 	var progress := Tutorial.initial_progress()
 	check(Simulation.validate_save(state).ok, "Practice uses a valid canonical simulation state.")

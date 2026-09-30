@@ -7,6 +7,7 @@ var checks: int = 0
 var failures: int = 0
 
 func _initialize() -> void:
+	load("res://content/catalog.gd").campaign_version = 4
 	_test_catalog()
 	_test_reviews()
 	_test_career()
@@ -31,7 +32,7 @@ func _resolve(state: Dictionary) -> Dictionary:
 	if pending.is_empty():
 		var next: Dictionary = Catalog.request_at(int(current.request_index))
 		if next.is_empty() or int(next.day) != int(current.day):
-			return Simulation.advance(current, Simulation.SHIFT_SECONDS)
+			return Simulation.advance(current, Simulation.Catalog.shift_seconds())
 		current = Simulation.advance(current, Catalog.arrival_seconds(next.id) - int(current.shift_seconds))
 		pending = Simulation.available_requests(current)
 	current = Simulation.dispatch(current, {"type": "select-request", "pr_id": pending[0].id})
@@ -110,7 +111,7 @@ func _test_career() -> void:
 			_check(state.request_index == processed, "Each valid submission must advance exactly one request.")
 			_round_trip(state)
 		_check(state.phase == "review", "Clearing current work must not close the shift before the deadline.")
-		state = Simulation.advance(state, Simulation.SHIFT_SECONDS)
+		state = Simulation.advance(state, Simulation.Catalog.shift_seconds())
 		_check(state.phase == "debrief" and state.day == day, "The final authored PR in a shift must enter that day's debrief.")
 		_check(state.last_debrief.pay == 80 + 10 * shift_size and state.last_debrief.expenses == 90 and state.last_debrief.correct == shift_size and state.last_debrief.reviewed == shift_size, "Daily pay must reflect audit correctness.")
 		expected_credits += 80 + 10 * shift_size - 90
@@ -128,7 +129,7 @@ func _test_career() -> void:
 	var debrief: Dictionary = Simulation.initial_state()
 	for _i in range(Catalog.requests_for_day(int(debrief.day)).size()):
 		debrief = _resolve(debrief)
-	debrief = Simulation.advance(debrief, Simulation.SHIFT_SECONDS)
+	debrief = Simulation.advance(debrief, Simulation.Catalog.shift_seconds())
 	var social: Dictionary = Simulation.dispatch(debrief, {"type": "next-day", "choice": "socialize"})
 	_check(social.credits == debrief.credits - 15 and social.coworkers.Maya == mini(100, debrief.coworkers.Maya + 4), "Socializing must charge once and improve relationships.")
 	_round_trip(social)

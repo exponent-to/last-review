@@ -10,6 +10,7 @@ func check(ok: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func _initialize() -> void:
+	load("res://content/catalog.gd").campaign_version = 4
 	var before := Simulation.advance(Simulation.initial_state(), 280)
 	check(Chat.messages(before, "manager").size() == 1, "Manager does not know release outcomes before closing.")
 	var mixed := before.duplicate(true)

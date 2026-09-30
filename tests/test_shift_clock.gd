@@ -7,6 +7,7 @@ var checks: int = 0
 var failures: int = 0
 
 func _initialize() -> void:
+	load("res://content/catalog.gd").campaign_version = 4
 	_test_clock()
 	_test_arrivals_and_selection()
 	_test_timeout_history()
@@ -33,7 +34,7 @@ func _select(state: Dictionary, request_id: String) -> Dictionary:
 
 func _test_clock() -> void:
 	var initial: Dictionary = Simulation.initial_state()
-	_check(Simulation.SHIFT_SECONDS == 360 and Simulation.clock_minutes(initial) == 540, "A six-minute shift must start at 09:00.")
+	_check(Simulation.Catalog.shift_seconds() == 360 and Simulation.clock_minutes(initial) == 540, "A six-minute shift must start at 09:00.")
 	_check(Simulation.clock_minutes(Simulation.advance(initial, 180)) == 810, "Half a shift must show 13:30.")
 	var end: Dictionary = Simulation.advance(initial, 360)
 	_check(Simulation.clock_minutes(end) == 1080 and end.phase == "debrief", "The closing bell must be 18:00.")

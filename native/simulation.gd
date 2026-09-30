@@ -3,8 +3,8 @@ extends RefCounted
 
 const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
-const SAVE_VERSION: int = 4
-const SHIFT_SECONDS: int = 360
+const SAVE_VERSION: int = 5
+const SHIFT_SECONDS: int = 300
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
 const LOG_LIMIT: int = 40
@@ -14,7 +14,7 @@ const EVENINGS: Array = ["rest", "socialize", "study"]
 static func initial_state() -> Dictionary:
 	var first_day: int = int(Catalog.campaign_days()[0])
 	return {
-		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
+		"version": Catalog.campaign_version, "day": first_day, "request_index": 0, "phase": "review",
 		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
 		"coworkers": {"Maya": 50, "Theo": 50, "Inez": 50},
 		"selected_rules": [], "consulted": false, "decisions": [],
@@ -25,15 +25,15 @@ static func initial_state() -> Dictionary:
 	}
 
 static func clock_minutes(state: Dictionary) -> int:
-	return START_MINUTE + floori(float(state.shift_seconds) * float(END_MINUTE - START_MINUTE) / float(SHIFT_SECONDS))
+	return START_MINUTE + floori(float(state.shift_seconds) * float(END_MINUTE - START_MINUTE) / float(360 if int(state.version) == 4 else 300))
 
 static func advance(state: Dictionary, seconds: int = 1) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
 	if next.phase != "review" or seconds <= 0:
 		return next
-	next.shift_seconds = mini(SHIFT_SECONDS, int(next.shift_seconds) + mini(seconds, SHIFT_SECONDS))
-	if next.shift_seconds == SHIFT_SECONDS:
-		next.actions.append({"type": "timeout", "day": next.day, "shift_seconds": SHIFT_SECONDS})
+	next.shift_seconds = mini(Catalog.shift_seconds(), int(next.shift_seconds) + mini(seconds, Catalog.shift_seconds()))
+	if next.shift_seconds == Catalog.shift_seconds():
+		next.actions.append({"type": "timeout", "day": next.day, "shift_seconds": Catalog.shift_seconds()})
 		_debrief(next)
 	return next
 
@@ -153,6 +153,7 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 			else:
 				next.selected_rules.append(rule_id)
 		"consult-ai":
+			if Catalog.campaign_version >= 5 and int(next.day) < 3: return next
 			if not next.consulted:
 				next.consulted = true
 				next.consulted_requests.append(active.id)
@@ -227,7 +228,7 @@ static func _debrief(state: Dictionary) -> void:
 	var handed_off: int = shift_ids.size() - reviewed
 	var pay: int = 80 + 10 * correct
 	state.credits = clampi(int(state.credits) + pay - 90, -9999, 9999)
-	state.autonomy = clampi(int(state.autonomy) + 12 + 6 * handed_off, 0, 100)
+	state.autonomy = clampi(int(state.autonomy) + (12 + 6 * handed_off if Catalog.campaign_version == 4 else 4 + handed_off), 0, 100)
 	var message: String = "The shift has ended. Your signed reviews are recorded, and payroll has been settled."
 	if handed_off > 0:
 		message = "Closing bell. Unsigned work has been handed to Helios; it earns no review bonus. Management is expanding the assistant's authority."
@@ -312,15 +313,24 @@ static func _matches(expected: Variant, candidate: Variant) -> bool:
 	return expected == candidate
 
 static func validate_save(value: Variant) -> Dictionary:
+	if not value is Dictionary or not _integer(value.get("version"), 4, SAVE_VERSION):
+		return _invalid("unsupported campaign version; earlier review and workshop files are preserved.")
+	var previous := Catalog.campaign_version
+	Catalog.campaign_version = int(value.version)
+	var result := _validate_campaign_save(value)
+	Catalog.campaign_version = previous
+	return result
+
+static func _validate_campaign_save(value: Variant) -> Dictionary:
 	if typeof(value) != TYPE_DICTIONARY:
 		return _invalid("game state must be an object.")
-	if not _integer(value.get("version"), SAVE_VERSION, SAVE_VERSION):
+	if not _integer(value.get("version"), Catalog.campaign_version, Catalog.campaign_version):
 		return _invalid("timed arrivals require version 4. Earlier review and workshop saves are preserved, but their untimed histories cannot be safely replayed. Start a new career.")
 	var days: Array = Catalog.campaign_days()
 	var campaign_size: int = Catalog.requests().size()
 	for field: String in ["day", "request_index", "credits", "trust", "stress", "autonomy", "shift_seconds"]:
 		var minimum: int = -9999 if field == "credits" else (int(days[0]) if field == "day" else 0)
-		var maximum: int = 9999 if field == "credits" else (int(days[-1]) if field == "day" else (campaign_size if field == "request_index" else (SHIFT_SECONDS if field == "shift_seconds" else 100)))
+		var maximum: int = 9999 if field == "credits" else (int(days[-1]) if field == "day" else (campaign_size if field == "request_index" else (Catalog.shift_seconds() if field == "shift_seconds" else 100)))
 		if not _integer(value.get(field), minimum, maximum):
 			return _invalid("%s has an invalid integer value." % field)
 	if int(value.day) not in days or typeof(value.get("active_request_id")) != TYPE_STRING:
@@ -334,17 +344,17 @@ static func validate_save(value: Variant) -> Dictionary:
 	var replay: Dictionary = initial_state()
 	for index in range(value.actions.size()):
 		var event: Variant = value.actions[index]
-		if typeof(event) != TYPE_DICTIONARY or not _integer(event.get("day"), int(replay.day), int(replay.day)) or not _integer(event.get("shift_seconds"), int(replay.shift_seconds), SHIFT_SECONDS):
+		if typeof(event) != TYPE_DICTIONARY or not _integer(event.get("day"), int(replay.day), int(replay.day)) or not _integer(event.get("shift_seconds"), int(replay.shift_seconds), Catalog.shift_seconds()):
 			return _invalid("action %d has an invalid day or timestamp." % index)
 		var kind: Variant = event.get("type")
 		if kind not in ["timeout", "next-day", "consult-ai", "review", "chat-reply"]:
 			return _invalid("unknown action in history.")
 		if kind == "timeout":
-			if replay.phase != "review" or int(event.shift_seconds) != SHIFT_SECONDS:
+			if replay.phase != "review" or int(event.shift_seconds) != Catalog.shift_seconds():
 				return _invalid("shift closure is outside its deadline.")
-			replay = advance(replay, SHIFT_SECONDS - int(replay.shift_seconds))
+			replay = advance(replay, Catalog.shift_seconds() - int(replay.shift_seconds))
 		else:
-			if replay.phase == "review" and int(event.shift_seconds) == SHIFT_SECONDS:
+			if replay.phase == "review" and int(event.shift_seconds) == Catalog.shift_seconds():
 				return _invalid("a work action occurs at or after the closing bell.")
 			replay = advance(replay, int(event.shift_seconds) - int(replay.shift_seconds))
 			var command: Dictionary = event.duplicate(true)

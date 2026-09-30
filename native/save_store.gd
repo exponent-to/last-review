@@ -6,7 +6,7 @@ const Simulation = preload("res://native/simulation.gd")
 const SAVE_PATH: String = "user://review-save-v4.json"
 const TEMP_PATH: String = "user://review-save-v4.json.tmp"
 const BACKUP_PATH: String = "user://review-save-v4.json.bak"
-const MAX_SAVE_BYTES: int = 100000
+const MAX_SAVE_BYTES: int = 1000000
 const SLOT_COUNT := 3
 static var storage_root := "user://"
 
@@ -85,7 +85,7 @@ static func _load_path(path: String) -> Dictionary:
 		return _failure("Could not open save: " + error_string(FileAccess.get_open_error()))
 	if file.get_length() > MAX_SAVE_BYTES:
 		file.close()
-		return _failure("Invalid save: file exceeds 100,000 bytes.")
+		return _failure("Invalid save: file exceeds 1,000,000 bytes.")
 	var raw: String = file.get_as_text()
 	file.close()
 	var parser: JSON = JSON.new()
@@ -113,6 +113,7 @@ static func list_slots() -> Array[Dictionary]:
 				var state: Dictionary = result.state
 				var minutes := Simulation.clock_minutes(state)
 				entry.summary = "Orientation" if not result.get("tutorial", {}).is_empty() else "Day %d · %02d:%02d" % [int(state.day), int(minutes / 60), minutes % 60]
+				if int(state.version) == 4: entry.summary += " · original rules"
 				if not str(result.error).is_empty(): entry.summary += " · backup"
 			else: entry.summary = "Unreadable save"
 		slots.append(entry)

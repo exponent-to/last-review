@@ -1,0 +1,14 @@
+[
+  {
+    "day": 1,
+    "text": "MONDAY / Your first review shift. Start with outbound timeouts, bound SQL parameters, secret-free logs, and empty collections. All changed helpers are shown. Review behavior, not assurances. Approve compliant changes or cite every violated active rule. Your shift runs from 09:00 to 18:00. PR links arrive in Slouch. Ask coworkers for context, and use PAUSE when you need to step away. Helios takes unfinished reviews at closing time."
+  },
+  {
+    "day": 2,
+    "text": "TUESDAY / New standards cover retry limits, tenant-scoped caches, staged column removal, and human ownership of machine output. HELIOS now drafts production changes. Its recursive helpers make small changes harder to follow. Trace the data and the stopping condition. The empty desks are being called a staffing adjustment."
+  },
+  {
+    "day": 3,
+    "text": "WEDNESDAY / New standards protect independent approval, the human gate, audit history, authorized source export, and encrypted outbound traffic. HELIOS wants authority over its own review process. Rules still apply when the deadline comes from above. Your coworkers still need someone willing to sign their own judgment."
+  }
+]

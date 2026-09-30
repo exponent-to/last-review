@@ -9,6 +9,7 @@ var authored: Dictionary = {}
 
 
 func _initialize() -> void:
+	load("res://content/catalog.gd").campaign_version = 4
 	authored = JSON.parse_string(FileAccess.get_file_as_string("res://content/messages.json"))
 	_test_delivery()
 	_test_replies()
