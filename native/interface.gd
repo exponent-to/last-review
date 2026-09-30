@@ -29,6 +29,17 @@ const DIM: Color = Color("96a9be")
 const CYAN: Color = Color("76c8dd")
 const RED: Color = Color("e39499")
 const GREEN: Color = Color("9ed6bb")
+const RULE_SUMMARIES := {
+	"P01": "No ‘load-bearing’ in comments.",
+	"P02": ".py files: lowercase a in the first 20 lines.",
+	"P03": "def / if / else / return must be blue.",
+	"P04": "No uppercase A–Z in the filename.",
+	"P05": "At most 60 characters per source line.",
+	"P06": "Last nonempty line: # approved by a pigeon",
+	"P07": "No ! in comments.",
+	"P08": "No tab characters anywhere.",
+	"P09": "No whole word ‘urgent’ inside quotes.",
+}
 
 class DiffHighlighter extends SyntaxHighlighter:
 	func _get_line_syntax_highlighting(line: int) -> Dictionary:
@@ -827,16 +838,32 @@ func _build_rulebook(parent: Node) -> void:
 		var panel: PanelContainer = PanelContainer.new()
 		panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 0, 0))
 		rules_body.add_child(panel)
-		var body: VBoxContainer = _column(_margin(panel, 8, 8), 5)
+		var body: VBoxContainer = _column(_margin(panel, 8, 6), 4)
+		var header := _row(body, 4)
 		var check: CheckBox = CheckBox.new()
 		check.text = str(rule.get("id", "")) + "  / CITE"
 		check.add_theme_font_size_override("font_size", 13)
 		var id: String = str(rule.get("id", ""))
 		check.toggled.connect(func(_pressed: bool) -> void: _emit_command({"type": "toggle-rule", "rule_id": id}))
-		body.add_child(check)
-		_paragraph(body, str(rule.get("title", "")), 14, TEXT)
-		_paragraph(body, str(rule.get("text", "")), 13, DIM)
-		_rule_rows.append({"rule": rule, "panel": panel, "check": check})
+		header.add_child(check)
+		_spacer(header)
+		var summary := _paragraph(body, str(RULE_SUMMARIES.get(id, rule.get("title", ""))), 13, TEXT)
+		summary.tooltip_text = str(rule.get("title", ""))
+		var details := _column(body, 4)
+		_paragraph(details, str(rule.get("title", "")), 13, CYAN)
+		_paragraph(details, str(rule.get("text", "")), 13, DIM)
+		details.hide()
+		var disclosure := Button.new()
+		disclosure.text = "DETAILS ▸"
+		disclosure.flat = true
+		disclosure.toggle_mode = true
+		disclosure.add_theme_font_size_override("font_size", 11)
+		disclosure.tooltip_text = "Show full wording and exceptions for " + id
+		disclosure.toggled.connect(func(expanded: bool) -> void:
+			details.visible = expanded
+			disclosure.text = "DETAILS ▾" if expanded else "DETAILS ▸")
+		header.add_child(disclosure)
+		_rule_rows.append({"rule": rule, "panel": panel, "check": check, "summary": summary, "details": details, "disclosure": disclosure})
 
 
 func _build_decision(parent: Node) -> void:
@@ -1136,6 +1163,8 @@ func _filter_rules() -> void:
 	var new_count: int = 0
 	for entry: Dictionary in _rule_rows:
 		var rule: Dictionary = entry["rule"]
+		if rule.id == "P03":
+			entry.summary.text = RULE_SUMMARIES.P03 + (" Pink needs an INK-EXCEPTION permit." if day >= 4 else "")
 		var active: bool = int(rule.get("introduced_day", 1)) <= day
 		if active:
 			active_count += 1
