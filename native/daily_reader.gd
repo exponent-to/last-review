@@ -117,7 +117,6 @@ func _news() -> void:
 func _story(article: Dictionary) -> void:
 	_link("← Front page", "news", 13)
 	_text(str(article.title), 22)
-	_text(str(article.source) + " / " + str(article.byline), 12, MUTED)
 	_divider()
 	_text(str(article.body), 15)
 	var comments: Array = article.get("comments", [])
