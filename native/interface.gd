@@ -16,6 +16,7 @@ const ComputerFrame = preload("res://native/computer_frame.gd")
 const Notifications = preload("res://native/desktop_notifications.gd")
 const DesktopWindow = preload("res://native/desktop_window.gd")
 const Chat = preload("res://content/chat.gd")
+const TutorialPointer = preload("res://native/tutorial_pointer.gd")
 const DailyReader = preload("res://native/daily_reader.gd")
 const Catalog = preload("res://content/catalog.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
@@ -40,6 +41,23 @@ class DiffHighlighter extends SyntaxHighlighter:
 		elif text.begins_with("@@") or text.begins_with("diff"):
 			color = Color("76c8dd")
 		return {0: {"color": color}}
+
+class PolicyHighlighter extends SyntaxHighlighter:
+	var spans: Dictionary = {}
+	var ink := Color("72b7ff")
+	func configure(source: String, color_name: String) -> void:
+		ink = Color("ef94c3") if color_name == "pink" else Color("72b7ff")
+		spans.clear()
+		for span: Dictionary in load("res://content/policy_campaign.gd").keyword_spans(source):
+			if not spans.has(int(span.line)): spans[int(span.line)] = []
+			spans[int(span.line)].append(span)
+		clear_highlighting_cache()
+	func _get_line_syntax_highlighting(line: int) -> Dictionary:
+		var result := {0: {"color": Color("e0e8ef")}}
+		for span: Dictionary in spans.get(line, []):
+			result[int(span.start)] = {"color": ink}
+			result[int(span.end)] = {"color": Color("e0e8ef")}
+		return result
 
 var scene_host: Control
 var _state: Dictionary = {}
@@ -121,6 +139,14 @@ var _tutorial_title: Label
 var _tutorial_body: Label
 var _tutorial_next: Button
 var _tutorial_active := false
+var _tutorial_pointer: Control
+var _tutorial_question: Button
+var _tutorial_pr_link: Button
+var _home_button: Button
+var _arrival_picker: OptionButton
+var _next_pr: Button
+var _arrival_ids: Array[String] = []
+var _code_legend: Label
 var _tutorial_details: Dictionary = {}
 
 
@@ -184,7 +210,7 @@ func _build_os_menu(parent: Node) -> void:
 	_hud["status"] = _footer
 	_clock_label = _label(row, "09:00", 14, Color("18212b"))
 	_clock_label.custom_minimum_size.x = 50
-	_clock_label.tooltip_text = "Shift: 09:00–18:00. Six real minutes. Pause stops the clock."
+	_clock_label.tooltip_text = "Shift: 09:00–18:00. %d real minutes. Pause stops the clock." % (Catalog.shift_seconds() / 60)
 	_pause_button = _button(row, "PAUSE", func() -> void: pause_requested.emit())
 	_pause_button.add_theme_font_size_override("font_size", 11)
 	_pause_button.tooltip_text = "Pause the workday (Esc)"
@@ -483,7 +509,18 @@ func _build_review_content(code: VBoxContainer) -> void:
 	var title_row: HBoxContainer = _row(code)
 	_pr_id = _label(title_row, "PULL REQUEST", 12, CYAN)
 	_spacer(title_row)
-	_label(title_row, "DIFF / READ ONLY", 11, DIM)
+	_label(title_row, "PROPOSED FILE / READ ONLY" if Catalog.campaign_version >= 5 else "DIFF / READ ONLY", 11, DIM)
+	var incoming := _row(code, 6)
+	incoming.visible = Catalog.campaign_version >= 5
+	_arrival_picker = OptionButton.new()
+	_arrival_picker.fit_to_longest_item = false
+	_arrival_picker.clip_text = true
+	_arrival_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_arrival_picker.item_selected.connect(func(index: int) -> void:
+		if index > 0 and index <= _arrival_ids.size(): _open_pr_link(_arrival_ids[index - 1]))
+	incoming.add_child(_arrival_picker)
+	_next_pr = _button(incoming, "NEXT PR →", _open_next_pr)
+	_next_pr.add_theme_font_size_override("font_size", 12)
 	_pr_title = _paragraph(code, "", 17)
 	var packet_scroll: ScrollContainer = ScrollContainer.new()
 	_packet_scroll = packet_scroll
@@ -496,11 +533,14 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_file_label.hide()
 	_file_picker = OptionButton.new()
 	_file_picker.fit_to_longest_item = false
+	_file_picker.clip_text = true
 	_file_picker.disabled = true
 	_file_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_file_picker.add_theme_font_size_override("font_size", 12)
 	_file_picker.item_selected.connect(_select_file)
 	code.add_child(_file_picker)
+	_code_legend = _paragraph(code, "", 11, DIM)
+	_code_legend.hide()
 	_diff = CodeEdit.new()
 	_diff.name = "PullRequestDiff"
 	_diff.editable = false
@@ -513,6 +553,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_diff.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	_diff.custom_minimum_size.y = 130
 	code.add_child(_diff)
+	_diff.caret_changed.connect(_update_code_legend)
 
 
 func _remember_file_position() -> void:
@@ -530,6 +571,7 @@ func _set_review_files(request: Dictionary) -> void:
 	_file_picker.disabled = _review_files.is_empty()
 	if _review_files.is_empty():
 		_diff.text = ""
+		_code_legend.hide()
 		return
 	var selected: int = clampi(int(_selected_files.get(_last_pr, 0)), 0, _review_files.size() - 1)
 	_file_picker.select(selected)
@@ -547,13 +589,34 @@ func _select_file(index: int) -> void:
 	_displayed_file_key = _last_pr + "/" + path
 	_file_label.text = path
 	_file_picker.tooltip_text = "Changed file: " + path + " — review all files before signing off."
-	_diff.text = str(entry.get("diff", ""))
+	if entry.has("source"):
+		var highlighter := PolicyHighlighter.new()
+		highlighter.configure(str(entry.source), str(entry.get("keyword_ink", "blue")))
+		_diff.syntax_highlighter = highlighter
+		_diff.text = str(entry.source)
+		_diff.draw_tabs = true
+		_update_code_legend()
+		_code_legend.show()
+	else:
+		_diff.syntax_highlighter = DiffHighlighter.new()
+		_diff.text = str(entry.get("diff", ""))
+		_code_legend.hide()
 	_diff.set_caret_line(0)
 	_diff.set_caret_column(0)
 	_diff.scroll_vertical = 0
 	_diff.scroll_horizontal = 0
 	_restore_file_position.call_deferred(_displayed_file_key)
 	tutorial_event.emit({"type": "inspect-file", "path": path})
+
+
+func _update_code_legend() -> void:
+	var index := _file_picker.selected
+	if index < 0 or index >= _review_files.size() or not _review_files[index].has("source"): return
+	var entry: Dictionary = _review_files[index]
+	_code_legend.text = "Keyword ink: %s · def / if / else / return" % str(entry.get("keyword_ink", "blue"))
+	if int(_state.get("day", 1)) >= 4: _code_legend.text += " · Permit: " + str(entry.get("permit", "none"))
+	if int(_state.get("day", 1)) >= 2:
+		_code_legend.text += "\nLine %d · %d characters (click a line to measure)" % [_diff.get_caret_line() + 1, _diff.get_line(_diff.get_caret_line()).length()]
 
 
 func _restore_file_position(key: String) -> void:
@@ -574,6 +637,7 @@ func _build_dock(parent: Node) -> void:
 	parent.add_child(panel)
 	var dock: HBoxContainer = _row(panel, 4)
 	var home: Button = _button(dock, "HOME", _show_home)
+	_home_button = home
 	home.add_theme_font_size_override("font_size", 12)
 	home.tooltip_text = "Show the desktop. Open windows remain on the taskbar."
 	for item: Array in [["review", "REVIEW"], ["rules", "HANDBOOK"], ["chat", "SLOUCH"], ["browser", "INTRANET"], ["system", "SYSTEM"]]:
@@ -714,7 +778,7 @@ func _sync_morning_control() -> void:
 	_begin_shift_button.visible = morning_active
 	_pause_button.visible = not morning_active
 	_begin_shift_button.disabled = not _daily_reader._memo_seen
-	_begin_shift_button.tooltip_text = "Start the six-minute workday" if _daily_reader._memo_seen else "Read today's memo in Intranet to begin your shift"
+	_begin_shift_button.tooltip_text = "Start the %d-minute workday" % (Catalog.shift_seconds() / 60) if _daily_reader._memo_seen else "Read today's memo in Intranet to begin your shift"
 
 
 func _finish_morning() -> void:
@@ -875,6 +939,7 @@ func _waiting_for_reply(contact: String) -> bool:
 
 func _process(delta: float) -> void:
 	_tick_chat_replies(delta)
+	_sync_tutorial_pointer()
 
 
 func _tick_chat_replies(delta: float) -> void:
@@ -940,6 +1005,8 @@ func _draw_chat(contact_changed: bool = false) -> void:
 	var key: String = _chat_contact + JSON.stringify(messages) + JSON.stringify(options) + _chat_reply_pr + str(waiting) + str(_state.get("phase", ""))
 	if key == _chat_last_draw and not contact_changed:
 		return
+	_tutorial_question = null
+	_tutorial_pr_link = null
 	_chat_last_draw = key
 	_chat_heading.text = "#engineering" if _chat_contact == "company" else ("Morgan / Engineering Manager" if _chat_contact == "manager" else _chat_contact + " / direct message")
 	var bar: VScrollBar = _chat_scroll.get_v_scroll_bar()
@@ -974,6 +1041,7 @@ func _draw_chat(contact_changed: bool = false) -> void:
 		if message.has("pr_id"):
 			var pr_id: String = str(message.pr_id)
 			var link := _button(body, "OPEN " + pr_id + "  →", _open_pr_link.bind(pr_id))
+			if pr_id == str(Catalog.request_at(0).id): _tutorial_pr_link = link
 			link.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			link.add_theme_font_size_override("font_size", 12)
 			link.add_theme_color_override("font_color", CYAN)
@@ -1000,6 +1068,7 @@ func _draw_chat(contact_changed: bool = false) -> void:
 		if str(option.pr_id) != _chat_reply_pr:
 			continue
 		var reply := _button(_chat_replies, str(option.text), _emit_command.bind({"type": "chat-reply", "contact": _chat_contact, "reply_id": str(option.id), "pr_id": str(option.pr_id)}))
+		if option.id == "clarify" and option.pr_id == str(Catalog.request_at(0).id): _tutorial_question = reply
 		reply.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		reply.add_theme_font_size_override("font_size", 12)
 		reply.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1032,7 +1101,7 @@ func _build_system(page: VBoxContainer) -> void:
 	_label(content, "LOCAL RECORD", 16, CYAN)
 	_save_slot_label = _label(content, "Current save: Slot 1", 14, CYAN)
 	_system_status = _paragraph(content, "Local storage is ready.", 14, CYAN)
-	_paragraph(content, "Three local save slots. New Game and Load Game on the main menu let you choose a slot. Each shift lasts six real minutes, from 09:00 to 18:00. Reading code and Slouch messages uses time. Pause with Esc or the desktop clock control. Switching away pauses automatically.", 14, DIM)
+	_paragraph(content, "Three local save slots. New Game and Load Game on the main menu let you choose a slot. Each shift lasts %d real minutes, from 09:00 to 18:00. Reading code and Slouch messages uses time. Pause with Esc or the desktop clock control. Switching away pauses automatically." % (Catalog.shift_seconds() / 60), 14, DIM)
 	var saves: HBoxContainer = _row(content)
 	_button(saves, "SAVE RUN", func() -> void: save_requested.emit())
 	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
@@ -1087,12 +1156,15 @@ func render_state(state: Dictionary) -> void:
 	_state = state.duplicate(true)
 	_track_chat_replies()
 	render_clock(state)
+	_sync_arrival_picker()
 	var day: int = int(state.get("day", 1))
 	var phase: String = str(state.get("phase", "review"))
 	var selected: Array = state.get("selected_rules", [])
 	var consulted: bool = bool(state.get("consulted", false))
 	var active_request: Dictionary = Simulation.active_request(state)
 	var can_review: bool = phase == "review" and not active_request.is_empty()
+	_consult.visible = Catalog.campaign_version == 4 or day >= 3
+	_ai_note.visible = _consult.visible
 	var day_names: Array[String] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
 	_hud["day"].text = day_names[(day - 1) % day_names.size()]
 	_hud["status"].text = ("HUMAN SIGN-OFF REQUESTED" if can_review else "INCOMING WORK / SLOUCH") if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED"
@@ -1130,8 +1202,8 @@ func render_state(state: Dictionary) -> void:
 		if request.is_empty():
 			_last_pr = ""
 			_pr_id.text = "REVIEW / NO PR OPEN"
-			_pr_title.text = "Check SLOUCH for review requests"
-			_pr_context.text = "Coworkers send links as their work is ready. Open a PR from its conversation. The workday clock continues while you read."
+			_pr_title.text = "Pick up an arrived PR" if Catalog.campaign_version >= 5 else "Check SLOUCH for review requests"
+			_pr_context.text = "Use NEXT PR, the dropdown, or a Slouch link. Check the visible file against today’s policies." if Catalog.campaign_version >= 5 else "Coworkers send links as their work is ready. Open a PR from its conversation. The workday clock continues while you read."
 			_file_label.text = ""
 			if not _review_files.is_empty() or not _diff.text.is_empty():
 				_set_review_files({})
@@ -1252,6 +1324,8 @@ func focus_workspace() -> void:
 
 
 func _build_tutorial_panel() -> void:
+	_tutorial_pointer = TutorialPointer.new()
+	_monitor_screen.add_child(_tutorial_pointer)
 	_tutorial_panel = PanelContainer.new()
 	_tutorial_panel.add_theme_stylebox_override("panel", _style(INSET, CYAN, 1, 12, 10))
 	_tutorial_panel.z_index = 40
@@ -1291,6 +1365,70 @@ func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
 	_clock_label.text = "TRAINING"
 	_hud["day"].text = "ORIENTATION"
 	_footer.text = "CLOCK STOPPED"
+
+
+func _sync_arrival_picker() -> void:
+	if not is_instance_valid(_arrival_picker): return
+	var packets := Simulation.available_requests(_state)
+	var ids: Array[String] = []
+	for packet: Dictionary in packets: ids.append(str(packet.id))
+	if ids != _arrival_ids or _arrival_picker.item_count == 0:
+		_arrival_ids = ids
+		_arrival_picker.clear()
+		_arrival_picker.add_item("Arrived PRs" if not ids.is_empty() else "Waiting for work…")
+		for packet: Dictionary in packets:
+			_arrival_picker.add_item(str(packet.id) + " · " + str(packet.author) + " · " + str(packet.title))
+	_arrival_picker.select(ids.find(str(_state.get("active_request_id", ""))) + 1)
+	_arrival_picker.disabled = ids.is_empty()
+	_next_pr.disabled = ids.is_empty() or (ids.size() == 1 and ids[0] == str(_state.get("active_request_id", "")))
+
+
+func _open_next_pr() -> void:
+	for id: String in _arrival_ids:
+		if id != str(_state.get("active_request_id", "")):
+			_open_pr_link(id)
+			return
+
+
+func _tutorial_launcher(app: String) -> Control:
+	if _dock_buttons[app].visible: return _dock_buttons[app]
+	for window: Control in _windows.values():
+		if window.visible and window.get_global_rect().intersects(_home_icons[app].get_global_rect()): return _home_button
+	return _home_icons[app]
+
+
+func _sync_tutorial_pointer() -> void:
+	if not is_instance_valid(_tutorial_pointer): return
+	var target: Control = null
+	if _tutorial_active and not _paused:
+		match int(_tutorial_details.get("stage", 0)):
+			0, 7: target = _tutorial_next
+			1: target = _tutorial_launcher("chat")
+			2:
+				if not _windows.chat.visible or not _windows.chat._active: target = _tutorial_launcher("chat")
+				elif _chat_contact != "Maya": target = _chat_contacts.Maya
+				elif is_instance_valid(_tutorial_question): target = _tutorial_question
+			3:
+				if not _windows.chat.visible or not _windows.chat._active: target = _tutorial_launcher("chat")
+				elif _chat_contact != "Maya": target = _chat_contacts.Maya
+				elif is_instance_valid(_tutorial_pr_link): target = _tutorial_pr_link
+			4: target = _file_picker if _windows.review.visible and _windows.review._active else _tutorial_launcher("review")
+			5: target = _tutorial_launcher("rules")
+			6:
+				var id := "P01" if Catalog.campaign_version >= 5 else "R01"
+				if id not in _state.get("selected_rules", []):
+					if not _windows.rules.visible or not _windows.rules._active: target = _tutorial_launcher("rules")
+					else:
+						for row: Dictionary in _rule_rows:
+							if row.rule.id == id: target = row.check
+				else: target = _reject if _windows.review.visible and _windows.review._active else _tutorial_launcher("review")
+	if is_instance_valid(target) and target != _tutorial_next and _tutorial_panel.get_global_rect().intersects(target.get_global_rect()):
+		for location: Vector2 in [Vector2(12, _monitor_screen.size.y - _tutorial_panel.size.y - 50), Vector2(_monitor_screen.size.x - _tutorial_panel.size.x - 12, _monitor_screen.size.y - _tutorial_panel.size.y - 50), Vector2(12, 48)]:
+			var candidate := Rect2(_monitor_screen.global_position + location, _tutorial_panel.size)
+			if not candidate.intersects(target.get_global_rect()):
+				_tutorial_panel.position = location
+				break
+	_tutorial_pointer.set_target(target)
 
 
 func _fit_tutorial() -> void:

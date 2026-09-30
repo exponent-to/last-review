@@ -9,6 +9,7 @@ var quit_calls := 0
 
 
 func _initialize() -> void:
+	load("res://content/catalog.gd").campaign_version = 4
 	_run.call_deferred()
 
 

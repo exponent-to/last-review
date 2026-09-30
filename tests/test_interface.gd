@@ -10,6 +10,7 @@ var ui: Interface
 var failures: int = 0
 
 func _initialize() -> void:
+	load("res://content/catalog.gd").campaign_version = 4
 	call_deferred("_run")
 
 func check(condition: bool, message: String) -> void:
@@ -112,7 +113,7 @@ func _run() -> void:
 		check(ui._search.text == "timeout", "Review updates must preserve search text")
 		var following: Dictionary = Catalog.request_at(index + 1)
 		if following.is_empty() or int(following.day) != int(state.day):
-			state = Simulation.advance(state, Simulation.SHIFT_SECONDS)
+			state = Simulation.advance(state, Simulation.Catalog.shift_seconds())
 			ui.render_state(state)
 		if state.phase == "debrief":
 			check(not ui._windows.has("shift"), "Closing must not open an explicit results window")

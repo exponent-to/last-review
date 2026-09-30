@@ -58,4 +58,4 @@ Missing, empty, malformed, or incorrectly sized assets display a short native fa
 
 ## Extending the scene
 
-Add new SVGs under `art/office*.svg`, record their dimensions and frames above, and give runtime-rasterized assets a `keep` importer. Prefer controller parameters for additional story presentation states; do not import game rules into this renderer. Verify all three days with low/high autonomy, motion disabled, hidden/unfocused windows, the minimum window size, and the packaged native app.
+Add new SVGs under `art/office*.svg`, record their dimensions and frames above, and give runtime-rasterized assets a `keep` importer. Prefer controller parameters for additional story presentation states; do not import game rules into this renderer. Verify all five days with low/high autonomy, motion disabled, hidden/unfocused windows, the minimum window size, and the packaged native app.

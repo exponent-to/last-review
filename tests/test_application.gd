@@ -4,6 +4,7 @@ const Main = preload("res://native/main.gd")
 var failures := 0
 
 func _initialize() -> void:
+	load("res://content/catalog.gd").campaign_version = 4
 	_run.call_deferred()
 
 func _check(condition: bool, message: String) -> void:
@@ -49,7 +50,7 @@ func _run() -> void:
 	for frame in range(4): await process_frame
 	_check(app.interface._tutorial_panel.size.y < 250, "Orientation instructions must fit a compact panel after text wraps.")
 	app._tick_shift(999.0)
-	_check(int(app.state.shift_seconds) == 20, "Orientation must remain untimed.")
+	_check(int(app.state.shift_seconds) == 0, "Orientation must remain untimed.")
 	app.interface._tutorial_next.pressed.emit()
 	app.interface._open_app("chat")
 	_check(int(app.tutorial.stage) == 2, "Opening Slouch progresses orientation.")
@@ -61,7 +62,7 @@ func _run() -> void:
 	app.interface._open_app("rules")
 	app._on_command({"type": "review", "verdict": "approve"})
 	_check(int(app.tutorial.stage) == 6 and app.state.decisions.is_empty(), "A mistaken practice review can be retried without consequences.")
-	app._on_command({"type": "toggle-rule", "rule_id": "R01"})
+	app._on_command({"type": "toggle-rule", "rule_id": "P01"})
 	app._on_command({"type": "review", "verdict": "request_changes"})
 	_check(int(app.tutorial.stage) == 7, "A complete practice review reaches the handoff.")
 	app.interface._tutorial_next.pressed.emit()
@@ -91,15 +92,15 @@ func _run() -> void:
 	var morning: Color = app.scenery._sky_color()
 	app.scenery.set_time_of_day(1080)
 	_check(morning.get_luminance() > app.scenery._sky_color().get_luminance(), "Office must darken from morning to closing time.")
-	app._tick_shift(357.0)
-	_check(app.state.phase == "debrief" and app.interface._clock_label.text == "18:00", "Clock expiry must stop work at six real minutes.")
+	app._tick_shift(297.0)
+	_check(app.state.phase == "debrief" and app.interface._clock_label.text == "18:00", "Clock expiry must stop work at five real minutes.")
 	var closed: Dictionary = app.state.duplicate(true)
 	app._tick_shift(120.0)
 	_check(app.state == closed, "Closed shifts must not keep charging time or wages.")
 	app._on_command({"type": "next-day", "choice": "rest"})
 	_check(int(app.state.day) == 2 and app.interface.morning_active, "Every new workday gets its own morning news and memo.")
 	app._tick_shift(60.0)
-	_check(int(app.state.shift_seconds) == 0, "Next-day reading also leaves all six minutes available.")
+	_check(int(app.state.shift_seconds) == 0, "Next-day reading also leaves all five minutes available.")
 	app._on_motion(false)
 	app._on_focus_exited()
 	app._on_focus_entered()

@@ -15,3 +15,6 @@ sh scripts/run.sh --headless --script res://tests/test_cold_open.gd
 sh scripts/run.sh --headless --script res://tests/test_daily_press.gd
 sh scripts/run.sh --headless --script res://tests/test_daily_reader.gd
 sh scripts/run.sh --headless --script res://tests/test_save_slots.gd
+sh scripts/run.sh --headless --script res://tests/test_policy_campaign.gd
+sh scripts/run.sh --headless --script res://tests/test_policy_integration.gd
+sh scripts/run.sh --headless --script res://tests/test_tutorial_pointer.gd
