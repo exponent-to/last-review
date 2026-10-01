@@ -912,7 +912,7 @@ func _build_rulebook(parent: Node) -> void:
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.size_flags_stretch_ratio = 1.05
 	column.custom_minimum_size.x = 300
-	_label(column, "ENGINEERING RULEBOOK", 13, CYAN)
+	_label(column, "NORTHSTAR STANDARDS / COMPLIANCE", 13, CYAN)
 	_search = LineEdit.new()
 	_search.placeholder_text = "Search ID, title, or text"
 	_search.clear_button_enabled = true

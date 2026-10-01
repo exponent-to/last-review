@@ -19,11 +19,11 @@ static func authored() -> Dictionary:
    packets[packet.id].request += " Keep an eye on the comment wording in the receipt file."
   index += 1
  _cache = {"contacts": people, "requests": packets, "company": [
-  {"day": 1, "author": "Morgan", "text": "Today's rules are about letters and colors. You do not need to run the code. Helios will supply more work than you can finish; choose carefully."},
-  {"day": 2, "author": "Operations", "text": "New policies cover filenames and line length. More files are coming in pairs. Inspect both."},
-  {"day": 3, "author": "Helios", "text": "I can now offer review recommendations. New policies require pigeon sign-offs and prohibit shouting in comments. Your human judgment remains useful to my training."}],
+  {"day": 1, "author": "Morgan", "text": "You are not here to understand the code. You are here to sign it. Helios will supply more work than you can finish; choose what carries your name carefully."},
+  {"day": 2, "author": "Operations", "text": "Records Office notice: quiet filenames, sixty-column lines. Changes now arrive in sets. An unread file is an unsigned file."},
+  {"day": 3, "author": "Helios", "text": "I can now offer review recommendations. PIGEON will refuse any file without its sign-off, and comments are now scanned for sentiment. Your human judgment remains useful to my training."}],
   "manager": {"intro": "Morning. Read the memo, then start the clock when you're ready.", "friction": "A coworker says we sent back a compliant change. They attached the handbook. We should avoid making policy stricter than it already is.", "handoff": "Helios picked up the remaining queue. Don't stay late chasing it; it can produce requests faster than either of us can read.", "held": "The policy desk hasn't sent anything back tonight. Thanks for being specific with the team.", "quiet": "Nothing from the policy desk tonight. Go home before somebody invents another standard.", "closing": "That's enough for today. Head home, grab dinner, or study tomorrow's paperwork."}}
- _cache.company.append({"day": 4, "author": "Operations", "text": "INK-EXCEPTION is the only valid pink-ink stamp. It applies to one file. Tabs are prohibited even on stamped files."})
- _cache.company.append({"day": 5, "author": "Morgan", "text": "Last day of this assignment. No urgent in quoted strings. Keep checking the actual files; I will message you after closing."})
+ _cache.company.append({"day": 4, "author": "Operations", "text": "Exception Desk notice: INK-EXCEPTION is the only valid pink-ink permit, for one file only. Tabs remain prohibited on every file. Misspelled permits will be treated as forgeries."})
+ _cache.company.append({"day": 5, "author": "Morgan", "text": "Last day of this assignment. Only management declares urgency, so no urgent in quoted strings. Keep checking the actual files; we will talk about your future after closing."})
 
  return _cache
