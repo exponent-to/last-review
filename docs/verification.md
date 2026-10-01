@@ -9,4 +9,4 @@ Run `sh scripts/check.sh` with the pinned Godot 4.7.2 runtime. All suites use th
 - Press checks cover all five daily editions, clickable stories, memo gating, and newly introduced rules without leaking audit answers.
 - Desktop-window checks cover dragging, resizing, maximize/restore, clipping, and supported viewport sizes.
 
-Native and single-thread Web exports use the Compatibility renderer. Screenshots under ignored `build/` provide visual checks of the actual native controls. Displayed source is never executed. Windows packaging, notarized distribution, audio, and comprehensive screen-reader support remain outside this milestone.
+Native and single-thread Web exports use the Compatibility renderer. Screenshots under ignored `build/` provide visual checks of the actual native controls. `sh scripts/run.sh --script res://tools/capture.gd -- <dir>` renders the menu, cold open, orientation, morning reader, Slouch, Review, Handbook, a stamped review, and pause to PNGs. Displayed source is never executed. Windows packaging, notarized distribution, audio, and comprehensive screen-reader support remain outside this milestone.

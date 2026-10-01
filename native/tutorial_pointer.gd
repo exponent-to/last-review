@@ -2,7 +2,7 @@ extends Control
 ## Mount as a full-rect child of the clipped monitor screen, alongside its windows.
 ## Tracks viewport transforms and ancestor clips without taking focus or mouse input.
 
-const INK := Color("91e0ec")
+const INK := Color("e5384a")
 const ARROW_LENGTH := 19.0
 var _target_ref: WeakRef
 var _visible_rect := Rect2()
@@ -62,7 +62,7 @@ func _draw() -> void:
 		return
 	var soft := INK
 	soft.a = 0.8
-	draw_rect(outline, soft, false, 1.0)
+	draw_rect(outline, soft, false, 2.0)
 	var arrow := _arrow_points(outline)
 	var start: Vector2 = arrow[0]
 	var tip: Vector2 = arrow[1]
