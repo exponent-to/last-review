@@ -61,7 +61,7 @@ sh scripts/build-macos.sh
 
 The simulation suite covers the authored career, precise citations, AI mistakes, relationship and audit consequences, one-time pay, evening choices, immutability, and malformed saves. The native-interface test drives actual rule/decision controls through the campaign and manager follow-up. Menu and tutorial checks cover untimed practice, retries, lesson progress, save compatibility, and the fresh-career handoff. All run headlessly without test plugins.
 
-- `content/` — editable JSON rules, PR packets, and daily briefings.
+- `content/` — rules, daily briefings, and `pr_bank.gd`, the bank of realistic pull requests.
 - `content/chat.gd`, `content/policy_chat.gd` — authored coworker messages derived from the career's decisions.
 - `native/simulation.gd` — deterministic timed shifts, decisions, and life-sim consequences.
 - `native/interface.gd` — review desk, rule search, people, evenings, and system controls.

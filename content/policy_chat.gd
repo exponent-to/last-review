@@ -16,7 +16,7 @@ static func authored() -> Dictionary:
  for packet: Dictionary in Catalog.requests():
   packets[packet.id] = {"request": str(packet.message), "question": "What should I look at first?", "hint": "[PR context placeholder]", "concern": "[PR background placeholder]", "approve": "[Approval reaction placeholder]", "request_changes": "[Change request reaction placeholder]", "incident": incidents[index % incidents.size()]}
   if packet.id == "PR-1042":
-   packets[packet.id].request += " Keep an eye on the comment wording in the receipt file."
+   packets[packet.id].request += " Keep an eye on the comment wording in the test file."
   index += 1
  _cache = {"contacts": people, "requests": packets, "company": [
   {"day": 1, "author": "Morgan", "text": "You are not here to understand the code. You are here to sign it. Helios will supply more work than you can finish; choose what carries your name carefully."},
