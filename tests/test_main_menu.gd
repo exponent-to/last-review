@@ -90,6 +90,7 @@ func _run() -> void:
 		var screen_rect: Rect2 = menu._screen.get_global_rect()
 		_check(menu.get_global_rect().encloses(screen_rect), "Monitor screen stays inside viewport %s." % viewport)
 		_check(screen_rect.encloses(menu._content.get_global_rect()), "All menu content fits the monitor at %s." % viewport)
+		_check(screen_rect.encloses(menu._repo_link.get_global_rect()) and not menu._repo_link.get_global_rect().intersects(menu._content.get_global_rect()), "The repository link sits inside the monitor, clear of the menu, at %s." % viewport)
 		for button: Button in [menu._new_game, menu._load_game, menu._quit]:
 			_check(button.size.y >= 44 and button.size.x >= 300, "Menu actions remain readable and easy to target at %s." % viewport)
 	menu._show_slots("new")
@@ -97,6 +98,7 @@ func _run() -> void:
 	_check(menu._screen.get_global_rect().encloses(menu._content.get_global_rect()), "All three slot choices fit the minimum viewport.")
 	menu.show_error("")
 	_check(menu._error.text.is_empty(), "The application can clear a previous loading error.")
+	_check(menu._repo_link.text == "PRs please" and menu._repo_link.icon != null and menu.REPOSITORY_URL == "https://github.com/exponent-to/last-review", "The menu links to the public repository with the GitHub mark.")
 	menu.queue_free()
 	await process_frame
 	print("Main menu: %d checks, %d failures" % [checks, failures])
