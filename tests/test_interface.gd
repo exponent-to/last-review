@@ -215,6 +215,8 @@ func _test_desktop() -> void:
 	ui._browser_go_back()
 	check(ui._browser_path == "procedure", "Fake browser back must restore the previous local page")
 	check(ui._browser_address.text == "intranet://engineering/procedure", "Fake browser must display a local in-game address")
+	for button: Button in ui._windows.browser.find_children("*", "Button", true, false):
+		check(button.text not in ["STANDARDS", "SLOUCH", "HANDBOOK", "REVIEW", "SYSTEM"], "Intranet pages link only to intranet pages, never to desktop apps")
 	ui._windows["browser"].minimize_window()
 	ui._arrange_windows()
 	ui._show_home()

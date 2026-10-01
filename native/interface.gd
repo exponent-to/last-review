@@ -837,8 +837,6 @@ func _build_browser(page: VBoxContainer) -> void:
 	_button(links, "NEWS", _browse.bind("news"))
 	_button(links, "PROCEDURE", _browse.bind("procedure"))
 	_button(links, "DAILY MEMO", _browse.bind("memo"))
-	_button(links, "STANDARDS", _open_app.bind("rules"))
-	_button(links, "SLOUCH", _open_app.bind("chat"))
 	var content: VBoxContainer = _scroll_column(page)
 	_browser_text = _paragraph(content, "", 15)
 	_browser_plain = content.get_parent()
@@ -867,7 +865,7 @@ func _browse(path: String, record: bool = true) -> void:
 		"procedure":
 			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, click the offending line (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then tick the rule it breaks in HANDBOOK.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
 		_:
-			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nOpen STANDARDS to consult the active rulebook, SLOUCH to read messages from your coworkers, NEWS for the morning headlines, or DAILY MEMO for the current instructions.\n\nExternal access restricted by company policy."
+			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nNEWS carries the morning headlines. DAILY MEMO carries today's instructions from management. PROCEDURE describes the review process.\n\nExternal access restricted by company policy."
 
 
 func begin_morning() -> void:
