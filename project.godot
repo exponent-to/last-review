@@ -3,7 +3,7 @@ config_version=5
 
 [application]
 boot_splash/show_image=false
-boot_splash/bg_color=Color(0.062745, 0.090196, 0.133333, 1)
+boot_splash/bg_color=Color(0.039216, 0.039216, 0.043137, 1)
 config/name="PRs please"
 ; Keep existing saves when the public title changes.
 config/use_custom_user_dir=true
@@ -29,4 +29,4 @@ renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
 textures/vram_compression/import_etc2_astc=true
 textures/vram_compression/import_s3tc_bptc=true
-environment/defaults/default_clear_color=Color(0.06, 0.08, 0.13, 1)
+environment/defaults/default_clear_color=Color(0.039216, 0.039216, 0.043137, 1)
