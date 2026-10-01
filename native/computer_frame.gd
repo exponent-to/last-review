@@ -1,7 +1,7 @@
 extends Control
 ## The physical monitor and room behind the desktop. All input belongs to its screen.
 
-const SCREEN_INSETS := Vector4(64.0, 76.0, 64.0, 100.0)
+const SCREEN_INSETS := Vector4(100.0, 108.0, 100.0, 128.0)
 var _motion := true
 var _elapsed := 0.0
 var _day := 1
