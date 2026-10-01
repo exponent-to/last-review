@@ -41,18 +41,6 @@ const RULE_SUMMARIES := {
 	"P09": "No whole word ‘urgent’ inside quotes.",
 }
 
-class DiffHighlighter extends SyntaxHighlighter:
-	func _get_line_syntax_highlighting(line: int) -> Dictionary:
-		var text: String = get_text_edit().get_line(line)
-		var color: Color = Color("d6e1eb")
-		if text.begins_with("+"):
-			color = Color("9ed6bb")
-		elif text.begins_with("-"):
-			color = Color("e39499")
-		elif text.begins_with("@@") or text.begins_with("diff"):
-			color = Color("76c8dd")
-		return {0: {"color": color}}
-
 class PolicyHighlighter extends SyntaxHighlighter:
 	var spans: Dictionary = {}
 	var ink := Color("72b7ff")
@@ -514,9 +502,8 @@ func _build_review_content(code: VBoxContainer) -> void:
 	var title_row: HBoxContainer = _row(code)
 	_pr_id = _label(title_row, "PULL REQUEST", 12, CYAN)
 	_spacer(title_row)
-	_label(title_row, "PROPOSED FILE / READ ONLY" if Catalog.campaign_version >= 5 else "DIFF / READ ONLY", 11, DIM)
+	_label(title_row, "PROPOSED FILE / READ ONLY", 11, DIM)
 	var incoming := _row(code, 6)
-	incoming.visible = Catalog.campaign_version >= 5
 	_arrival_picker = OptionButton.new()
 	_arrival_picker.fit_to_longest_item = false
 	_arrival_picker.clip_text = true
@@ -551,7 +538,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_diff.editable = false
 	_diff.gutters_draw_line_numbers = true
 	_diff.gutters_line_numbers_min_digits = 2
-	_diff.syntax_highlighter = DiffHighlighter.new()
+	_diff.syntax_highlighter = PolicyHighlighter.new()
 	_diff.add_theme_font_size_override("font_size", 14)
 	_diff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_diff.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -569,7 +556,7 @@ func _remember_file_position() -> void:
 func _set_review_files(request: Dictionary) -> void:
 	_remember_file_position()
 	_displayed_file_key = ""
-	_review_files = request.get("files", [{"path": str(request.get("file", "")), "diff": str(request.get("diff", ""))}]).duplicate(true) if not request.is_empty() else []
+	_review_files = request.get("files", []).duplicate(true) if not request.is_empty() else []
 	_file_picker.clear()
 	for entry: Dictionary in _review_files:
 		_file_picker.add_item(str(entry.get("path", "")))
@@ -594,18 +581,13 @@ func _select_file(index: int) -> void:
 	_displayed_file_key = _last_pr + "/" + path
 	_file_label.text = path
 	_file_picker.tooltip_text = "Changed file: " + path + " — review all files before signing off."
-	if entry.has("source"):
-		var highlighter := PolicyHighlighter.new()
-		highlighter.configure(str(entry.source), str(entry.get("keyword_ink", "blue")))
-		_diff.syntax_highlighter = highlighter
-		_diff.text = str(entry.source)
-		_diff.draw_tabs = true
-		_update_code_legend()
-		_code_legend.show()
-	else:
-		_diff.syntax_highlighter = DiffHighlighter.new()
-		_diff.text = str(entry.get("diff", ""))
-		_code_legend.hide()
+	var highlighter := PolicyHighlighter.new()
+	highlighter.configure(str(entry.source), str(entry.get("keyword_ink", "blue")))
+	_diff.syntax_highlighter = highlighter
+	_diff.text = str(entry.source)
+	_diff.draw_tabs = true
+	_update_code_legend()
+	_code_legend.show()
 	_diff.set_caret_line(0)
 	_diff.set_caret_column(0)
 	_diff.scroll_vertical = 0
@@ -1113,7 +1095,7 @@ func render_state(state: Dictionary) -> void:
 	var consulted: bool = bool(state.get("consulted", false))
 	var active_request: Dictionary = Simulation.active_request(state)
 	var can_review: bool = phase == "review" and not active_request.is_empty()
-	_consult.visible = Catalog.campaign_version == 4 or day >= 3
+	_consult.visible = day >= 3
 	_ai_note.visible = _consult.visible
 	var day_names: Array[String] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
 	_hud["day"].text = day_names[(day - 1) % day_names.size()]
@@ -1152,8 +1134,8 @@ func render_state(state: Dictionary) -> void:
 		if request.is_empty():
 			_last_pr = ""
 			_pr_id.text = "REVIEW / NO PR OPEN"
-			_pr_title.text = "Pick up an arrived PR" if Catalog.campaign_version >= 5 else "Check SLOUCH for review requests"
-			_pr_context.text = "Use NEXT PR, the dropdown, or a Slouch link. Check the visible file against today’s policies." if Catalog.campaign_version >= 5 else "Coworkers send links as their work is ready. Open a PR from its conversation. The workday clock continues while you read."
+			_pr_title.text = "Pick up an arrived PR"
+			_pr_context.text = "Use NEXT PR, the dropdown, or a Slouch link. Check the visible file against today’s policies."
 			_file_label.text = ""
 			if not _review_files.is_empty() or not _diff.text.is_empty():
 				_set_review_files({})
@@ -1354,14 +1336,14 @@ func _sync_tutorial_pointer() -> void:
 		match int(_tutorial_details.get("stage", 0)):
 			0, 7: target = _tutorial_next
 			1: target = _tutorial_launcher("chat")
-			2, 3:
+			3:
 				if not _windows.chat.visible or not _windows.chat._active: target = _tutorial_launcher("chat")
 				elif _chat_contact != "Maya": target = _chat_contacts.Maya
 				elif is_instance_valid(_tutorial_pr_link): target = _tutorial_pr_link
 			4: target = _file_picker if _windows.review.visible and _windows.review._active else _tutorial_launcher("review")
 			5: target = _tutorial_launcher("rules")
 			6:
-				var id := "P01" if Catalog.campaign_version >= 5 else "R01"
+				var id := "P01"
 				if id not in _state.get("selected_rules", []):
 					if not _windows.rules.visible or not _windows.rules._active: target = _tutorial_launcher("rules")
 					else:

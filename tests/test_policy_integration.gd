@@ -21,7 +21,6 @@ func command(event: Dictionary) -> void:
 	state = Sim.dispatch(state, event)
 	ui.render_state(state)
 func run() -> void:
-	Catalog.campaign_version = 5
 	check(Catalog.campaign_days() == [1, 2, 3, 4, 5], "Campaign is exactly Monday through Friday.")
 	state = Sim.initial_state()
 	check(Sim.available_requests(state).size() == 1, "First request is available immediately.")
@@ -92,21 +91,19 @@ func run() -> void:
 		check(message.id not in message_ids, "Manager warnings have unique notification identities.")
 		message_ids.append(message.id)
 	check(message_ids.size() <= 4, "Many mistakes produce a concise manager DM instead of repeated boilerplate.")
-	Catalog.campaign_version = 4
-	var legacy := Sim.advance(Sim.initial_state(), 180)
-	check(Sim.clock_minutes(legacy) == 810, "Legacy clock keeps original six-minute scale.")
-	check(Sim.validate_save(finished).ok and Catalog.campaign_version == 4, "New campaign validates without changing a legacy session.")
-	Catalog.campaign_version = 5
-	check(Sim.validate_save(legacy).ok and Catalog.campaign_version == 5, "Legacy saves validate without changing a new session.")
-	Store.storage_root = "user://policy-compat-%d" % Time.get_ticks_usec()
+	var current := Sim.advance(Sim.initial_state(), 150)
+	check(Sim.clock_minutes(current) == 810, "All saves use the five-minute clock.")
+	var unsupported := current.duplicate(true)
+	unsupported.version = 4
+	check(not Sim.validate_save(unsupported).ok, "Unsupported saves cannot switch game rules.")
+	Store.storage_root = "user://policy-slots-%d" % Time.get_ticks_usec()
 	DirAccess.make_dir_recursive_absolute(Store.storage_root)
-	check(Store.save_game(legacy, {}, 1).ok, "Legacy career saves into its original slot.")
+	check(Store.save_game(current, {}, 1).ok, "Current campaign saves into slot 1.")
 	check(Store.save_game(finished, {}, 2).ok, "Completed policy campaign can be saved.")
 	check(Store.save_game(Tutorial.initial_practice_state(), Tutorial.initial_progress(), 3).ok, "New orientation saves independently.")
 	var slots := Store.list_slots()
-	check(slots[0].summary.contains("13:30") and slots[0].summary.contains("original rules"), "Legacy slot clearly retains old campaign and clock.")
-	check(slots[1].summary.contains("Day 5") and slots[2].summary == "Orientation" and Catalog.campaign_version == 5, "Mixed slots have accurate summaries without changing active rules.")
-	for slot in range(1,4): check(Store.load_game(slot).ok, "Mixed campaign slots load.")
+	check(slots[0].summary == "Day 1 · 13:30", "Slot summary has no campaign variant label.")
+	for slot in range(1,4): check(Store.load_game(slot).ok, "All three current-format slots load.")
 	for name in DirAccess.get_files_at(Store.storage_root): DirAccess.remove_absolute(Store.storage_root.path_join(name))
 	DirAccess.remove_absolute(Store.storage_root)
 	ui.free()

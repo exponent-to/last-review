@@ -4,11 +4,11 @@
 
 ## Clock and arrivals
 
-A new-campaign shift lasts `SHIFT_SECONDS = 300` real seconds and maps to `START_MINUTE = 540` through `END_MINUTE = 1080` (09:00–18:00). `advance(state, seconds = 1)` accepts elapsed whole seconds during the review phase. Zero or negative deltas do nothing; a large delta stops at the current shift's deadline. It never advances across evenings. `clock_minutes(state)` returns the current displayed minute.
+A shift lasts `SHIFT_SECONDS = 300` real seconds and maps to `START_MINUTE = 540` through `END_MINUTE = 1080` (09:00–18:00). `advance(state, seconds = 1)` accepts elapsed whole seconds during the review phase. Zero or negative deltas do nothing; a large delta stops at the current shift's deadline. It never advances across evenings. `clock_minutes(state)` returns the current displayed minute.
 
 The application owns real-time accumulation and pause controls. While paused, it must not call `advance`; time spent paused is not caught up afterward. Fractional-second accumulation and pause UI are intentionally outside saved simulation state.
 
-`Catalog.arrival_seconds(request_id)` schedules new-campaign requests at 0, 20, …, 280 seconds on each of five days. Unknown IDs return -1. Queue totals are internal scheduling data and must not be announced in the interface. `Catalog.shift_seconds()` selects 300 seconds for v5 or the original 360 seconds for v4 saves; legacy arrival schedules and content remain unchanged.
+`Catalog.arrival_seconds(request_id)` schedules requests at 0, 20, …, 280 seconds on each of five days. Unknown IDs return -1. Queue totals are internal scheduling data and must not be announced in the interface. `Catalog.shift_seconds()` always returns 300.
 
 `available_requests(state)` returns arrived, still-pending requests for the current shift in authored order. `active_request(state)` returns only the player's explicitly selected pending request, or an empty dictionary. Neither helper includes hidden audit violations or explanations. AI verdict/note fields appear only after that request has been consulted. Other public packet fields, including multiple-file content, are preserved.
 
@@ -33,21 +33,21 @@ Starting resources remain 120 credits, 70 trust, 20 stress, 10 automation relian
 
 Completing all currently available work does not end the shift. At 18:00, actual signed reviews are audited and unsigned requests transfer to Helios. No player decisions are fabricated for skipped work, so chat never claims the player approved or rejected it. The current request is cleared and the pending pointer advances to the next shift.
 
-Pay is the existing base of 80 plus ten for each correct, actually submitted review; living expenses are 90. Unsigned work earns no bonus. Automation reliance increases by four for the shift plus one for each handed-off request (legacy v4: twelve plus six per handoff), clamped to its allowed range. A shift with zero reviews is valid and still reaches debrief.
+Pay is the existing base of 80 plus ten for each correct, actually submitted review; living expenses are 90. Unsigned work earns no bonus. Automation reliance increases by four for the shift plus one for each handed-off request, clamped to its allowed range. A shift with zero reviews is valid and still reaches debrief.
 
 `last_debrief` retains day, reviewed, correct, pay, expenses, balance, and message; it adds `timed_out` (true when unsigned work was handed off), `handed_off`, and `shift_seconds`. The message describes the result qualitatively. Pay and handoff effects apply only once. The evening choice is recorded in `shift_history`, so evenings work even when the player submitted nothing. Rest, socialize, and study retain their previous effects. A new day resets the clock to morning; the final evening completes the career.
 
 ## Saved state and replay
 
-Version 5 retains version 4’s `shift_seconds`, `active_request_id`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores.
+Current state contains `shift_seconds`, `active_request_id`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores.
 
 The semantic action journal records consultations, reviews with their citations, accepted replies, deadline closure, and evening choices. Each event records its day and shift time. Clock ticks, temporary selection, and citation toggles are not individually persisted. This keeps the journal naturally bounded by available work and reply options rather than time spent reading.
 
 `validate_save(value)` returns `{ok, state, error}`. It replays the journal against current arrival times, content, and available reply options, then reconstructs final selection and citations. It rejects premature actions, backward timestamps, duplicate consultations or replies, repeated pay, altered audit results, fabricated decisions, and inconsistent resources or phases. JSON integral floats are accepted and normalized; unknown or changed canonical fields are rejected. `serialize_save(state)` returns validated JSON or an empty string.
 
-Version-aware replay preserves both v4 and v5 histories, temporarily switching catalog content during validation and restoring the active version. New Game selects v5.
+Validation only accepts the current format and always uses the same catalog. Unsupported formats are rejected; there are no migrations or campaign variants.
 
-`native/save_store.gd` writes `user://review-save-v4.json` through a flushed temporary file and retained backup. Earlier v3 and v2 files are preserved. Untimed v3 histories cannot establish when requests arrived or were selected, so they receive an explicit incompatibility explanation instead of a silent migration. Load recovery tries the current-format backup without overwriting prior saves.
+`native/save_store.gd` writes each of three slots through a flushed temporary file and retained backup. Slot filenames are stable, so current saves remain at their existing location. Recovery can use a valid current-format backup; no alternative content is loaded to accommodate incompatible files.
 
 ## Team chat and tests
 

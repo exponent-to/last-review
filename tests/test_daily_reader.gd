@@ -7,7 +7,6 @@ var checks := 0
 var failures := 0
 
 func _initialize() -> void:
-	load("res://content/catalog.gd").campaign_version = 4
 	run.call_deferred()
 func check(ok: bool, message: String) -> void:
 	checks += 1

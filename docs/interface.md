@@ -71,7 +71,7 @@ New Game runs the laptop-only cold open before orientation. Load Game bypasses i
 
 At the start of each career day, INTRANET opens Hackerish News with three authored, clickable stories. Its paper-colored article pages and compact masthead share the real draggable browser window. The morning action opens Morgan's memo, which describes the day's mechanics and renders exactly the rules introduced that day from Catalog. BEGIN SHIFT releases the clock and minimizes the reader. Closing/minimizing the window alone cannot start time; reopen INTRANET and its daily memo. During work the same pages remain readable without changing the clock. Headlines cannot resolve stories from a future day.
 
-Morning state is presentation-only. A saved career at 09:00 reopens the morning reader; a midshift load resumes paused without replaying the cold open or news. The existing v4 save schema stays compatible.
+Morning state is presentation-only. A saved career at 09:00 reopens the morning reader; a midshift load resumes paused without replaying the cold open or news. All slots use the current campaign and save format.
 
 The morning desktop bar exposes **Begin Shift** next to 09:00, enabled after opening the daily memo. It stays outside application windows and restores Pause when work begins.
 

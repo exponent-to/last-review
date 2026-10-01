@@ -7,7 +7,6 @@ var checks: int = 0
 var failures: int = 0
 
 func _initialize() -> void:
-	load("res://content/catalog.gd").campaign_version = 4
 	_test_clock()
 	_test_arrivals_and_selection()
 	_test_timeout_history()
@@ -34,14 +33,14 @@ func _select(state: Dictionary, request_id: String) -> Dictionary:
 
 func _test_clock() -> void:
 	var initial: Dictionary = Simulation.initial_state()
-	_check(Simulation.Catalog.shift_seconds() == 360 and Simulation.clock_minutes(initial) == 540, "A six-minute shift must start at 09:00.")
-	_check(Simulation.clock_minutes(Simulation.advance(initial, 180)) == 810, "Half a shift must show 13:30.")
-	var end: Dictionary = Simulation.advance(initial, 360)
+	_check(Simulation.Catalog.shift_seconds() == 300 and Simulation.clock_minutes(initial) == 540, "A five-minute shift must start at 09:00.")
+	_check(Simulation.clock_minutes(Simulation.advance(initial, 150)) == 810, "Half a shift must show 13:30.")
+	var end: Dictionary = Simulation.advance(initial, 300)
 	_check(Simulation.clock_minutes(end) == 1080 and end.phase == "debrief", "The closing bell must be 18:00.")
 	_check(initial.shift_seconds == 0 and initial.actions.is_empty(), "Advancing time must deeply preserve its input.")
 	_check(Simulation.advance(initial, 0) == initial and Simulation.advance(initial, -1) == initial, "Paused and invalid negative deltas must be no-ops.")
 	var stepped: Dictionary = initial
-	for _second in range(360):
+	for _second in range(300):
 		stepped = Simulation.advance(stepped)
 	_check(stepped == end, "Single-second and batched clocks must produce identical closure.")
 	_check(Simulation.advance(end, 99999) == end, "Debrief must not accrue more time, pay, or handoffs.")
@@ -50,18 +49,18 @@ func _test_clock() -> void:
 func _test_arrivals_and_selection() -> void:
 	var state: Dictionary = Simulation.initial_state()
 	var first: Dictionary = Catalog.request_at(0)
-	_check(Simulation.available_requests(state).is_empty() and Simulation.active_request(state).is_empty(), "No code may open before inbox delivery.")
-	_check(_select(state, first.id) == state, "Unarrived PR links cannot select work.")
+	_check(Simulation.available_requests(state).size() == 1 and Simulation.active_request(state).is_empty(), "First arrival is pending until selected.")
+	_check(_select(state, Catalog.request_at(1).id) == state, "Unarrived PR links cannot select work.")
 	_check(Simulation.dispatch(state, {"type": "review", "verdict": "approve"}) == state, "Unselected work cannot be signed.")
 	state = Simulation.advance(state, 20)
-	_check(Simulation.available_requests(state).size() == 1 and Simulation.active_request(state).is_empty(), "An arrival must enter the inbox without opening the editor.")
+	_check(Simulation.available_requests(state).size() == 2 and Simulation.active_request(state).is_empty(), "An arrival must enter the inbox without opening the editor.")
 	state = _select(state, first.id)
 	_check(Simulation.active_request(state).id == first.id, "The player must explicitly choose the arrived request.")
 	_check(not Simulation.active_request(state).has("violations") and not Simulation.active_request(state).has("explanation") and not Simulation.active_request(state).has("ai_note"), "Public request helpers must hide audit answers and unrequested advice.")
-	state = Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "R01"})
+	state = Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "P01"})
 	_check(_select(state, first.id) == state, "A repeated chat link must preserve selected citations.")
 	state = Simulation.dispatch(state, {"type": "consult-ai"})
-	_check(Simulation.active_request(state).has("ai_note"), "Consultation should expose the requested recommendation.")
+	_check(not Simulation.active_request(state).has("ai_note"), "Advice remains locked until Wednesday.")
 	_round_trip(state)
 	state = Simulation.advance(state, 260)
 	var later: Dictionary = Catalog.request_at(2)
@@ -71,7 +70,7 @@ func _test_arrivals_and_selection() -> void:
 	_check(state.decisions[0].pr_id == later.id and state.request_index == 0, "Reviewing a later arrived PR must leave earlier work pending.")
 	_round_trip(state)
 	state = _select(state, first.id)
-	_check(state.consulted, "Returning to a consulted PR must remember its consultation.")
+	_check(not state.consulted, "Locked consultations remain unavailable after switching.")
 	_check(Simulation.dispatch(state, {"type": "consult-ai"}) == state, "Switching away cannot purchase duplicate consultation effects.")
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	_check(state.decisions.size() == 2 and state.request_index == 1, "Pending pointer must skip already completed out-of-order work.")
@@ -87,14 +86,14 @@ func _test_timeout_history() -> void:
 		_check(state.decisions.is_empty(), "Timeout must not fabricate player approvals or rejections.")
 		_check(state.last_debrief.timed_out and state.last_debrief.reviewed == 0 and state.last_debrief.pay == 80 and state.last_debrief.expenses == 90, "No signed work earns only base pay and no review bonus.")
 		_check(state.last_debrief.handed_off == Catalog.requests_for_day(day).size(), "All remaining work must transfer to Helios at the bell.")
-		_check(state.autonomy == mini(100, 10 + day * 12 + total_handed_off * 6), "Missed work must increase automation authority in addition to the daily expansion.")
+		_check(state.autonomy == mini(100, 10 + day * 4 + total_handed_off), "Missed work must increase automation authority in addition to the daily expansion.")
 		_round_trip(state)
 		state = Simulation.dispatch(state, {"type": "next-day", "choice": "rest"})
 		if state.phase == "review":
 			_check(state.shift_seconds == 0 and Simulation.active_request(state).is_empty(), "A new day resets the clock and leaves the editor unselected.")
 		_round_trip(state)
-	_check(state.phase == "complete" and state.credits == 90 and state.chat_replies.is_empty(), "An entirely missed campaign must finish safely without imaginary interaction.")
-	_check(Simulation.advance(state, 360) == state, "Complete careers cannot run another shift.")
+	_check(state.phase == "complete" and state.credits == 70 and state.chat_replies.is_empty(), "An entirely missed campaign must finish safely without imaginary interaction.")
+	_check(Simulation.advance(state, 300) == state, "Complete careers cannot run another shift.")
 
 func _test_save_replay() -> void:
 	var state: Dictionary = Simulation.advance(Simulation.initial_state(), 50)
@@ -104,21 +103,21 @@ func _test_save_replay() -> void:
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	state = Simulation.advance(state, 240)
 	_round_trip(state)
-	_check(state.last_debrief.reviewed == 1 and state.last_debrief.correct == 0 and state.last_debrief.handed_off == 2, "Partial work must receive only its actual audit results.")
+	_check(state.last_debrief.reviewed == 1 and state.last_debrief.correct == 0 and state.last_debrief.handed_off == 14, "Partial work must receive only its actual audit results.")
 	var corruptions: Array = [
-		["shift_seconds", 359], ["active_request_id", Catalog.request_at(0).id],
+		["shift_seconds", 299], ["active_request_id", Catalog.request_at(0).id],
 		["request_index", 1], ["credits", 999], ["shift_history", []],
-		["consulted_requests", []], ["chat_replies", [{"reply_id": "invented"}]],
+		["consulted_requests", ["fake"]], ["chat_replies", [{"reply_id": "invented"}]],
 	]
 	for corruption: Array in corruptions:
 		var bad: Dictionary = state.duplicate(true)
 		bad[corruption[0]] = corruption[1]
 		_check(not Simulation.validate_save(bad).ok, "Corrupt timed field %s must be rejected." % corruption[0])
 	var bad: Dictionary = state.duplicate(true)
-	bad.actions[0].shift_seconds = 0
+	bad.actions[0].shift_seconds = -1
 	_check(not Simulation.validate_save(bad).ok, "Actions before their PR arrives must be rejected.")
 	bad = state.duplicate(true)
-	bad.actions[1].shift_seconds = 360
+	bad.actions[0].shift_seconds = 300
 	_check(not Simulation.validate_save(bad).ok, "Reviews at the bell must be rejected.")
 	bad = state.duplicate(true)
 	bad.actions.pop_back()
@@ -133,7 +132,7 @@ func _test_save_replay() -> void:
 
 func _test_replies() -> void:
 	var state: Dictionary = Simulation.initial_state()
-	var request: Dictionary = Catalog.request_at(0)
+	var request: Dictionary = Catalog.request_at(1)
 	var command: Dictionary = {"type": "chat-reply", "contact": request.author, "pr_id": request.id, "reply_id": "clarify"}
 	_check(Simulation.dispatch(state, command) == state, "Chat replies must not precede their request's arrival.")
 	state = Simulation.advance(state, 20)
@@ -144,7 +143,7 @@ func _test_replies() -> void:
 	_check(Simulation.dispatch(state, command) == state, "A reply option must not be awarded or recorded twice.")
 	_round_trip(state)
 	var wrong: Dictionary = command.duplicate(true)
-	wrong.contact = "Theo"
+	wrong.contact = "Nobody"
 	_check(Simulation.dispatch(state, wrong) == state, "Replies must belong to the request's actual author.")
 	wrong = command.duplicate(true)
 	wrong.reply_id = "invented"
@@ -167,8 +166,8 @@ func _test_mixed_action_history() -> void:
 			if day != int(Catalog.campaign_days()[-1]):
 				state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 				_round_trip(state)
-		state = Simulation.advance(state, 79)
-		_check(state.phase == "review" and state.shift_seconds == 359, "An empty or waiting inbox must still leave the shift open until the bell.")
+		state = Simulation.advance(state, 19)
+		_check(state.phase == "review" and state.shift_seconds == 299, "An empty or waiting inbox must still leave the shift open until the bell.")
 		_round_trip(state)
 		state = Simulation.advance(state, 1)
 		_check(state.last_debrief.timed_out == (day == int(Catalog.campaign_days()[-1])), "Only unsigned work should mark the closing debrief as a timeout.")

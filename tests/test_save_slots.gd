@@ -10,25 +10,21 @@ func check(ok: bool, message: String) -> void:
   failures += 1
   push_error(message)
 func _initialize() -> void:
- load("res://content/catalog.gd").campaign_version = 4
  run.call_deferred()
 func run() -> void:
  Store.storage_root = "user://save-slot-test-%d" % Time.get_ticks_usec()
  DirAccess.make_dir_recursive_absolute(Store.storage_root)
  check(not Store.has_save(), "Fresh storage has no saves.")
- # A legacy save is read directly as slot 1; no destructive migration.
- var legacy := FileAccess.open(Store.storage_root.path_join("review-save-v4.json"), FileAccess.WRITE)
- legacy.store_string(Sim.serialize_save(Sim.advance(Sim.initial_state(), 17)))
- legacy.close()
- check(Store.load_game(1).state.shift_seconds == 17, "Existing single-slot saves appear in slot 1.")
+ check(Store.save_game(Sim.advance(Sim.initial_state(), 17), {}, 1).ok, "Slot 1 stores the current campaign.")
+ check(Store.load_game(1).state.shift_seconds == 17, "Slot 1 loads its progress.")
  var original := FileAccess.get_file_as_bytes(Store.slot_path(1))
  check(Store.save_game(Tutorial.initial_practice_state(), Tutorial.initial_progress(), 2).ok, "Slot 2 stores orientation.")
  check(Store.save_game(Sim.advance(Sim.initial_state(), 70), {}, 3).ok, "Slot 3 stores career progress.")
- check(FileAccess.get_file_as_bytes(Store.slot_path(1)) == original, "Writing other slots never changes the legacy save.")
+ check(FileAccess.get_file_as_bytes(Store.slot_path(1)) == original, "Writing other slots never changes slot 1.")
  check(Store.load_game(2).tutorial.stage == 0, "Tutorial progress loads independently.")
  check(Store.load_game(3).state.shift_seconds == 70, "Career time loads independently.")
  var summaries := Store.list_slots()
- check(summaries.size() == 3 and summaries[1].summary.begins_with("Orientation") and summaries[2].summary.contains("10:45"), "Slot picker summaries reflect each run.")
+ check(summaries.size() == 3 and summaries[1].summary.begins_with("Orientation") and summaries[2].summary.contains("11:06"), "Slot picker summaries reflect each run.")
  check(Store.save_game(Sim.advance(Sim.initial_state(), 80), {}, 3).ok, "Updating a slot preserves its previous backup.")
  var corrupt := FileAccess.open(Store.slot_path(3), FileAccess.WRITE)
  corrupt.store_string("broken")

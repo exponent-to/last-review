@@ -1,17 +1,6 @@
 [
   {
     "day": 1,
-    "memo": {
-      "subject": "Your desk is ready. Your signature still means something.",
-      "body": "Welcome to the review desk. Work arrives through Slouch while the shift clock runs. Coworkers know why a change was written; the handbook defines what can ship. Read both before signing. Helios is an assistant, not an exemption from a standard.\n\nToday's handbook starts small: bind SQL input, keep credentials out of logs, set outbound timeouts, and handle empty collections. Use the attached standards as your reference; you do not need to memorize them.",
-      "mechanics": [
-        "A shift runs from 09:00 to 18:00 over six real minutes. Pause when you need to step away; unfinished work transfers to Helios at the closing bell.",
-        "Incoming Slouch messages contain PR links. Open a link when you want to review it; messages do not open code automatically. Coworkers will react to your decisions.",
-        "A change can span several files. Follow values through the caller and its helpers instead of relying on the summary or generated comments.",
-        "Approve a compliant change with no citations. To request changes, select every violated active rule in the handbook. Extra or missing citations make the review inaccurate.",
-        "Your technical judgment and your coworker's feelings are separate. Read the response after signing, and keep the conversation in context."
-      ]
-    },
     "stories": [
       {
         "id": "pilot-has-a-badge",
@@ -54,17 +43,6 @@
   },
   {
     "day": 2,
-    "memo": {
-      "subject": "New standards for shared systems and generated changes",
-      "body": "The handbook now covers retry attempts, tenant-scoped cache keys, staged column removal, and human ownership of machine-authored work. Read the new entries before the shift gets busy; earlier standards still apply.\n\nHelios is drafting production changes now. Human ownership means somebody must explain and maintain what ships. A comment claiming that a safety property exists is a starting point for investigation, not proof of that property.",
-      "mechanics": [
-        "Trace recursive helpers with concrete inputs. Find the stopping condition, follow each call, and check the value returned to the caller.",
-        "When reviewing retries, count the original operation as well as later attempts. Trace the argument actually passed to the network call separately from its explanation.",
-        "For shared data, compare what happens when different tenants use the same resource identifier. For schema changes, distinguish order within a deployment from a previously released migration.",
-        "An authored packet can arrive while you are reading something else. Use Slouch to choose among arrived work; changing files or reading messages does not stop the clock.",
-        "The model can be consulted, but its recommendation can be wrong. The human named in the packet remains accountable."
-      ]
-    },
     "stories": [
       {
         "id": "agentic-seating-plan",
@@ -107,17 +85,6 @@
   },
   {
     "day": 3,
-    "memo": {
-      "subject": "Review authority is a system boundary",
-      "body": "New handbook entries cover independent approval, the human review gate, audit history, source-export permission, and encrypted outbound traffic. These are separate obligations. Satisfying one does not waive another.\n\nHelios has requested a larger role in the approval workflow. Continue to judge executable behavior and documented authority. A deadline, a familiar vendor name, or a generated assurance is not a signed exemption.",
-      "mechanics": [
-        "For approval code, follow the path taken by a machine-authored change. Identify who actually supplies the returned decision, not merely who appears somewhere in the workflow.",
-        "For layered configuration, follow repeated keys through the whole application order. Check the effective policy and the authorization attached to the packet.",
-        "Preserve the audit trail. Read the documented storage operation before deciding whether a helper appends, overwrites, or deletes prior decisions.",
-        "For outbound source transfers, trace both the destination and the payload. Transport protection and permission to export are independent questions.",
-        "The closing bell still ends the shift. Read the debrief and coworker responses as consequences of your decisions; the assistant taking over unfinished work is not the same as your approval."
-      ]
-    },
     "stories": [
       {
         "id": "assistant-attends-planning",
@@ -159,11 +126,6 @@
   },
   {
     "day": 4,
-    "memo": {
-      "subject": "",
-      "body": "",
-      "mechanics": []
-    },
     "stories": [
       {
         "id": "pigeon-standard",
@@ -202,11 +164,6 @@
   },
   {
     "day": 5,
-    "memo": {
-      "subject": "",
-      "body": "",
-      "mechanics": []
-    },
     "stories": [
       {
         "id": "human-checkbox",

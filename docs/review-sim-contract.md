@@ -14,7 +14,7 @@ PR: `{id:String, title:String, author:String, day:int, file:String, description:
 
 Preserve pure static `initial_state`, `dispatch`, `advance`, `validate_save`, `serialize_save`. `advance(state, seconds)` progresses a five-minute shift. The application stops calling it during intro, pause, focus loss, and after closing. Reading while unpaused consumes time. PRs must have arrived and been selected before review.
 
-Historical v3 fields (superseded by the v4 timed action journal): version=3, day:int (catalog day), request_index:int (bounded by catalog length), phase:String(review/debrief/complete), credits:int, trust:int0..100, stress:int0..100, autonomy:int0..100, coworkers:Dictionary(Maya/Theo/Inez:int0..100), selected_rules:Array[String], consulted:bool, decisions:Array[Dictionary], log:Array[{day:int,message:String}], last_feedback:Dictionary, last_debrief:Dictionary.
+Core state fields (see simulation.md for the full action journal): version=5, day:int (catalog day), request_index:int (bounded by catalog length), phase:String(review/debrief/complete), credits:int, trust:int0..100, stress:int0..100, autonomy:int0..100, coworkers:Dictionary(Maya/Theo/Inez:int0..100), selected_rules:Array[String], consulted:bool, decisions:Array[Dictionary], log:Array[{day:int,message:String}], last_feedback:Dictionary, last_debrief:Dictionary.
 
 Commands: `{type:'toggle-rule',rule_id:String}`, `{type:'consult-ai'}`, `{type:'review',verdict:'approve'|'request_changes'}`, `{type:'next-day',choice:'rest'|'socialize'|'study'}`.
 
@@ -22,7 +22,7 @@ On a decision, request_index advances immediately; last_feedback describes the p
 
 Feedback fields: `{pr_id:String,author:String,correct:bool,verdict:String,message:String,expected_rules:Array,relationship_delta:int,trust_delta:int}`. Debrief fields: `{day:int,reviewed:int,correct:int,pay:int,expenses:int,balance:int,message:String}`.
 
-Rejecting requires one or more cited rules. Correct reject = cited IDs exactly equal actual violation IDs. Approve requires no citations (disable until cleared). Invalid commands must not advance or award anything. Coworker approval is separate from technical correctness. AI consultation increases automation reliance and can recommend an incorrect decision. Save validation must enforce content-index/phase/day/decision invariants and reject old workshop saves with a useful message. Timed transitions are deterministic for the same commands and elapsed seconds; there is no randomness. See docs/simulation.md for the current state contract.
+Rejecting requires one or more cited rules. Correct reject = cited IDs exactly equal actual violation IDs. Approve requires no citations (disable until cleared). Invalid commands must not advance or award anything. Coworker approval is separate from technical correctness. AI consultation increases automation reliance and can recommend an incorrect decision. Save validation must enforce content-index/phase/day/decision invariants and reject unsupported save formats with a useful message. Timed transitions are deterministic for the same commands and elapsed seconds; there is no randomness. See docs/simulation.md for the current state contract.
 
 ## Interface API (UI agent)
 

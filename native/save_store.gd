@@ -3,9 +3,6 @@ extends RefCounted
 
 const Tutorial = preload("res://native/tutorial.gd")
 const Simulation = preload("res://native/simulation.gd")
-const SAVE_PATH: String = "user://review-save-v4.json"
-const TEMP_PATH: String = "user://review-save-v4.json.tmp"
-const BACKUP_PATH: String = "user://review-save-v4.json.bak"
 const MAX_SAVE_BYTES: int = 1000000
 const SLOT_COUNT := 3
 static var storage_root := "user://"
@@ -14,6 +11,7 @@ static func _failure(message: String) -> Dictionary:
 	return {"ok": false, "state": {}, "error": message}
 
 static func slot_path(slot: int) -> String:
+	# Stable storage names keep current saves in place; they do not select game rules.
 	return storage_root.path_join("review-save-v4.json" if slot == 1 else "review-save-v4-slot-%d.json" % slot)
 
 static func save_game(state: Dictionary, tutorial: Dictionary = {}, slot: int = 1) -> Dictionary:
@@ -64,10 +62,6 @@ static func load_game(slot: int = 1) -> Dictionary:
 	if not FileAccess.file_exists(save_path):
 		if FileAccess.file_exists(backup_path):
 			return _load_path(backup_path)
-		if slot == 1 and FileAccess.file_exists(storage_root.path_join("review-save-v3.json")):
-			return _failure("Your earlier untimed career is preserved. Timed shifts and incoming requests require a new career; new saves use version 4.")
-		if slot == 1 and FileAccess.file_exists(storage_root.path_join("review-save-v2.json")):
-			return _failure("An earlier review save is preserved, but its schedule is incompatible with this campaign. Start a new career to create a version 4 save.")
 		return _failure("No saved review career found.")
 	var result: Dictionary = _load_path(save_path)
 	if result.ok:
@@ -113,7 +107,6 @@ static func list_slots() -> Array[Dictionary]:
 				var state: Dictionary = result.state
 				var minutes := Simulation.clock_minutes(state)
 				entry.summary = "Orientation" if not result.get("tutorial", {}).is_empty() else "Day %d · %02d:%02d" % [int(state.day), int(minutes / 60), minutes % 60]
-				if int(state.version) == 4: entry.summary += " · original rules"
 				if not str(result.error).is_empty(): entry.summary += " · backup"
 			else: entry.summary = "Unreadable save"
 		slots.append(entry)

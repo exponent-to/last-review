@@ -14,7 +14,7 @@ const EVENINGS: Array = ["rest", "socialize", "study"]
 static func initial_state() -> Dictionary:
 	var first_day: int = int(Catalog.campaign_days()[0])
 	return {
-		"version": Catalog.campaign_version, "day": first_day, "request_index": 0, "phase": "review",
+		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
 		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
 		"coworkers": {"Maya": 50, "Theo": 50, "Inez": 50},
 		"selected_rules": [], "consulted": false, "decisions": [],
@@ -25,7 +25,7 @@ static func initial_state() -> Dictionary:
 	}
 
 static func clock_minutes(state: Dictionary) -> int:
-	return START_MINUTE + floori(float(state.shift_seconds) * float(END_MINUTE - START_MINUTE) / float(360 if int(state.version) == 4 else 300))
+	return START_MINUTE + floori(float(state.shift_seconds) * float(END_MINUTE - START_MINUTE) / float(SHIFT_SECONDS))
 
 static func advance(state: Dictionary, seconds: int = 1) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
@@ -153,7 +153,7 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 			else:
 				next.selected_rules.append(rule_id)
 		"consult-ai":
-			if Catalog.campaign_version >= 5 and int(next.day) < 3: return next
+			if int(next.day) < 3: return next
 			if not next.consulted:
 				next.consulted = true
 				next.consulted_requests.append(active.id)
@@ -228,7 +228,7 @@ static func _debrief(state: Dictionary) -> void:
 	var handed_off: int = shift_ids.size() - reviewed
 	var pay: int = 80 + 10 * correct
 	state.credits = clampi(int(state.credits) + pay - 90, -9999, 9999)
-	state.autonomy = clampi(int(state.autonomy) + (12 + 6 * handed_off if Catalog.campaign_version == 4 else 4 + handed_off), 0, 100)
+	state.autonomy = clampi(int(state.autonomy) + (4 + handed_off), 0, 100)
 	var message: String = "The shift has ended. Your signed reviews are recorded, and payroll has been settled."
 	if handed_off > 0:
 		message = "Closing bell. Unsigned work has been handed to Helios; it earns no review bonus. Management is expanding the assistant's authority."
@@ -313,19 +313,10 @@ static func _matches(expected: Variant, candidate: Variant) -> bool:
 	return expected == candidate
 
 static func validate_save(value: Variant) -> Dictionary:
-	if not value is Dictionary or not _integer(value.get("version"), 4, SAVE_VERSION):
-		return _invalid("unsupported campaign version; earlier review and workshop files are preserved.")
-	var previous := Catalog.campaign_version
-	Catalog.campaign_version = int(value.version)
-	var result := _validate_campaign_save(value)
-	Catalog.campaign_version = previous
-	return result
-
-static func _validate_campaign_save(value: Variant) -> Dictionary:
 	if typeof(value) != TYPE_DICTIONARY:
 		return _invalid("game state must be an object.")
-	if not _integer(value.get("version"), Catalog.campaign_version, Catalog.campaign_version):
-		return _invalid("timed arrivals require version 4. Earlier review and workshop saves are preserved, but their untimed histories cannot be safely replayed. Start a new career.")
+	if not _integer(value.get("version"), SAVE_VERSION, SAVE_VERSION):
+		return _invalid("this save cannot be loaded. Start a new game in this slot.")
 	var days: Array = Catalog.campaign_days()
 	var campaign_size: int = Catalog.requests().size()
 	for field: String in ["day", "request_index", "credits", "trust", "stress", "autonomy", "shift_seconds"]:

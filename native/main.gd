@@ -54,11 +54,8 @@ func _build_interface() -> void:
 
 func _new_game(slot: int = 1) -> void:
 	if is_instance_valid(_cold_open): return
-	var previous_campaign := Simulation.Catalog.campaign_version
-	Simulation.Catalog.campaign_version = 5
 	var result := SaveStore.save_game(Tutorial.initial_practice_state(), Tutorial.initial_progress(), slot)
 	if not result.ok:
-		Simulation.Catalog.campaign_version = previous_campaign
 		menu.show_error(str(result.error))
 		return
 	active_slot = slot
@@ -178,7 +175,7 @@ func _on_command(command: Dictionary) -> void:
 				_tutorial_event({"type": "correct-submit"})
 			else:
 				state = Tutorial.retry_practice_state(state)
-				interface.notify(("Try again: cite P01 for the load-bearing comment, then request changes." if Simulation.Catalog.campaign_version >= 5 else "Try the practice review again: trace the dropped deadline, cite R01, and request changes."))
+				interface.notify("Try again: cite P01 for the load-bearing comment, then request changes.")
 	if int(state.day) != previous_day:
 		_clock_fraction = 0.0
 	_render()
@@ -199,7 +196,6 @@ func _on_load(slot: int = 0) -> void:
 			interface.notify(str(result.error), true)
 		return
 	active_slot = target_slot
-	Simulation.Catalog.campaign_version = int(result.state.version)
 	state = result.state
 	tutorial = result.get("tutorial", {})
 	_clock_fraction = 0.0

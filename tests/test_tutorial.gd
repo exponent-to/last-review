@@ -12,7 +12,6 @@ func check(ok: bool, message: String) -> void:
 		push_error(message)
 
 func _initialize() -> void:
-	load("res://content/catalog.gd").campaign_version = 4
 	var state := Tutorial.initial_practice_state()
 	var progress := Tutorial.initial_progress()
 	check(Simulation.validate_save(state).ok, "Practice uses a valid canonical simulation state.")
@@ -20,12 +19,9 @@ func _initialize() -> void:
 	for event in ["welcome-start", "open-chat"]:
 		progress = Tutorial.observe(progress, {"type": event}, state)
 	check(progress.stage == 3 and Tutorial.validate(progress, state).ok, "Opening Slouch goes directly to the PR link without a reply.")
-	var legacy_progress := {"version": 1, "stage": 2, "inspected_files": []}
-	var migrated := Tutorial.validate(legacy_progress, state)
-	check(migrated.ok and migrated.progress.version == 2 and migrated.progress.stage == 3, "Old saves at the question step migrate to the PR link.")
-	var legacy_state := Simulation.dispatch(state, {"type": "chat-reply", "contact": "Maya", "pr_id": "PR-1042", "reply_id": "clarify"})
-	legacy_progress.stage = 3
-	check(Tutorial.validate(legacy_progress, legacy_state).ok and Simulation.validate_save(legacy_state).ok, "Existing answered questions remain valid save history.")
+	var unsupported := progress.duplicate(true)
+	unsupported.version = 1
+	check(not Tutorial.validate(unsupported, state).ok, "Only the current orientation format is supported.")
 	state = Simulation.dispatch(state, {"type": "select-request", "pr_id": "PR-1042"})
 	progress = Tutorial.observe(progress, {"type": "open-review"}, state)
 	for file: Dictionary in Tutorial.Catalog.request_at(0).files:
@@ -41,11 +37,11 @@ func _initialize() -> void:
 	tampered = envelope.duplicate(true)
 	tampered.tutorial.inspected_files.append("invented.py")
 	check(not SaveStore.decode_session(tampered).ok, "Invalid file-inspection state is rejected.")
-	check(SaveStore.decode_session(JSON.parse_string(Simulation.serialize_save(Simulation.initial_state()))).tutorial.is_empty(), "Existing raw v4 career saves remain loadable.")
+	check(SaveStore.decode_session(JSON.parse_string(Simulation.serialize_save(Simulation.initial_state()))).tutorial.is_empty(), "Current career saves remain loadable.")
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	state = Tutorial.retry_practice_state(state)
 	check(state.decisions.is_empty() and state.chat_replies.is_empty(), "Retry removes the mistake without fabricating a conversation.")
-	state = Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "R01"})
+	state = Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "P01"})
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "request_changes"})
 	progress = Tutorial.observe(progress, {"type": "correct-submit"}, state)
 	check(progress.stage == 7 and Tutorial.validate(progress, state).ok, "Finished practice can be saved before Monday.")

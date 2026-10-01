@@ -6,18 +6,10 @@ const Catalog = preload("res://content/catalog.gd")
 const CONTACTS: Array = ["Maya", "Theo", "Inez", "company", "manager"]
 const REPLY_IDS: Array = ["acknowledge", "clarify", "concern"]
 const HISTORY_LIMIT: int = 24
-static var _content: Dictionary = {}
 
 
 static func _authored() -> Dictionary:
-	if Catalog.campaign_version >= 5: return load("res://content/policy_chat.gd").authored()
-	if _content.is_empty():
-		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://content/messages.json"))
-		if parsed is Dictionary:
-			_content = parsed
-		else:
-			push_error("Invalid authored team chat content.")
-	return _content
+	return load("res://content/policy_chat.gd").authored()
 
 
 static func _append(history: Array, author: String, text: String, kind: String, pr_id: String = "", day: int = 1, seconds: float = 0.0, sequence: int = -100) -> void:
@@ -46,7 +38,7 @@ static func _chronological(history: Array) -> Array:
 		return str(a.id) < str(b.id))
 	var start := maxi(0, history.size() - HISTORY_LIMIT)
 	if start > 0 and history[start].kind == "response": start += 1
-	if Catalog.campaign_version >= 5 and not history.is_empty():
+	if not history.is_empty():
 		# Keep today's unanswered PR links reachable even when the chat is busy.
 		var recent: Array = []
 		for message: Dictionary in history.slice(0, start):
@@ -211,9 +203,9 @@ static func _manager_messages(state: Dictionary) -> Array:
 			if decision.is_empty(): continue
 			if decision.verdict == "approve" and not bool(decision.get("correct", true)):
 				var incident: String = str(_authored().get("requests", {}).get(request.id, {}).get("incident", ""))
-				if not incident.is_empty() and (Catalog.campaign_version == 4 or not had_incident):
+				if not incident.is_empty() and not had_incident:
 					# One concrete example, rather than an identical warning per bad approval.
-					if Catalog.campaign_version >= 5: incident = str(request.id) + ": " + incident
+					incident = str(request.id) + ": " + incident
 					_append(history, "Morgan", incident, "notice", str(request.id))
 					had_incident = true
 			elif decision.verdict == "request_changes":

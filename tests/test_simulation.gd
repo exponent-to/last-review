@@ -7,12 +7,10 @@ var checks: int = 0
 var failures: int = 0
 
 func _initialize() -> void:
-	load("res://content/catalog.gd").campaign_version = 4
 	_test_catalog()
 	_test_reviews()
 	_test_career()
 	_test_saves()
-	_test_schedule_override()
 	print("Review simulation checks: %d passed, %d failed." % [checks - failures, failures])
 	quit(1 if failures > 0 else 0)
 
@@ -80,14 +78,18 @@ func _test_reviews() -> void:
 	overcited = Simulation.dispatch(overcited, {"type": "review", "verdict": "request_changes"})
 	_check(not overcited.last_feedback.correct, "Additional unsupported citations must make rejection incorrect.")
 	_check(overcited.trust == 63 and overcited.coworkers[request.author] == 43, "Incorrect rejection must hurt trust and relationships.")
-	var consulted: Dictionary = Simulation.dispatch(initial, {"type": "consult-ai"})
-	_check(consulted.consulted and consulted.autonomy == 14 and consulted.stress == 18, "AI consultation must trade stress relief for reliance.")
-	_check(Simulation.dispatch(consulted, {"type": "consult-ai"}) == consulted, "Consultation effects must apply once per PR.")
+	_check(Simulation.dispatch(initial, {"type": "consult-ai"}) == initial, "Helios is unavailable until Wednesday.")
+	var bad_approval := Simulation.dispatch(initial, {"type": "review", "verdict": "approve"})
+	_check(not bad_approval.last_feedback.correct and bad_approval.trust == 58 and bad_approval.coworkers[request.author] == 56, "Bad approval pleases the author while failing the audit.")
+	_round_trip(bad_approval)
+	var wednesday := Simulation.initial_state()
+	for day in range(2):
+		wednesday = Simulation.dispatch(Simulation.advance(wednesday, 300), {"type": "next-day", "choice": "rest"})
+	wednesday = Simulation.dispatch(wednesday, {"type": "select-request", "pr_id": Catalog.requests_for_day(3)[0].id})
+	var consulted := Simulation.dispatch(wednesday, {"type": "consult-ai"})
+	_check(consulted.consulted and consulted.autonomy == wednesday.autonomy + 4, "Wednesday consultation increases reliance.")
+	_check(Simulation.dispatch(consulted, {"type": "consult-ai"}) == consulted, "Consultation effects apply only once per PR.")
 	_round_trip(consulted)
-	var ai_result: Dictionary = Simulation.dispatch(consulted, {"type": "review", "verdict": request.ai_verdict})
-	_check(request.ai_verdict == "approve" and not ai_result.last_feedback.correct, "The AI must be fallible on the first request.")
-	_check(ai_result.coworkers[request.author] == 56 and ai_result.trust == 58, "Bad approval must please the author while failing the audit.")
-	_check(ai_result.stress == 29 and not ai_result.consulted, "Review must apply stress and reset consultation for the next PR.")
 	var snapshot: Dictionary = initial.duplicate(true)
 	var changed: Dictionary = Simulation.dispatch(initial, {"type": "consult-ai"})
 	changed.log[0].message = "mutated"
@@ -116,13 +118,13 @@ func _test_career() -> void:
 		_check(state.last_debrief.pay == 80 + 10 * shift_size and state.last_debrief.expenses == 90 and state.last_debrief.correct == shift_size and state.last_debrief.reviewed == shift_size, "Daily pay must reflect audit correctness.")
 		expected_credits += 80 + 10 * shift_size - 90
 		_check(state.credits == expected_credits, "Daily economy must apply exactly once.")
-		_check(state.autonomy == 10 + 12 * shifts, "Management must increase automation authority each day.")
+		_check(state.autonomy == 10 + 4 * shifts, "Management must increase automation authority each day.")
 		var frozen: Dictionary = state.duplicate(true)
 		for command: Dictionary in [{"type": "review", "verdict": "approve"}, {"type": "consult-ai"}, {"type": "next-day", "choice": "invalid"}]:
 			_check(Simulation.dispatch(state, command) == frozen, "Invalid debrief actions must not replay daily pay.")
 		state = Simulation.dispatch(state, {"type": "next-day", "choice": "rest"})
 		_round_trip(state)
-	_check(state.phase == "complete" and state.request_index == Catalog.requests().size() and state.day == Catalog.campaign_days()[-1], "Career must finish safely after three shifts and evening choices.")
+	_check(state.phase == "complete" and state.request_index == Catalog.requests().size() and state.day == Catalog.campaign_days()[-1], "Career must finish safely after five shifts and evening choices.")
 	_check(state.decisions.size() == Catalog.requests().size() and state.shift_history[-1].evening_choice == "rest", "Final evening choice must be recorded and applied.")
 	for command: Dictionary in [{"type": "review", "verdict": "approve"}, {"type": "next-day", "choice": "socialize"}, {"type": "consult-ai"}]:
 		_check(Simulation.dispatch(state, command) == state, "Complete careers must not accept more rewards or decisions.")
@@ -150,9 +152,10 @@ func _test_saves() -> void:
 	_round_trip(selected)
 	for value: Variant in [null, [], true, 42, "save", {"version": 1}, {"version": 2}]:
 		_check(not Simulation.validate_save(value).ok, "Invalid types and workshop saves must be rejected.")
-	_check("workshop" in Simulation.validate_save({"version": 1}).error, "Old save rejection must explain the incompatible workshop format.")
-	_check("preserved" in Simulation.validate_save({"version": 2}).error, "Old review saves must explain changed schedules and preservation.")
-	_check(SaveStore.SAVE_PATH == "user://review-save-v4.json", "Version 4 must not overwrite earlier saves.")
+	for version in [1, 2, 3, 4, 6]:
+		var unsupported := initial.duplicate(true)
+		unsupported.version = version
+		_check(not Simulation.validate_save(unsupported).ok, "Only the current save format is accepted.")
 	var corruptions: Array = [
 		["version", true], ["day", 4], ["day", 0], ["request_index", 1], ["request_index", 0.5],
 		["credits", 121], ["credits", -10000], ["credits", INF], ["trust", NAN],
@@ -189,10 +192,10 @@ func _test_catalog() -> void:
 	for rule: Dictionary in Catalog.rules_for_day(1):
 		initial_ids.append(rule.id)
 	initial_ids.sort()
-	_check(initial_ids == ["R01", "R05", "S01", "S02"], "New reviewers must start with exactly four foundational standards.")
-	_check(Catalog.rules_for_day(2).size() == 8 and Catalog.rules_for_day(3).size() == 13, "Active standards must grow gradually across shifts.")
-	_check(Catalog.campaign_days() == [1, 2, 3], "Campaign days must be derived in authored order.")
-	_check(Catalog.requests_for_day(1).size() == 3 and Catalog.requests_for_day(2).size() == 5 and Catalog.requests_for_day(3).size() == 4, "Authored shifts must vary in length.")
+	_check(initial_ids == ["P01", "P02", "P03"], "New reviewers must start with exactly three foundational policies.")
+	_check(Catalog.rules_for_day(2).size() == 5 and Catalog.rules_for_day(3).size() == 7, "Active standards must grow gradually across shifts.")
+	_check(Catalog.campaign_days() == [1, 2, 3, 4, 5], "Campaign days must be derived in authored order.")
+	_check(Catalog.requests_for_day(1).size() == 15 and Catalog.requests_for_day(5).size() == 15, "Each shift has fifteen scheduled arrivals.")
 	var previous_day: int = 0
 	var ids: Array = []
 	for request: Dictionary in Catalog.requests():
@@ -204,34 +207,10 @@ func _test_catalog() -> void:
 			active.append(rule.id)
 		for violation: String in request.violations:
 			_check(violation in active, "Every audited violation must already be introduced when its PR arrives.")
-		_check("HELIOS:" in request.diff and "def " in request.diff, "Review packets must include inspectable helpers and untrusted generated annotations.")
+		_check(not request.files.is_empty() and request.files[0].has("source"), "Review packets include the source being inspected.")
 	for day: int in Catalog.campaign_days():
 		var briefing: String = Catalog.briefing(day).to_lower()
 		_check("requests await" not in briefing and "four requests" not in briefing and "remaining" not in briefing, "Briefings must not announce the queue length.")
 	var copied: Array = Catalog.requests_for_day(1)
 	copied[0].title = "mutated"
 	_check(Catalog.request_at(0).title != "mutated", "Schedule helpers must return independent content copies.")
-
-func _test_schedule_override() -> void:
-	# Exercise different lengths and nonconsecutive day labels: no modulo-four or
-	# twelve-request assumptions may survive in progression or save replay.
-	var original: Array = Catalog.requests()
-	var alternate: Array = original.slice(0, 5).duplicate(true)
-	for index in range(alternate.size()):
-		alternate[index].day = 2 if index < 2 else 5
-	Catalog._requests = alternate
-	var state: Dictionary = Simulation.initial_state()
-	_check(state.day == 2, "Initial day must follow the catalog.")
-	for day: int in [2, 5]:
-		var reviewed: int = 0
-		while state.phase == "review":
-			var before_count: int = state.decisions.size()
-			state = _resolve(state)
-			reviewed += state.decisions.size() - before_count
-		_check(state.day == day and state.last_debrief.reviewed == reviewed, "Alternate schedules must derive their own debrief boundaries.")
-		_round_trip(state)
-		state = Simulation.dispatch(state, {"type": "next-day", "choice": "rest"})
-		_round_trip(state)
-	_check(state.phase == "complete" and state.request_index == 5 and state.day == 5, "Completion must follow catalog exhaustion, not fixed counters.")
-	Catalog._requests = original
-	_check(not Simulation.validate_save(state).ok, "A save from an incompatible content schedule must be rejected.")

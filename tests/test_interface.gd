@@ -10,7 +10,6 @@ var ui: Interface
 var failures: int = 0
 
 func _initialize() -> void:
-	load("res://content/catalog.gd").campaign_version = 4
 	call_deferred("_run")
 
 func check(condition: bool, message: String) -> void:
@@ -48,7 +47,7 @@ func _run() -> void:
 	var first_diff: String = ui._diff.text
 	ui._diff.set_caret_line(4)
 	ui._file_picker.item_selected.emit(1)
-	check(ui._diff.text != first_diff and ui._file_label.text.ends_with("transport.py"), "Selecting another file must show its own diff")
+	check(ui._diff.text != first_diff and ui._file_label.text == Catalog.request_at(0).files[1].path, "Selecting another file must show its own diff")
 	ui._file_picker.item_selected.emit(0)
 	for frame in range(3):
 		await process_frame
@@ -65,20 +64,19 @@ func _run() -> void:
 		check(not ui._hud.has(stat), "Top chrome must not expose numeric player statistics")
 	check(ui._pr_id.text == str(Catalog.request_at(0).id) + " / AWAITING REVIEW", "Request header must omit queue size and position")
 	check(not ui._footer.text.contains(" OF "), "Footer must not reveal queue totals")
-	ui._search.text = "timeout"
+	ui._search.text = "load-bearing"
 	ui._filter_rules()
 	check(ui._rule_count.text.begins_with("1 shown"), "Rulebook search should find the timeout rule")
 	for row: Dictionary in ui._rule_rows:
-		if row.rule.id == "R01":
+		if row.rule.id == "P01":
 			row.check.button_pressed = true
-	check(state.selected_rules == ["R01"], "Native rule checkbox must update selected citations")
+	check(state.selected_rules == ["P01"], "Native rule checkbox must update selected citations")
 	check(ui._approve.disabled and not ui._reject.disabled, "Citations must gate the correct decision controls")
 	ui._clear_citations()
 	check(state.selected_rules.is_empty(), "Clear citations must update simulation state")
 	check(not ui._approve.disabled and ui._reject.disabled, "Clearing citations must restore approval")
 	check(not ui._ai_note.text.contains(str(Catalog.request_at(0).ai_note)), "AI advice must be hidden before consultation")
-	ui._consult.pressed.emit()
-	check(ui._ai_note.text.contains(str(Catalog.request_at(0).ai_note)), "Consultation must reveal authored AI advice")
+	check(not ui._consult.visible, "Consultation stays hidden until Wednesday")
 	var packets: Array = Catalog.requests()
 	for index in range(packets.size()):
 		var packet: Dictionary = Catalog.request_at(index)
@@ -104,7 +102,7 @@ func _run() -> void:
 		check(has_reaction, "Coworker conversation must contain a review reaction")
 		if str(packet.author) != "Theo":
 			check(bool(ui._chat_unread.get(str(packet.author), false)), "Other coworker reactions must receive an unread indicator")
-		check(ui._search.text == "timeout", "Review updates must preserve search text")
+		check(ui._search.text == "load-bearing", "Review updates must preserve search text")
 		var following: Dictionary = Catalog.request_at(index + 1)
 		if following.is_empty() or int(following.day) != int(state.day):
 			state = Simulation.advance(state, Simulation.Catalog.shift_seconds())

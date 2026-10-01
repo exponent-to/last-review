@@ -7,7 +7,6 @@ var checks := 0
 var failures := 0
 
 func _initialize() -> void:
-	load("res://content/catalog.gd").campaign_version = 4
 	_run.call_deferred()
 
 func check(value: bool, message: String) -> void:
@@ -27,8 +26,8 @@ func _run() -> void:
 	ui.command_requested.connect(command)
 	state = Simulation.initial_state()
 	ui.render_state(state)
-	check(ui._app_counts.review == 0, "Unarrived PRs must never enter the badge count.")
-	check(ui._app_counts.rules == 4 and ui._app_counts.browser == 1, "Handbook and Intranet count actual standards and memos.")
+	check(ui._app_counts.review == 1, "The first delivered PR enters the badge count.")
+	check(ui._app_counts.rules == 3 and ui._app_counts.browser == 1, "Handbook and Intranet count actual standards and memos.")
 	var initial := ui._app_counts.duplicate()
 	ui.render_state(state)
 	check(ui._app_counts == initial, "Rerendering cannot create duplicate unread items.")
@@ -42,14 +41,14 @@ func _run() -> void:
 	ui._show_home()
 	state = Simulation.advance(state, 20)
 	ui.render_state(state)
-	check(ui._app_counts.review == 1 and ui._app_badges.review.visible, "An arrived PR increments the Review badge.")
+	check(ui._app_counts.review == 2 and ui._app_badges.review.visible, "An arrived PR increments the Review badge.")
 	check(not ui._windows.review.visible and not ui._windows.chat.visible, "Notification delivery must not open or raise applications.")
 	var chat_total := int(ui._app_counts.chat)
 	var maya_unread := int(ui._chat_unread.Maya)
 	ui._open_notification("chat", "Maya")
 	check(ui._chat_contact == "Maya" and ui._app_counts.chat == chat_total - maya_unread, "Opening a Slouch bubble clears only that conversation.")
 	ui._open_notification("review", "PR-1042")
-	check(state.active_request_id == "PR-1042" and ui._app_counts.review == 0, "Review bubble opens the exact arrived PR and clears its unread item.")
+	check(state.active_request_id == "PR-1042" and ui._app_counts.review == 1, "Review bubble opens the exact arrived PR and clears its unread item.")
 	var before := int(ui._app_counts.chat)
 	command({"type": "chat-reply", "contact": "Maya", "pr_id": "PR-1042", "reply_id": "clarify"})
 	for frame in range(4): await process_frame

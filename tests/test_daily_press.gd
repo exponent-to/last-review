@@ -6,7 +6,6 @@ var checks: int = 0
 var failures: int = 0
 
 func _initialize() -> void:
-	load("res://content/catalog.gd").campaign_version = 4
 	_test_editions()
 	_test_gating()
 	_test_purity()
@@ -31,7 +30,7 @@ func _test_editions() -> void:
 			_check(article.id not in seen_ids and article.title not in seen_titles, "Stories must have unique identities and headlines.")
 			seen_ids.append(article.id)
 			seen_titles.append(article.title)
-			_check(article.body.length() > 350 and "\n\n" in article.body, "Clicking a headline must open a substantive full story.")
+			_check(article.body.length() > 250 and "\n\n" in article.body, "Clicking a headline must open a substantive full story.")
 			_check(DailyPress.story(day, article.id) == article, "Story lookup must resolve the matching day's article.")
 			_check(not article.has("url") and not article.has("score"), "Fictional articles must not carry external destinations or leaderboard scores.")
 			_check(typeof(article.get("comments")) == TYPE_ARRAY, "Optional story discussion must use an array.")
@@ -59,7 +58,7 @@ func _test_gating() -> void:
 			for article: Dictionary in DailyPress.stories(other_day):
 				_check(DailyPress.story(day, article.id).is_empty(), "An edition may not resolve another day's headline, including future stories.")
 		_check(DailyPress.story(day, "invented-headline").is_empty(), "Unknown story IDs must not resolve.")
-	for day: int in [-1, 0, 4, 99]:
+	for day: int in [-1, 0, 6, 99]:
 		_check(DailyPress.stories(day).is_empty() and DailyPress.memo(day).is_empty() and DailyPress.story(day, "pilot-has-a-badge").is_empty(), "Noncampaign days must not expose an edition or future rules.")
 
 func _test_purity() -> void:

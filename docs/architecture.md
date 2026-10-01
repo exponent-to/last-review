@@ -1,10 +1,10 @@
 # PRs please architecture
 
-Godot 4.7.2 owns the native desktop window, Control menus, input, and texture rendering. The simulation is deterministic GDScript. The application advances it in whole elapsed seconds only while the shift is active and the game is unpaused. Decoration never drives the clock. A workday lasts 300 seconds (360 for legacy v4 careers), with arrivals scheduled inside the shift and payroll at closing time.
+Godot 4.7.2 owns the native desktop window, Control menus, input, and texture rendering. The simulation is deterministic GDScript. The application advances it in whole elapsed seconds only while the shift is active and the game is unpaused. Decoration never drives the clock. A workday lasts 300 seconds, with arrivals scheduled inside the shift and payroll at closing time.
 
 ## Boundaries
 
-Policy campaign / preserved legacy JSON → Catalog → current PR and active rules → native workstation.
+Policy campaign → Catalog → current PR and active rules → native workstation.
 
 Native control → command dictionary → immutable simulation transition → render existing controls.
 
@@ -20,19 +20,19 @@ New Game selects a save slot, plays the interactive offer cold open, then enters
 
 ## Content and gameplay
 
-`content/policy_campaign.gd` defines five days, fifteen packets per day, and nine visual policies introduced in groups of 3/2/2/1/1. Source text, keyword ink, and per-file permits determine expected citations through the same lexical evidence used by the editor. The first delivery is immediate, then every twenty seconds. Source is never executed. Thursday introduces exact per-file INK-EXCEPTION permits. The legacy technical catalog is preserved under `content/legacy/` for v4 saves.
+`content/policy_campaign.gd` defines five days, fifteen packets per day, and nine visual policies introduced in groups of 3/2/2/1/1. Source text, keyword ink, and per-file permits determine expected citations through the same lexical evidence used by the editor. The first delivery is immediate, then every twenty seconds. Source is never executed. Thursday introduces exact per-file INK-EXCEPTION permits.
 
 The first loop separates technical trust from relationships. Approval can make a coworker happy even when an audit finds a defect. Stress, salary, daily expenses, and evening choices add personal stakes. The five-day ending is a manager DM based on trust, stress, and automation authority.
 
 ## Persistence
 
-State version 5 stores a bounded timed action journal including decisions, consultations, chat replies, shift closure, and evening choices. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized. Earlier careers remain on disk separately; their old shift boundaries cannot be replayed against timed arrivals.
+State version 5 stores a bounded timed action journal including decisions, consultations, chat replies, shift closure, and evening choices. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
 
 The filesystem adapter writes a temporary file, rotates the previous save to a backup, and atomically renames the new file. Load failures preserve the active session. Saves remain in the original Last Review application-data directory so the title change preserves existing progress. There is no automatic load, autosave, or cloud storage.
 
-Validation temporarily selects the saved campaign version and restores the active catalog afterward. Loading a run switches the active catalog before rebuilding the UI. New Game always selects v5.
+There is one campaign and one supported save format. Validation never swaps content or rules. Incompatible files are rejected with a new-game instruction; no migration or alternate campaign is maintained. Stable slot filenames keep valid current saves available.
 
-Because validation replays authored content and economics, incompatible changes require a migration or version bump. Do not silently change scenario outcomes while expecting old saves to remain valid.
+Because validation replays authored content and economics, incompatible changes require a version bump. Do not silently change scenario outcomes while expecting old saves to remain valid.
 
 ## Extending the slice
 
@@ -46,9 +46,9 @@ Native macOS export is configured with the official universal template and local
 
 ## Session entry and practice
 
-`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. Orientation goes directly from Slouch to the PR link. Version 1 tutorial saves migrate past the removed question step into version 2; historical replies remain valid simulation history.
+`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. Orientation goes directly from Slouch to the PR link. Only the current orientation format is supported.
 
-`save_store.gd` accepts raw v4 and v5 careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.
+`save_store.gd` accepts current-format careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.
 
 The window rain uses three depths of independently moving, angled rainfall outside, without beads or trails on the glass. It uses deterministic decoration seeds, respects pause/reduced motion, and is drawn behind the window frame and monitor. No gameplay randomness is consumed.
 
