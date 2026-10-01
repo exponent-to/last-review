@@ -4,6 +4,14 @@ Live release: [travis.show/prs-please/](https://travis.show/prs-please/). The we
 
 The same Godot game can be exported for desktop browsers alongside the native macOS app. The Web preset uses the existing Compatibility renderer, WebGL 2.0, and the single-threaded Godot 4.7.2 runtime. It does not embed a browser in the native game or change the native export preset.
 
+## Automatic deploys
+
+`.github/workflows/deploy-web.yml` runs on every push to `main` (and on demand from the Actions tab). It installs Godot 4.7.2 for Linux (`scripts/bootstrap-linux.sh`) and the Web template, imports resources, runs `scripts/check.sh`, and exports with `scripts/build-web.sh`. `scripts/publish-web.sh` then copies `build/web/` into the website's `public/prs-please/` and rewrites `docs/prs-please-release.json` with the game commit and file hashes. The job pushes that as one commit to `TravisGibbs/blog` `main`, whose Fly workflow deploys the site. A failing test stops the release, and an unchanged export pushes nothing.
+
+The workflow needs one repository secret, `BLOG_DEPLOY_TOKEN`: a fine-grained personal access token limited to `TravisGibbs/blog` with **Contents: read and write**. To roll back, revert the publish commit in the website repository.
+
+To publish manually instead, run `sh scripts/publish-web.sh <blog-checkout>` after a tested build, then commit in that checkout.
+
 ## Build and run locally
 
 Use Godot 4.7.2 on PATH, the existing project-local editor, or set `GODOT_BIN` to that editor executable. Python 3 and curl are required by the template bootstrap; Python 3 also provides the local server.
