@@ -6,7 +6,6 @@ var _motion := true
 var _elapsed := 0.0
 var _day := 1
 var _autonomy := 0
-var _hardware_font: Font
 var _day_minutes := 540
 
 
@@ -24,8 +23,6 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	var font_path := "res://art/fonts/IBMPlexMono-Regular.ttf"
-	_hardware_font = load(font_path) if ResourceLoader.exists(font_path) else get_theme_default_font()
 	resized.connect(queue_redraw)
 	visibility_changed.connect(_sync_processing)
 	get_window().focus_entered.connect(_sync_processing)
@@ -93,8 +90,6 @@ func _draw() -> void:
 	draw_rect(Rect2(screen.position - Vector2(1, 1), screen.size + Vector2(2, 2)), Color("2a2c2e"))
 	draw_rect(screen, Color("0c0d0e"))
 	draw_rect(Rect2(Vector2(screen.position.x, screen.end.y + 3), Vector2(screen.size.x, 1)), Color("1f2022"))
-	if _hardware_font != null:
-		draw_string(_hardware_font, Vector2(screen.position.x + 14, screen.end.y + 24), "NORTHSTAR  /  N-7", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("43464a"))
 	# Speaker slots and the steady power light are hardware, not game meters.
 	for slot in range(12):
 		draw_rect(Rect2(floorf(size.x * 0.5) - 34 + slot * 6, screen.end.y + 15, 2, 9), Color("08090a"))

@@ -61,7 +61,6 @@ func _ready() -> void:
 	title.add_theme_constant_override("shadow_offset_x", 3)
 	title.add_theme_constant_override("shadow_offset_y", 0)
 	title.add_theme_constant_override("shadow_outline_size", 0)
-	_label("northstar engineering  ::  change control terminal n-7", 12, MUTED)
 	var divider := ColorRect.new()
 	divider.color = RED
 	divider.custom_minimum_size = Vector2(64, 3)
