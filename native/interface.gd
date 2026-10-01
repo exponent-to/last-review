@@ -633,7 +633,6 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_file_picker.add_theme_font_size_override("font_size", 12)
 	_file_picker.item_selected.connect(_select_file)
 	file_row.add_child(_file_picker)
-	_label(file_row, "READ ONLY", 10, DIM)
 	_code_legend = _paragraph(code, "", 11, AMBER)
 	_code_legend.hide()
 	_diff = CodeEdit.new()

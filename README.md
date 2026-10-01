@@ -44,7 +44,7 @@ Each workday lasts five real minutes, shown as 09:00–18:00 by the desktop cloc
 
 Open an app from its desktop icon. Drag titlebars to arrange windows, drag any edge or corner to resize, or use the minimize, maximize, and close controls. Resizing stops at the screen boundaries and each app's usable minimum size. The taskbar tracks open apps; HOME reveals the desktop. With a titlebar focused, arrow keys move its window (Shift moves farther). Intranet opens Hackerish News, full stories, company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
 
-Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. PRs arrive gradually as coworker messages with clickable review links. Slouch is read-only: colleagues send requests and react to your approvals or change requests. There is no reply composer. Existing saved conversations remain visible. Their tone carries relationship signals; there are no visible relationship scores, stress percentages, or authority meters. Incoming items show numbered app badges and clickable notification bubbles at the bottom right. Messages, PRs, standards, memos, and save status each belong to their app; notifications never open windows automatically. Morgan’s evening messages communicate consequences without scores, rule answers, or payroll tables. Slouch is entirely fictional and local, with no connection to a real messaging service.
+Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. PRs arrive gradually as coworker messages with clickable review links. Slouch is read-only: colleagues send requests and react to your approvals or change requests. There is no reply composer. Existing saved conversations remain visible. Non-request coworker dialogue uses labeled placeholders while the writing is revised; there are no visible relationship scores, stress percentages, or authority meters. Incoming items show numbered app badges and clickable notification bubbles at the bottom right. Messages, PRs, standards, memos, and save status each belong to their app; notifications never open windows automatically. Morgan’s evening messages communicate consequences without scores, rule answers, or payroll tables. Slouch is entirely fictional and local, with no connection to a real messaging service.
 
 ## Saves
 
@@ -62,7 +62,7 @@ sh scripts/build-macos.sh
 The simulation suite covers the authored career, precise citations, AI mistakes, relationship and audit consequences, one-time pay, evening choices, immutability, and malformed saves. The native-interface test drives actual rule/decision controls through the campaign and manager follow-up. Menu and tutorial checks cover untimed practice, retries, lesson progress, save compatibility, and the fresh-career handoff. All run headlessly without test plugins.
 
 - `content/` — editable JSON rules, PR packets, and daily briefings.
-- `content/chat.gd`, `content/messages.json` — authored coworker messages derived from the career's decisions.
+- `content/chat.gd`, `content/policy_chat.gd` — authored coworker messages derived from the career's decisions.
 - `native/simulation.gd` — deterministic timed shifts, decisions, and life-sim consequences.
 - `native/interface.gd` — review desk, rule search, people, evenings, and system controls.
 - `native/desktop_window.gd` — draggable, focusable, minimizable native desktop windows.
