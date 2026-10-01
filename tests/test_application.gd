@@ -49,6 +49,27 @@ func _run() -> void:
 	for frame in range(4): await process_frame
 	_check(app.interface._tutorial_panel.size.y < 250, "Orientation instructions must fit a compact panel after text wraps.")
 	_check(app.interface._notifications._items.is_empty(), "Orientation must not show ambient notifications.")
+	var panel: PanelContainer = app.interface._tutorial_panel
+	var start: Vector2 = panel.position
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(20, 10)
+	app.interface._tutorial_drag_input(press)
+	var drag := InputEventMouseMotion.new()
+	drag.position = Vector2(20, 10) + Vector2(-300, 200)
+	app.interface._tutorial_drag_input(drag)
+	press.pressed = false
+	app.interface._tutorial_drag_input(press)
+	_check(panel.position.is_equal_approx(start + Vector2(-300, 200)), "The orientation panel follows a drag.")
+	app._render()
+	app.interface._sync_tutorial_pointer()
+	_check(panel.position.is_equal_approx(start + Vector2(-300, 200)), "A dragged orientation panel keeps its place.")
+	drag.position = Vector2(-5000, -5000)
+	press.pressed = true
+	app.interface._tutorial_drag_input(press)
+	app.interface._tutorial_drag_input(drag)
+	_check(panel.position == Vector2.ZERO, "Dragging cannot push the panel off the monitor.")
 	_check(not app.interface._app_badges.browser.visible, "Orientation hides Monday's memo badge.")
 	for contact: String in app.interface._chat_contacts:
 		_check(app.interface._chat_contacts[contact].visible == (contact == "Maya"), "Orientation Slouch lists only Maya.")
