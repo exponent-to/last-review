@@ -62,7 +62,7 @@ func _run() -> void:
 	app.interface._open_app("rules")
 	app._on_command({"type": "review", "verdict": "approve"})
 	_check(int(app.tutorial.stage) == 6 and app.state.decisions.is_empty(), "A mistaken practice review can be retried without consequences.")
-	app._on_command({"type": "toggle-rule", "rule_id": "P01"})
+	app._on_command(Main.Simulation.Catalog.audit_citation(Main.Simulation.Catalog.request_at(0), "P01"))
 	app._on_command({"type": "review", "verdict": "request_changes"})
 	_check(int(app.tutorial.stage) == 7, "A complete practice review reaches the handoff.")
 	app.interface._tutorial_next.pressed.emit()

@@ -39,7 +39,7 @@ func _resolve(state: Dictionary) -> Dictionary:
 		if packet.id == current.active_request_id:
 			request = packet
 	for rule_id: String in request.violations:
-		current = Simulation.dispatch(current, {"type": "toggle-rule", "rule_id": rule_id})
+		current = Simulation.dispatch(current, Catalog.audit_citation(request, rule_id))
 	return Simulation.dispatch(current, {"type": "review", "verdict": "approve" if request.violations.is_empty() else "request_changes"})
 
 func _round_trip(state: Dictionary) -> void:
@@ -62,9 +62,9 @@ func _test_reviews() -> void:
 			break
 	var request: Dictionary = Catalog.request_at(0)
 	_check(not request.violations.is_empty(), "First request must offer a meaningful faulty-approval temptation.")
-	var selected: Dictionary = Simulation.dispatch(initial, {"type": "toggle-rule", "rule_id": request.violations[0]})
+	var selected: Dictionary = Simulation.dispatch(initial, Catalog.audit_citation(request, request.violations[0]))
 	_check(Simulation.dispatch(selected, {"type": "review", "verdict": "approve"}) == selected, "Approval with citations must not advance.")
-	_check(Simulation.dispatch(selected, {"type": "toggle-rule", "rule_id": request.violations[0]}) == initial, "Citation toggles must be reversible.")
+	_check(Simulation.dispatch(selected, Catalog.audit_citation(request, request.violations[0])) == initial, "Citation toggles must be reversible.")
 	var correct: Dictionary = _resolve(initial)
 	_check(correct.request_index == 1 and correct.last_feedback.correct, "Exact citations must produce a correct rejection.")
 	_check(correct.trust == 75 and correct.coworkers[request.author] == 48 and correct.stress == 23, "Correct rejection must improve trust but strain the author relationship.")
@@ -74,9 +74,21 @@ func _test_reviews() -> void:
 		if rule.id not in request.violations:
 			wrong_rule = rule.id
 			break
-	var overcited: Dictionary = Simulation.dispatch(selected, {"type": "toggle-rule", "rule_id": wrong_rule})
+	var overcited: Dictionary = Simulation.dispatch(selected, Catalog.audit_citation(request, wrong_rule))
 	overcited = Simulation.dispatch(overcited, {"type": "review", "verdict": "request_changes"})
 	_check(not overcited.last_feedback.correct, "Additional unsupported citations must make rejection incorrect.")
+	var pointed: Dictionary = Catalog.audit_citation(request, request.violations[0])
+	var _unpointed: Dictionary = pointed.duplicate()
+	_unpointed.erase("path")
+	_check(Simulation.dispatch(initial, _unpointed) == initial, "A citation must point at a file or line.")
+	var misplaced: Dictionary = pointed.duplicate()
+	misplaced.line = int(pointed.line) + 1
+	var wrong_line: Dictionary = Simulation.dispatch(Simulation.dispatch(initial, misplaced), {"type": "review", "verdict": "request_changes"})
+	_check(not wrong_line.last_feedback.correct and wrong_line.decisions[-1].evidence[pointed.rule_id].line == misplaced.line, "Citing the right rule on the wrong line is an incorrect review.")
+	var policy := load("res://content/policy_campaign.gd")
+	for finding: Dictionary in request.findings:
+		_check(policy.evidence_accepted(request.findings, finding.rule_id, finding.path, int(finding.line)), "Every audited finding accepts its own location.")
+	_check(policy.evidence_accepted([{"rule_id": "P04", "path": "a.py", "line": 0}], "P04", "a.py", 7) and not policy.evidence_accepted([{"rule_id": "P04", "path": "a.py", "line": 0}], "P04", "b.py", 0), "Whole-file rules accept any line of the right file only.")
 	_check(overcited.trust == 63 and overcited.coworkers[request.author] == 43, "Incorrect rejection must hurt trust and relationships.")
 	_check(Simulation.dispatch(initial, {"type": "consult-ai"}) == initial, "Helios is unavailable until Wednesday.")
 	var bad_approval := Simulation.dispatch(initial, {"type": "review", "verdict": "approve"})
@@ -147,12 +159,12 @@ func _test_career() -> void:
 func _test_saves() -> void:
 	var initial: Dictionary = Simulation.initial_state()
 	_round_trip(initial)
-	var selected: Dictionary = Simulation.dispatch(_first_request_state(), {"type": "toggle-rule", "rule_id": Catalog.rules_for_day(1)[0].id})
+	var selected: Dictionary = Simulation.dispatch(_first_request_state(), Catalog.audit_citation(Catalog.request_at(0), Catalog.rules_for_day(1)[0].id))
 	selected = Simulation.dispatch(selected, {"type": "consult-ai"})
 	_round_trip(selected)
 	for value: Variant in [null, [], true, 42, "save", {"version": 1}, {"version": 2}]:
 		_check(not Simulation.validate_save(value).ok, "Invalid types and workshop saves must be rejected.")
-	for version in [1, 2, 3, 4, 6]:
+	for version in [1, 2, 3, 4, 5, 7]:
 		var unsupported := initial.duplicate(true)
 		unsupported.version = version
 		_check(not Simulation.validate_save(unsupported).ok, "Only the current save format is accepted.")

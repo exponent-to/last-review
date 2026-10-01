@@ -175,7 +175,7 @@ func _on_command(command: Dictionary) -> void:
 				_tutorial_event({"type": "correct-submit"})
 			else:
 				state = Tutorial.retry_practice_state(state)
-				interface.notify("Try again: cite P01 for the load-bearing comment, then request changes.")
+				interface.notify("Try again: click the line with load-bearing, tick P01, then stamp CHANGES REQUESTED.")
 	if int(state.day) != previous_day:
 		_clock_fraction = 0.0
 	_render()

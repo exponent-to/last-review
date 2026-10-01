@@ -31,6 +31,8 @@ func _run() -> void:
 	app._cold_open._sign_offer()
 	app._cold_open.advance_sequence(2.0)
 	await _shot("03-orientation")
+	app.interface._tutorial_next.pressed.emit()
+	await _shot("03b-orientation-arrow")
 	app._tutorial_continue()
 	app.interface._tutorial_next.pressed.emit() if app.interface._tutorial_next.visible else null
 	app.tutorial = {}
@@ -49,8 +51,20 @@ func _run() -> void:
 	await _shot("07-review")
 	app.interface._open_app("rules")
 	await _shot("08-handbook")
-	app._on_command({"type": "toggle-rule", "rule_id": "P01"})
 	app.interface._open_app("review")
+	var ui = app.interface
+	var request: Dictionary = Main.Simulation.Catalog.requests_for_day(1)[0]
+	for packet: Dictionary in Main.Simulation.Catalog.requests():
+		if packet.id == app.state.active_request_id: request = packet
+	if not request.violations.is_empty():
+		var cite: Dictionary = Main.Simulation.Catalog.audit_citation(request, request.violations[0])
+		for index in range(ui._review_files.size()):
+			if ui._review_files[index].path == cite.path: ui._select_file(index)
+		for i in range(3): await process_frame
+		ui._diff.set_caret_line(maxi(0, int(cite.line) - 1))
+		ui._point_at(-1 if int(cite.line) > 0 else 0)
+		await _shot("09a-review-pointing")
+		ui._toggle_citation(str(cite.rule_id))
 	await _shot("09-review-cited")
 	app._on_command({"type": "review", "verdict": "request_changes"})
 	for i in range(8): await process_frame

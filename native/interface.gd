@@ -32,10 +32,10 @@ const CYAN: Color = Color("6fdc8c")
 const RED: Color = Color("e5384a")
 const GREEN: Color = Color("6fdc8c")
 const AMBER: Color = Color("e0b44a")
-const PAPER: Color = Color("e9e1c9")
-const PAPER_INK: Color = Color("2a2620")
-const PAPER_MUTED: Color = Color("6f6656")
-const PAPER_LINE: Color = Color("b9ae8f")
+const PAPER: Color = Color("a9ada4")
+const PAPER_INK: Color = Color("121412")
+const PAPER_MUTED: Color = Color("3c3f39")
+const PAPER_LINE: Color = Color("7a7e75")
 const STAMP_GREEN: Color = Color("2f8a4f")
 const STAMP_RED: Color = Color("c0202f")
 const RULE_SUMMARIES := {
@@ -153,6 +153,9 @@ var _tutorial_details: Dictionary = {}
 var _paper: PanelContainer
 var _slip_rows: Array[Dictionary] = []
 var _last_feedback_key := "-"
+var _evidence: Dictionary = {}
+var _evidence_label: Label
+var _whole_file: Button
 
 
 func _ready() -> void:
@@ -606,7 +609,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 	code.add_child(_paper)
 	var form: VBoxContainer = _column(_paper, 4)
 	var title_row: HBoxContainer = _row(form)
-	_label(title_row, "NORTHSTAR  FORM CR-7  /  CHANGE REQUEST", 10, PAPER_MUTED)
+	_label(title_row, "NORTHSTAR // INTERNAL // FORM CR-7", 10, PAPER_MUTED)
 	_spacer(title_row)
 	_pr_id = _label(title_row, "PULL REQUEST", 11, STAMP_RED)
 	var rule := ColorRect.new()
@@ -635,6 +638,13 @@ func _build_review_content(code: VBoxContainer) -> void:
 	file_row.add_child(_file_picker)
 	_code_legend = _paragraph(code, "", 11, AMBER)
 	_code_legend.hide()
+	# Inspect: point at the evidence first, then tick the rule it breaks.
+	var pointer_row := _row(code, 8)
+	_evidence_label = _paragraph(pointer_row, "", 12, DIM)
+	_whole_file = _button(pointer_row, "WHOLE FILE", func() -> void: _point_at(0))
+	_whole_file.custom_minimum_size.y = 26
+	_whole_file.add_theme_font_size_override("font_size", 11)
+	_whole_file.tooltip_text = "Point at this entire file, for rules about its filename, ink, opening lines, or quoted labels."
 	_diff = CodeEdit.new()
 	_diff.name = "PullRequestDiff"
 	_diff.editable = false
@@ -648,6 +658,10 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_diff.custom_minimum_size.y = 130
 	code.add_child(_diff)
 	_diff.caret_changed.connect(_update_code_legend)
+	_diff.gui_input.connect(func(event: InputEvent) -> void:
+		var clicked: bool = event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed
+		var keyed: bool = event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ENTER, KEY_KP_ENTER]
+		if clicked or keyed: _point_at.call_deferred(-1))
 
 
 func _remember_file_position() -> void:
@@ -687,9 +701,11 @@ func _select_file(index: int) -> void:
 	highlighter.configure(str(entry.source), str(entry.get("keyword_ink", "blue")))
 	_diff.syntax_highlighter = highlighter
 	_diff.text = str(entry.source)
+	_evidence = {}
 	_diff.draw_tabs = true
 	_update_code_legend()
 	_code_legend.show()
+	_paint_evidence()
 	_diff.set_caret_line(0)
 	_diff.set_caret_column(0)
 	_diff.scroll_vertical = 0
@@ -848,7 +864,7 @@ func _browse(path: String, record: bool = true) -> void:
 		return
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. Request changes with precise citations.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, click the offending line (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then tick the rule it breaks.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
 		_:
 			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nOpen STANDARDS to consult the active rulebook, SLOUCH to read messages from your coworkers, NEWS for the morning headlines, or DAILY MEMO for the current instructions.\n\nExternal access restricted by company policy."
 
@@ -925,7 +941,7 @@ func _build_rulebook(parent: Node) -> void:
 		check.text = str(rule.get("id", "")) + "  / CITE"
 		check.add_theme_font_size_override("font_size", 13)
 		var id: String = str(rule.get("id", ""))
-		check.toggled.connect(func(_pressed: bool) -> void: _emit_command({"type": "toggle-rule", "rule_id": id}))
+		check.toggled.connect(func(_pressed: bool) -> void: _toggle_citation(id))
 		header.add_child(check)
 		_spacer(header)
 		var summary := _paragraph(body, str(RULE_SUMMARIES.get(id, rule.get("title", ""))), 13, TEXT)
@@ -973,11 +989,17 @@ func _build_decision(parent: Node) -> void:
 		check.text = id
 		check.add_theme_font_size_override("font_size", 12)
 		check.tooltip_text = str(rule.get("title", "")) + "\n\n" + str(rule.get("text", ""))
-		check.toggled.connect(func(_pressed: bool) -> void: _emit_command({"type": "toggle-rule", "rule_id": id}))
+		check.toggled.connect(func(_pressed: bool) -> void: _toggle_citation(id))
 		line.add_child(check)
-		var summary := _paragraph(line, str(RULE_SUMMARIES.get(id, rule.get("title", ""))), 11, DIM)
+		var text_column := _column(line, 1)
+		var summary := _paragraph(text_column, str(RULE_SUMMARIES.get(id, rule.get("title", ""))), 11, DIM)
 		summary.mouse_filter = Control.MOUSE_FILTER_PASS
-		_slip_rows.append({"rule": rule, "panel": slip, "check": check, "summary": summary})
+		var where := _label(text_column, "", 10, RED)
+		where.clip_text = true
+		where.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		where.custom_minimum_size.x = 60
+		where.hide()
+		_slip_rows.append({"rule": rule, "panel": slip, "check": check, "summary": summary, "where": where})
 	_consult = _button(column, "ASK HELIOS", _emit_command.bind({"type": "consult-ai"}))
 	_consult.add_theme_color_override("font_color", AMBER)
 	_consult.tooltip_text = "Ask Helios for a recommendation. It can lighten your workload, but invites the assistant further into the process. Advice can be wrong."
@@ -987,6 +1009,57 @@ func _build_decision(parent: Node) -> void:
 	# Rubber stamps stay pinned below the slip so they are never scrolled away.
 	_approve = _stamp_button(holder, "APPROVED", GREEN, _emit_command.bind({"type": "review", "verdict": "approve"}))
 	_reject = _stamp_button(holder, "CHANGES REQUESTED", RED, _emit_command.bind({"type": "review", "verdict": "request_changes"}))
+
+
+func _point_at(line: int) -> void:
+	# line -1 reads the clicked caret line; 0 means the whole file.
+	if _displayed_file_key.is_empty() or _review_files.is_empty(): return
+	var path: String = _file_label.text
+	_evidence = {"path": path, "line": _diff.get_caret_line() + 1 if line < 0 else line}
+	tutorial_event.emit({"type": "point-evidence", "path": path, "line": int(_evidence.line)})
+	_paint_evidence()
+
+
+func _location_text(location: Dictionary) -> String:
+	var name := str(location.get("path", "")).get_file()
+	return ("FILE  " if int(location.get("line", 0)) == 0 else "LINE %d  " % int(location.line)) + name
+
+
+func _toggle_citation(rule_id: String) -> void:
+	if rule_id in _state.get("selected_rules", []):
+		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
+		return
+	if _evidence.is_empty():
+		notify("Point at the evidence first: click the offending line in the code, or WHOLE FILE.", true, "review")
+		render_state(_state)
+		return
+	_emit_command({"type": "toggle-rule", "rule_id": rule_id, "path": _evidence.path, "line": int(_evidence.line)})
+	_evidence = {}
+	_paint_evidence()
+
+
+func _paint_evidence() -> void:
+	if not is_instance_valid(_diff) or not is_instance_valid(_evidence_label): return
+	var path: String = _file_label.text
+	var cited: Dictionary = _state.get("citation_evidence", {})
+	for line in range(_diff.get_line_count()):
+		_diff.set_line_background_color(line, Color(0, 0, 0, 0))
+	for rule_id: String in cited:
+		var location: Dictionary = cited[rule_id]
+		if str(location.path) == path and int(location.line) > 0 and int(location.line) <= _diff.get_line_count():
+			_diff.set_line_background_color(int(location.line) - 1, Color(RED, 0.22))
+	var pointing := not _evidence.is_empty() and str(_evidence.path) == path
+	if pointing and int(_evidence.line) > 0 and int(_evidence.line) <= _diff.get_line_count():
+		_diff.set_line_background_color(int(_evidence.line) - 1, Color(AMBER, 0.28))
+	_whole_file.disabled = _review_files.is_empty()
+	if _review_files.is_empty():
+		_evidence_label.text = ""
+	elif pointing:
+		_evidence_label.text = "▸ POINTING AT %s — now tick the rule it breaks" % _location_text(_evidence).to_upper()
+		_evidence_label.add_theme_color_override("font_color", AMBER)
+	else:
+		_evidence_label.text = "To cite: click the offending line, or WHOLE FILE, then tick the rule."
+		_evidence_label.add_theme_color_override("font_color", DIM)
 
 
 func _stamp_button(parent: Node, text: String, ink: Color, action: Callable) -> Button:
@@ -1209,7 +1282,7 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author message and code diff.\n2. Search the current rulebook and cite all applicable violations.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author message and code diff.\n2. Point at each violation (click its line, or WHOLE FILE) and tick the rule it breaks.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
 
 
 func set_save_slot(slot: int) -> void:
@@ -1289,8 +1362,13 @@ func render_state(state: Dictionary) -> void:
 		slip_check.set_pressed_no_signal(selected.has(str(slip_rule.get("id", ""))))
 		slip_check.disabled = not can_review
 		entry.summary.add_theme_color_override("font_color", TEXT if slip_check.button_pressed else DIM)
+		var slip_location: Dictionary = state.get("citation_evidence", {}).get(str(slip_rule.id), {})
+		entry.where.visible = not slip_location.is_empty()
+		entry.where.text = "" if slip_location.is_empty() else "→ " + _location_text(slip_location)
+		entry.where.tooltip_text = entry.where.text
 		entry.panel.add_theme_stylebox_override("panel", _style(Color("1e0d10") if slip_check.button_pressed else INSET, RED if slip_check.button_pressed else BORDER, 1, 6, 4))
 	_selected_label.text = "CITATIONS: " + ("NONE" if selected.is_empty() else ", ".join(selected))
+	_paint_evidence()
 	_selected_label.add_theme_color_override("font_color", DIM if selected.is_empty() else RED)
 	_clear_button.disabled = selected.is_empty() or not can_review
 	_approve.disabled = not selected.is_empty() or not can_review
@@ -1531,8 +1609,13 @@ func _sync_tutorial_pointer() -> void:
 				var id := "P01"
 				if id not in _state.get("selected_rules", []):
 					if _windows.review.visible and _windows.review._active:
-						for row: Dictionary in _slip_rows:
-							if row.rule.id == id: target = row.check
+						# Practice only: guide to the visible comment, never to hidden audit data.
+						var evidence := _practice_evidence(id)
+						if evidence.is_empty() or _file_label.text != evidence.path: target = _file_picker
+						elif _evidence.is_empty() or _evidence.path != evidence.path or int(_evidence.line) != int(evidence.line): target = _diff
+						else:
+							for row: Dictionary in _slip_rows:
+								if row.rule.id == id: target = row.check
 					elif not _windows.rules.visible or not _windows.rules._active: target = _tutorial_launcher("review")
 					else:
 						for row: Dictionary in _rule_rows:
@@ -1545,6 +1628,13 @@ func _sync_tutorial_pointer() -> void:
 				_tutorial_panel.position = location
 				break
 	_tutorial_pointer.set_target(target)
+
+
+func _practice_evidence(rule_id: String) -> Dictionary:
+	var files: Array = Simulation.active_request(_state).get("files", [])
+	for finding: Dictionary in load("res://content/policy_campaign.gd").findings(files, 1):
+		if finding.rule_id == rule_id: return finding
+	return {}
 
 
 func _fit_tutorial() -> void:

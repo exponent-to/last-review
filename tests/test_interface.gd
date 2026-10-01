@@ -67,10 +67,20 @@ func _run() -> void:
 	ui._search.text = "load-bearing"
 	ui._filter_rules()
 	check(ui._rule_count.text.begins_with("1 shown"), "Rulebook search should find the timeout rule")
+	var p01_check: CheckBox
 	for row: Dictionary in ui._rule_rows:
-		if row.rule.id == "P01":
-			row.check.button_pressed = true
-	check(state.selected_rules == ["P01"], "Native rule checkbox must update selected citations")
+		if row.rule.id == "P01": p01_check = row.check
+	p01_check.button_pressed = true
+	check(state.selected_rules.is_empty() and not p01_check.button_pressed, "A rule cannot be cited before pointing at evidence")
+	var finding: Dictionary = Catalog.audit_citation(Catalog.request_at(0), "P01")
+	for index in range(ui._review_files.size()):
+		if ui._review_files[index].path == finding.path: ui._select_file(index)
+	ui._diff.set_caret_line(int(finding.line) - 1)
+	ui._point_at(-1)
+	check(ui._evidence.line == finding.line and ui._evidence_label.text.contains("POINTING AT"), "Clicking a code line points at it as evidence")
+	p01_check.button_pressed = true
+	check(state.selected_rules == ["P01"] and state.citation_evidence.P01 == {"path": finding.path, "line": finding.line}, "Native rule checkbox must cite the pointed-at line")
+	check(ui._evidence.is_empty(), "Each citation consumes its pointer")
 	check(ui._approve.disabled and not ui._reject.disabled, "Citations must gate the correct decision controls")
 	ui._clear_citations()
 	check(state.selected_rules.is_empty(), "Clear citations must update simulation state")
@@ -85,7 +95,7 @@ func _run() -> void:
 		ui._open_pr_link(str(packet.id))
 		var previous_messages: String = str(ui._chat_seen.get(str(packet.author), ""))
 		for rule_id: String in packet.violations:
-			_command({"type": "toggle-rule", "rule_id": rule_id})
+			_command(Simulation.Catalog.audit_citation(packet, rule_id))
 		if packet.violations.is_empty():
 			ui._approve.pressed.emit()
 		else:
@@ -264,7 +274,7 @@ func _test_chat_first_open() -> void:
 	loaded = Simulation.advance(loaded, 20)
 	loaded = Simulation.dispatch(loaded, {"type": "select-request", "pr_id": str(first_packet.id)})
 	for id: String in first_packet.violations:
-		loaded = Simulation.dispatch(loaded, {"type": "toggle-rule", "rule_id": id})
+		loaded = Simulation.dispatch(loaded, Simulation.Catalog.audit_citation(first_packet, id))
 	loaded = Simulation.dispatch(loaded, {"type": "review", "verdict": "approve" if first_packet.violations.is_empty() else "request_changes"})
 	for snapshot: Dictionary in [initial, loaded]:
 		var first_ui = Interface.new()

@@ -3,7 +3,8 @@ extends RefCounted
 
 const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
-const SAVE_VERSION: int = 5
+const Policy = preload("res://content/policy_campaign.gd")
+const SAVE_VERSION: int = 6
 const SHIFT_SECONDS: int = 300
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
@@ -17,7 +18,7 @@ static func initial_state() -> Dictionary:
 		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
 		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
 		"coworkers": {"Maya": 50, "Theo": 50, "Inez": 50},
-		"selected_rules": [], "consulted": false, "decisions": [],
+		"selected_rules": [], "citation_evidence": {}, "consulted": false, "decisions": [],
 		"shift_seconds": 0, "active_request_id": "", "consulted_requests": [],
 		"actions": [], "shift_history": [], "chat_replies": [],
 		"log": [{"day": first_day, "message": "Your review shift begins. Incoming work will arrive in team chat."}],
@@ -46,6 +47,7 @@ static func _reviewed(state: Dictionary, request_id: String) -> bool:
 static func _public_request(request: Dictionary, consulted: bool = false) -> Dictionary:
 	var public: Dictionary = request.duplicate(true)
 	public.erase("violations")
+	public.erase("findings")
 	public.erase("explanation")
 	if not consulted:
 		public.erase("ai_verdict")
@@ -125,6 +127,7 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 		if allowed and next.active_request_id != requested:
 			next.active_request_id = requested
 			next.selected_rules = []
+			next.citation_evidence = {}
 			next.consulted = requested in next.consulted_requests
 		return next
 	if kind == "chat-reply":
@@ -150,8 +153,14 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 				return next
 			if rule_id in next.selected_rules:
 				next.selected_rules.erase(rule_id)
+				next.citation_evidence.erase(rule_id)
 			else:
+				# A citation pins a rule to the file and line the reviewer pointed at.
+				var location: Variant = _evidence_location(active, command)
+				if location == null:
+					return next
 				next.selected_rules.append(rule_id)
+				next.citation_evidence[rule_id] = location
 		"consult-ai":
 			if int(next.day) < 3: return next
 			if not next.consulted:
@@ -171,9 +180,24 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 			event.pr_id = active.id
 			event.verdict = verdict
 			event.cited_rules = next.selected_rules.duplicate()
+			event.evidence = next.citation_evidence.duplicate(true)
 			next.actions.append(event)
 			_review(next, verdict)
 	return next
+
+static func _evidence_location(request: Dictionary, command: Dictionary) -> Variant:
+	var path: Variant = command.get("path")
+	if typeof(path) != TYPE_STRING: return null
+	for file: Dictionary in request.get("files", []):
+		if file.path == path:
+			var count: int = str(file.source).split("\n", true).size()
+			if not _integer(command.get("line"), 0, count): return null
+			return {"path": path, "line": int(command.line)}
+	return null
+
+static func _cite(state: Dictionary, rule_id: String, evidence: Variant) -> Dictionary:
+	var location: Dictionary = evidence if typeof(evidence) == TYPE_DICTIONARY else {}
+	return dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "path": location.get("path"), "line": location.get("line")})
 
 static func _review(state: Dictionary, verdict: String) -> void:
 	var request: Dictionary = {}
@@ -183,6 +207,11 @@ static func _review(state: Dictionary, verdict: String) -> void:
 			break
 	var expected: Array = request.violations
 	var correct: bool = expected.is_empty() if verdict == "approve" else _same_rules(state.selected_rules, expected)
+	if verdict == "request_changes" and correct:
+		for rule_id: String in state.selected_rules:
+			var location: Dictionary = state.citation_evidence.get(rule_id, {})
+			if not Policy.evidence_accepted(request.findings, rule_id, str(location.get("path", "")), int(location.get("line", -1))):
+				correct = false
 	var relationship_change: int = (4 if correct else 6) if verdict == "approve" else (-2 if correct else -7)
 	var trust_change: int = (3 if correct else -12) if verdict == "approve" else (5 if correct else -7)
 	var stress_change: int = 3 + (0 if correct else (8 if verdict == "approve" else 6))
@@ -193,7 +222,7 @@ static func _review(state: Dictionary, verdict: String) -> void:
 	state.stress = clampi(int(state.stress) + stress_change, 0, 100)
 	state.decisions.append({
 		"pr_id": request.id, "verdict": verdict, "cited_rules": state.selected_rules.duplicate(),
-		"consulted": state.consulted, "correct": correct, "shift_seconds": state.shift_seconds,
+		"evidence": state.citation_evidence.duplicate(true), "consulted": state.consulted, "correct": correct, "shift_seconds": state.shift_seconds,
 	})
 	var response: String
 	if verdict == "approve":
@@ -210,6 +239,7 @@ static func _review(state: Dictionary, verdict: String) -> void:
 	_record(state, "%s: %s. %s" % [request.id, "audit passed" if correct else "audit failed", response])
 	state.active_request_id = ""
 	state.selected_rules = []
+	state.citation_evidence = {}
 	state.consulted = false
 	_update_request_index(state)
 
@@ -240,6 +270,7 @@ static func _debrief(state: Dictionary) -> void:
 	state.shift_history.append({"day": state.day, "shift_seconds": state.shift_seconds, "reviewed": reviewed, "handed_off": handed_off})
 	state.active_request_id = ""
 	state.selected_rules = []
+	state.citation_evidence = {}
 	state.consulted = false
 	_update_request_index(state)
 	_record(state, message)
@@ -356,12 +387,14 @@ static func validate_save(value: Variant) -> Dictionary:
 				if replay.active_request_id != event.pr_id:
 					return _invalid("action targets an unavailable or already reviewed request.")
 				if kind == "review":
-					if not _rule_list(event.get("cited_rules"), int(replay.day)):
+					if not _rule_list(event.get("cited_rules"), int(replay.day)) or typeof(event.get("evidence")) != TYPE_DICTIONARY:
 						return _invalid("review contains invalid citations.")
 					replay.selected_rules = []
+					replay.citation_evidence = {}
 					for rule_id: String in event.cited_rules:
-						replay = dispatch(replay, {"type": "toggle-rule", "rule_id": rule_id})
+						replay = _cite(replay, rule_id, event.evidence.get(rule_id))
 				command.erase("cited_rules")
+				command.erase("evidence")
 			command.erase("day")
 			command.erase("shift_seconds")
 			replay = dispatch(replay, command)
@@ -371,9 +404,12 @@ static func validate_save(value: Variant) -> Dictionary:
 		return _invalid("current clock precedes its action history.")
 	replay = advance(replay, int(value.shift_seconds) - int(replay.shift_seconds))
 	replay = dispatch(replay, {"type": "select-request", "request_id": value.active_request_id})
+	if typeof(value.get("citation_evidence")) != TYPE_DICTIONARY:
+		return _invalid("citations are missing their evidence.")
 	replay.selected_rules = []
+	replay.citation_evidence = {}
 	for rule_id: String in value.selected_rules:
-		replay = dispatch(replay, {"type": "toggle-rule", "rule_id": rule_id})
+		replay = _cite(replay, rule_id, value.citation_evidence.get(rule_id))
 	if not _matches(replay, value):
 		return _invalid("state does not match its timed actions, arrivals, or earned resources.")
 	return {"ok": true, "state": replay, "error": ""}

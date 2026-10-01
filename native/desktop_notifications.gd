@@ -23,18 +23,18 @@ func push(app: String, text: String, target: String = "", is_error: bool = false
 		if item.app == app and item.target == target: _remove(item)
 	if _items.size() == 3: _remove(_items[0])
 	# One-line ticker cards ride in the taskbar, so they never cover work.
+	var accent := Color("e5384a") if is_error else Color("6fdc8c")
 	var card := PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("120a0b") if is_error else Color("0d0d0f")
-	style.border_color = Color("e5384a") if is_error else Color("6fdc8c")
-	style.set_border_width_all(0)
-	style.border_width_left = 4
-	style.content_margin_left = 8
-	style.content_margin_right = 4
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
+	style.bg_color = Color("141416")
+	style.border_color = Color("2c2c31")
+	style.set_border_width_all(1)
+	style.content_margin_left = 3
+	style.content_margin_right = 3
+	style.content_margin_top = 3
+	style.content_margin_bottom = 4
 	card.add_theme_stylebox_override("panel", style)
-	card.custom_minimum_size.y = 32
+	card.custom_minimum_size.y = 34
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	card.focus_mode = Control.FOCUS_ALL
@@ -43,19 +43,35 @@ func push(app: String, text: String, target: String = "", is_error: bool = false
 	var content := HBoxContainer.new()
 	content.add_theme_constant_override("separation", 8)
 	card.add_child(content)
+	var chip := PanelContainer.new()
+	var chip_style := StyleBoxFlat.new()
+	chip_style.bg_color = accent
+	chip_style.content_margin_left = 7
+	chip_style.content_margin_right = 7
+	chip.add_theme_stylebox_override("panel", chip_style)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(chip)
 	var title := Label.new()
-	title.text = str(NAMES[app]).to_lower() + ">"
-	title.add_theme_font_size_override("font_size", 11)
-	title.add_theme_color_override("font_color", Color("e5384a") if is_error else Color("6fdc8c"))
-	content.add_child(title)
+	title.text = str(NAMES[app])
+	title.add_theme_font_size_override("font_size", 10)
+	title.add_theme_color_override("font_color", Color("0a0a0b"))
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	chip.add_child(title)
 	var body := Label.new()
 	body.text = text.replace("\n", " ")
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.clip_text = true
 	body.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	body.add_theme_font_size_override("font_size", 12)
 	body.add_theme_color_override("font_color", Color("e6e2d6"))
 	content.add_child(body)
+	var waiting := Label.new()
+	waiting.add_theme_font_size_override("font_size", 10)
+	waiting.add_theme_color_override("font_color", Color("8c8981"))
+	waiting.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	content.add_child(waiting)
+	card.set_meta("waiting", waiting)
 	var dismiss := Button.new()
 	dismiss.text = "×"
 	dismiss.flat = true
@@ -63,6 +79,11 @@ func push(app: String, text: String, target: String = "", is_error: bool = false
 	dismiss.tooltip_text = "Dismiss notification"
 	content.add_child(dismiss)
 	var item := {"app": app, "target": target, "card": card, "remaining": 9.0}
+	# A thin fuse along the bottom shows how long the card will stay.
+	card.draw.connect(func() -> void:
+		card.draw_rect(Rect2(1, card.size.y - 2, (card.size.x - 2) * clampf(float(item.remaining) / 9.0, 0.0, 1.0), 1), Color(accent, 0.7)))
+	card.modulate.a = 0.0
+	card.create_tween().tween_property(card, "modulate:a", 1.0, 0.18)
 	_items.append(item)
 	dismiss.pressed.connect(_remove.bind(item))
 	card.gui_input.connect(func(event: InputEvent) -> void:
@@ -77,6 +98,9 @@ func _show_latest() -> void:
 	# Older cards wait their turn behind the newest one; the badge keeps the count.
 	for index in range(_items.size()):
 		_items[index].card.visible = index == _items.size() - 1
+	if not _items.is_empty():
+		var waiting: Label = _items[-1].card.get_meta("waiting")
+		waiting.text = "+%d" % (_items.size() - 1) if _items.size() > 1 else ""
 
 func clear_app(app: String, target: String = "") -> void:
 	for item: Dictionary in _items.duplicate():
@@ -110,4 +134,5 @@ func _process(delta: float) -> void:
 	for item: Dictionary in _items.duplicate():
 		if item.card.get_global_rect().has_point(get_global_mouse_position()): continue
 		item.remaining -= delta
+		item.card.queue_redraw()
 		if item.remaining <= 0: _remove(item)

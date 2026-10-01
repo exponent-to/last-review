@@ -7,6 +7,9 @@ const AUTHORS: Array = ["Maya", "Theo", "Inez"]
 const DAY_COUNTS: Array = [15, 15, 15, 15, 15]
 const ACTIVE_COUNTS: Array = [3, 5, 7, 8, 9]
 const PIGEON_STAMP: String = "# approved by a pigeon"
+## Rules about a whole file (its name, ink, opening lines, or quoted labels) accept
+## the file or any of its lines as evidence. Every other rule needs the exact line.
+const FILE_SCOPED: Array = ["P02", "P03", "P04", "P09"]
 static var _packets: Array = []
 
 static func rules() -> Array:
@@ -27,7 +30,7 @@ static func briefing(day: int) -> String:
 		1:
 			return "WELCOME TO POLICY REVIEW. You do not need to understand programming. Look for forbidden comment wording, a lowercase a near the top of Python files, and the color of the listed keywords. Use the source line numbers and read every changed file. Coworkers will send work through Slouch; open their links when you are ready. The clock keeps running until you pause."
 		2:
-			return "THE STATIONERY COMMITTEE HAS MET. Filenames must use indoor voices and source lines must fit the tiny printer. Yesterday's rules still apply. Multi-file packets are now common: inspect each tab, but cite each broken rule only once."
+			return "THE STATIONERY COMMITTEE HAS MET. Filenames must use indoor voices and source lines must fit the tiny printer. Yesterday's rules still apply. Multi-file packets are now common: inspect each tab, but cite each broken rule only once, at one place it breaks."
 		3:
 			return "HELIOS JOINS THE COMMITTEE. Every file needs the exact pigeon approval stamp on its final nonempty line, and comments must contain no exclamation marks. Consult Helios is now available on the review desk. Its recommendation can be wrong; you still choose what to sign."
 		4:
@@ -150,6 +153,14 @@ static func findings(files: Array, day: int) -> Array:
 				if urgent.search(quoted) != null:
 					_finding(result, "P09", path, 0, "A quoted string contains the whole word urgent.")
 	return result
+
+## True when a citation's pointed-at location is real evidence for that rule.
+## line 0 means the whole file (or its filename).
+static func evidence_accepted(audit: Array, rule_id: String, path: String, line: int) -> bool:
+	for finding: Dictionary in audit:
+		if finding.rule_id != rule_id or finding.path != path: continue
+		if rule_id in FILE_SCOPED or int(finding.line) == line: return true
+	return false
 
 static func evaluate(files: Array, day: int) -> Array:
 	var ids: Array = []
@@ -291,7 +302,7 @@ static func requests() -> Array:
 				"file": files[0].path, "files": files, "diff": "\n\n".join(combined),
 				"description": "Office request: %s. The displayed source is the complete change. Check every attached file against today's active policies; you do not need to understand what the program does." % str(job[1]).to_lower(),
 				"message": _ping(index, str(job[2])),
-				"violations": violations, "explanation": _explanation(files, day),
+				"violations": violations, "findings": findings(files, day), "explanation": _explanation(files, day),
 				"ai_verdict": verdict, "ai_note": _ai_note(index, verdict),
 			})
 	return _packets.duplicate(true)

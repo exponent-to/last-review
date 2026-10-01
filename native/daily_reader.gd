@@ -4,9 +4,9 @@ signal navigate_requested(path: String)
 signal start_shift_requested
 
 const Press = preload("res://content/daily_press.gd")
-const PAPER := Color("e9e1c9")
-const INK := Color("2a2620")
-const MUTED := Color("6f6656")
+const PAPER := Color("a9ada4")
+const INK := Color("121412")
+const MUTED := Color("3c3f39")
 var morning := false
 var _day := 1
 var _page := "news"

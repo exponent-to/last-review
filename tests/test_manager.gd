@@ -28,7 +28,7 @@ func _initialize() -> void:
 	for packet: Dictionary in Catalog.requests_for_day(1):
 		clean = Simulation.dispatch(clean, {"type": "select-request", "pr_id": packet.id})
 		for rule_id: String in packet.violations:
-			clean = Simulation.dispatch(clean, {"type": "toggle-rule", "rule_id": rule_id})
+			clean = Simulation.dispatch(clean, Simulation.Catalog.audit_citation(packet, rule_id))
 		clean = Simulation.dispatch(clean, {"type": "review", "verdict": "approve" if packet.violations.is_empty() else "request_changes"})
 	clean = Simulation.advance(clean, 360)
 	check(not JSON.stringify(Chat.messages(clean, "manager")).contains("Compliance bounced a release"), "Prevented bugs must not be reported as shipped.")

@@ -34,7 +34,7 @@ The assignment runs Monday through Friday. A PR arrives immediately and another 
 
 1. Read the PR's author message, review packet, and proposed source files. The packet and source scroll independently.
 2. Search standards by ID, title, or text; optionally filter by category.
-3. Approve compliant work with no citations. To request changes, cite every violated rule and no unrelated rules.
+3. Approve compliant work with no citations. To request changes, point at the evidence (click the offending line, or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then tick the rule it breaks on the citation slip. Every violated rule must be cited once, at a real location, with no unrelated rules. Stamp CHANGES REQUESTED to send it.
 4. Watch Slouch for coworker reactions. At closing, Morgan messages you about incidents, delayed work, and the company’s direction; there is no correctness report.
 5. At closing, open Morgan’s conversation and choose rest, dinner, or study before the next shift. Pay and living expenses settle in the simulation; the remaining queue is not disclosed.
 
@@ -48,7 +48,7 @@ Open **SLOUCH**, the company's chat app, to read coworker DMs and company messag
 
 ## Saves
 
-There are three local save slots, each with its own previous-save backup. New Game opens a slot picker and immediately saves orientation; replacing an occupied slot requires confirmation. Load Game resumes the chosen slot paused. Progress is saved through System or Save and Main Menu. All slots use the same five-day campaign, rules, and five-minute clock. Only the current save format is supported; an incompatible or damaged save requires a new game or recovery from its valid backup. There are no campaign variants or compatibility modes. Storage remains in the existing application-data location, normally `~/Library/Application Support/Godot/app_userdata/Last Review/` on macOS, so current-format saves stay available.
+There are three local save slots, each with its own previous-save backup. New Game opens a slot picker and immediately saves orientation; replacing an occupied slot requires confirmation. Load Game resumes the chosen slot paused. Progress is saved through System or Save and Main Menu. All slots use the same five-day campaign, rules, and five-minute clock. Only the current save format (version 6, which records citation evidence) is supported; an incompatible or damaged save requires a new game or recovery from its valid backup. There are no campaign variants or compatibility modes. Storage remains in the existing application-data location, normally `~/Library/Application Support/Godot/app_userdata/Last Review/` on macOS, so current-format saves stay available.
 
 The bounded decision history is replayed when validating a save. Changes to scenario answers, economics, or canonical feedback require a save migration/version bump. See [simulation documentation](docs/simulation.md).
 
