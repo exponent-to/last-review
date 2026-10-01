@@ -229,7 +229,7 @@ func _build_os_menu(parent: Node) -> void:
 	_pause_button.add_theme_font_size_override("font_size", 11)
 	_pause_button.custom_minimum_size.y = 28
 	_pause_button.tooltip_text = "Pause the workday (Esc)"
-	_begin_shift_button = _button(row, "BEGIN SHIFT ▸", _finish_morning)
+	_begin_shift_button = _button(row, "BEGIN SHIFT →", _finish_morning)
 	_begin_shift_button.add_theme_font_size_override("font_size", 13)
 	_begin_shift_button.custom_minimum_size.y = 30
 	_begin_shift_button.add_theme_stylebox_override("normal", _style(RED, Color("ff6b78"), 1, 14, 4))
@@ -959,14 +959,14 @@ func _build_rulebook(parent: Node) -> void:
 		_paragraph(details, str(rule.get("text", "")), 13, DIM)
 		details.hide()
 		var disclosure := Button.new()
-		disclosure.text = "DETAILS ▸"
+		disclosure.text = "DETAILS +"
 		disclosure.flat = true
 		disclosure.toggle_mode = true
 		disclosure.add_theme_font_size_override("font_size", 11)
 		disclosure.tooltip_text = "Show full wording and exceptions for " + id
 		disclosure.toggled.connect(func(expanded: bool) -> void:
 			details.visible = expanded
-			disclosure.text = "DETAILS ▾" if expanded else "DETAILS ▸")
+			disclosure.text = "DETAILS −" if expanded else "DETAILS +")
 		header.add_child(disclosure)
 		_rule_rows.append({"rule": rule, "panel": panel, "check": check, "summary": summary, "details": details, "disclosure": disclosure, "where": where})
 
@@ -1046,7 +1046,7 @@ func _paint_evidence() -> void:
 	if _review_files.is_empty():
 		_evidence_label.text = ""
 	elif pointing:
-		_evidence_label.text = "▸ POINTING AT %s — tick the rule it breaks in HANDBOOK" % _location_text(_evidence).to_upper()
+		_evidence_label.text = "> POINTING AT %s — tick the rule it breaks in HANDBOOK" % _location_text(_evidence).to_upper()
 		_evidence_label.add_theme_color_override("font_color", AMBER)
 	else:
 		_evidence_label.text = "To cite: click the offending line, or WHOLE FILE, then tick the rule in HANDBOOK."
@@ -1055,7 +1055,7 @@ func _paint_evidence() -> void:
 		_handbook_evidence.text = "Nothing selected. Point at a line or file in REVIEW before citing."
 		_handbook_evidence.add_theme_color_override("font_color", DIM)
 	else:
-		_handbook_evidence.text = "▸ EVIDENCE: %s\nTick the rule it breaks." % _location_text(_evidence)
+		_handbook_evidence.text = "> EVIDENCE: %s\nTick the rule it breaks." % _location_text(_evidence)
 		_handbook_evidence.add_theme_color_override("font_color", AMBER)
 
 
