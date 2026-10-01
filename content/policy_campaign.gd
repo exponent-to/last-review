@@ -233,9 +233,11 @@ static func _apply_fault(file: Dictionary, rule_id: String, day: int) -> void:
 	var lines: Array = Array(str(file.source).split("\n", true))
 	var variant: int = str(file.path).length()
 	var at: int = mini(1, lines.size())
+	# Inserted lines must read naturally anywhere: they never describe code that
+	# isn't in the file.
 	match rule_id:
 		"P01":
-			lines.insert(at, ["# load-bearing: do not touch, ask Dave", "# this sleep is load-bearing, nobody knows why", "# load-bearing workaround from the 2019 outage"][variant % 3])
+			lines.insert(at, ["# load-bearing: do not touch, ask Dave", "# NOTE: this file is load-bearing for payroll", "# load-bearing module, do not refactor"][variant % 3])
 		"P02":
 			# A generated settings module: no lowercase a anywhere in its first twenty lines.
 			var name: String = str(file.path).get_file().get_basename().to_upper()
