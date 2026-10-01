@@ -1,0 +1,65 @@
+name: Deploy web build
+
+# Every merge to main is tested, exported for the browser, and published to
+# travis.show/prs-please/ by pushing to the website repository, whose own Fly
+# workflow deploys on push to its main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot editor and Web template
+        uses: actions/cache@v4
+        with:
+          path: |
+            .tools/Godot_v4.7.2-stable_linux.x86_64
+            .tools/templates
+          key: godot-4.7.2-linux-web
+
+      - name: Install Godot 4.7.2
+        run: |
+          echo "GODOT_BIN=$(sh scripts/bootstrap-linux.sh)" >> "$GITHUB_ENV"
+          sh scripts/bootstrap-web.sh
+
+      - name: Import project resources
+        run: sh scripts/run.sh --headless --editor --import
+
+      - name: Run test suites
+        run: sh scripts/check.sh
+
+      - name: Export for the browser
+        run: sh scripts/build-web.sh
+
+      - name: Check out website
+        uses: actions/checkout@v4
+        with:
+          repository: TravisGibbs/blog
+          ref: main
+          path: site
+          # Fine-grained token with Contents: read and write on TravisGibbs/blog.
+          token: ${{ secrets.BLOG_DEPLOY_TOKEN }}
+
+      - name: Publish to website
+        run: |
+          sh scripts/publish-web.sh site
+          cd site
+          git add public/prs-please docs/prs-please-release.json
+          if git diff --cached --quiet; then
+            echo "Web build unchanged; nothing to publish."
+            exit 0
+          fi
+          git config user.name "PRs please release bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Publish PRs please ${GITHUB_SHA::7}" -m "From ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          git push origin main
