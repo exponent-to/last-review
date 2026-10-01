@@ -11,6 +11,7 @@ const INK := Color("e6e2d6")
 const MUTED := Color("8c8981")
 const CYAN := Color("6fdc8c")
 const RED := Color("e5384a")
+const REPOSITORY_URL := "https://github.com/exponent-to/last-review"
 
 var _load_available := false
 var _motion := true
@@ -31,6 +32,7 @@ var _replace: ConfirmationDialog
 var _pending_slot := 0
 var _greeting: Label
 var _blink := 0.0
+var _repo_link: Button
 
 
 func _init() -> void:
@@ -96,10 +98,37 @@ func _ready() -> void:
 	_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_error.custom_minimum_size.y = 42
 	_error.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_build_repo_link()
 	set_load_available(_load_available)
 	resized.connect(_layout)
 	_layout()
 	focus_default()
+
+
+func _build_repo_link() -> void:
+	# A quiet credit in the corner of the screen, opened in the system browser.
+	_repo_link = Button.new()
+	_repo_link.text = "PRs please"
+	_repo_link.icon = load("res://art/github-mark.svg") as Texture2D
+	_repo_link.flat = true
+	_repo_link.focus_mode = Control.FOCUS_ALL
+	_repo_link.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_repo_link.tooltip_text = "View the source on GitHub"
+	_repo_link.add_theme_font_size_override("font_size", 13)
+	_repo_link.add_theme_constant_override("icon_max_width", 16)
+	_repo_link.add_theme_constant_override("h_separation", 8)
+	_repo_link.add_theme_color_override("font_color", MUTED)
+	_repo_link.add_theme_color_override("font_hover_color", INK)
+	_repo_link.add_theme_color_override("font_focus_color", INK)
+	_repo_link.add_theme_color_override("icon_normal_color", MUTED)
+	_repo_link.add_theme_color_override("icon_hover_color", INK)
+	_repo_link.add_theme_color_override("icon_focus_color", INK)
+	_repo_link.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	_repo_link.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_repo_link.offset_left = 18
+	_repo_link.offset_bottom = -14
+	_repo_link.pressed.connect(func() -> void: OS.shell_open(REPOSITORY_URL))
+	_screen.add_child(_repo_link)
 
 
 func set_slots(slots: Array[Dictionary]) -> void:
