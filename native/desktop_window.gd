@@ -57,7 +57,8 @@ func _ready() -> void:
 	titlebar.add_child(minimize_button)
 	_chrome_buttons.append(minimize_button)
 	maximize_button = Button.new()
-	maximize_button.text = "□"
+	maximize_button.icon = _chrome_icon(false)
+	maximize_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	maximize_button.custom_minimum_size = Vector2(30, 32)
 	maximize_button.tooltip_text = "Maximize " + window_title
 	maximize_button.pressed.connect(toggle_maximize)
@@ -138,6 +139,28 @@ func set_active(active: bool) -> void:
 			button.add_theme_color_override(color_name, Color.WHITE)
 
 
+static func _chrome_icon(restore: bool) -> ImageTexture:
+	# Drawn pixels: the window font has no box glyph, so maximize/restore are icons.
+	var image := Image.create(12, 12, false, Image.FORMAT_RGBA8)
+	var ink := Color("bdb9ae")
+	var frames: Array[Rect2i] = []
+	if restore: frames.append_array([Rect2i(3, 0, 9, 8), Rect2i(0, 4, 8, 8)])
+	else: frames.append(Rect2i(1, 1, 10, 10))
+	for frame: Rect2i in frames:
+		for x in range(frame.position.x, frame.end.x):
+			image.set_pixel(x, frame.position.y, ink)
+			image.set_pixel(x, frame.position.y + 1, ink)
+			image.set_pixel(x, frame.end.y - 1, ink)
+		for y in range(frame.position.y, frame.end.y):
+			image.set_pixel(frame.position.x, y, ink)
+			image.set_pixel(frame.end.x - 1, y, ink)
+	if restore:
+		# The front window hides the back window's lines behind it.
+		for x in range(1, 7):
+			for y in range(6, 11): image.set_pixel(x, y, Color.TRANSPARENT)
+	return ImageTexture.create_from_image(image)
+
+
 func focus_window() -> void:
 	if not is_inside_tree() or not visible:
 		return
@@ -182,7 +205,7 @@ func toggle_maximize() -> void:
 		_normal_minimum = custom_minimum_size
 		custom_minimum_size = Vector2.ZERO
 		maximized = true
-	maximize_button.text = "↙" if maximized else "□"
+	maximize_button.icon = _chrome_icon(maximized)
 	maximize_button.tooltip_text = ("Restore " if maximized else "Maximize ") + window_title
 	_resize_overlay.visible = not maximized
 	clamp_to_desktop()
