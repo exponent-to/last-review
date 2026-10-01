@@ -697,7 +697,8 @@ func _select_file(index: int) -> void:
 	var path: String = str(entry.get("path", ""))
 	_displayed_file_key = _last_pr + "/" + path
 	_file_label.text = path
-	_file_picker.tooltip_text = "Changed file: " + path + " — review all files before signing off."
+	# Colorblind fallback: the ink name stays available on hover, off the main view.
+	_file_picker.tooltip_text = "Changed file: " + path + " — review all files before signing off.\nKeyword ink: " + str(entry.get("keyword_ink", "blue"))
 	var highlighter := PolicyHighlighter.new()
 	highlighter.configure(str(entry.source), str(entry.get("keyword_ink", "blue")))
 	_diff.syntax_highlighter = highlighter
@@ -705,7 +706,6 @@ func _select_file(index: int) -> void:
 	_evidence = {}
 	_diff.draw_tabs = true
 	_update_code_legend()
-	_code_legend.show()
 	_paint_evidence()
 	_diff.set_caret_line(0)
 	_diff.set_caret_column(0)
@@ -719,10 +719,13 @@ func _update_code_legend() -> void:
 	var index := _file_picker.selected
 	if index < 0 or index >= _review_files.size() or not _review_files[index].has("source"): return
 	var entry: Dictionary = _review_files[index]
-	_code_legend.text = "Keyword ink: %s · def / if / else / return" % str(entry.get("keyword_ink", "blue"))
-	if int(_state.get("day", 1)) >= 4: _code_legend.text += " · Permit: " + str(entry.get("permit", "none"))
+	# Keyword colors speak for themselves; only permits and line lengths need a readout.
+	var notes: Array[String] = []
+	if int(_state.get("day", 1)) >= 4: notes.append("Permit: " + str(entry.get("permit", "none")))
 	if int(_state.get("day", 1)) >= 2:
-		_code_legend.text += "\nLine %d · %d characters (click a line to measure)" % [_diff.get_caret_line() + 1, _diff.get_line(_diff.get_caret_line()).length()]
+		notes.append("Line %d · %d characters (click a line to measure)" % [_diff.get_caret_line() + 1, _diff.get_line(_diff.get_caret_line()).length()])
+	_code_legend.text = "\n".join(notes)
+	_code_legend.visible = not notes.is_empty()
 
 
 func _restore_file_position(key: String) -> void:
