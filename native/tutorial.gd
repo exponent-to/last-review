@@ -51,7 +51,7 @@ static func prompt(progress: Dictionary) -> Dictionary:
 		["OPEN THE PR", "Click OPEN PR-1042 in Maya's message."],
 		["LOOK AT BOTH FILES", "Use the file dropdown. Read the comments in each file. A comment is any text after #. You are checking appearances, not what the program does."],
 		["OPEN HANDBOOK", "Three policies apply today. You'll get more each morning. Open the handbook to find them."],
-		["CITE THE PHRASE", "The comment says load-bearing. Policy P01 bans that phrase. Tick P01, return to Review, and click REQUEST CHANGES. The other two policies pass."],
+		["CITE THE PHRASE", "Policy P01 bans load-bearing in comments. In Review, open the file with that comment and click its line; it turns amber. Switch to the Handbook and tick P01. Back in Review, stamp CHANGES REQUESTED. The other two policies pass."],
 		["READY", "That's the job. Work arrives constantly; you aren't expected to clear it all. Use NEXT PR in Review to grab another arrived change. Pause whenever you need. Start Monday when ready."]
 	]
 	var entry: Array = steps[int(progress.stage)]

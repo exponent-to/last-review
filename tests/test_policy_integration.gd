@@ -69,7 +69,7 @@ func run() -> void:
 				state = Sim.dispatch(state, {"type":"consult-ai"})
 				check(state.consulted, "Helios can advise after unlocking.")
 			for rule: String in Policy.evaluate(packet.files, day):
-				state = Sim.dispatch(state, {"type":"toggle-rule", "rule_id":rule})
+				state = Sim.dispatch(state, Sim.Catalog.audit_citation(packet, rule))
 			state = Sim.dispatch(state, {"type":"review", "verdict":"approve" if packet.violations.is_empty() else "request_changes"})
 			check(state.last_feedback.correct, "Visible evidence leads to a correct decision.")
 			check(Sim.validate_save(state).ok, "Every packet's action history survives save replay.")

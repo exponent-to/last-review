@@ -1,8 +1,8 @@
 # Native computer and office pixel art
 
-The current first-person view uses `native/computer_frame.gd`: hand-authored pixel geometry for a physical monitor, visible rainy-room edges, lower bezel, vents, power lamp, and a small stand. `get_screen_rect(size)` defines the desktop inset (left 120, top 130, right 120, bottom 140 pixels). At 1280×900 the screen is 1040×630. The interface owns everything inside that rectangle; there is no exterior HUD or office banner. `set_motion` and `set_story` retain the decorative renderer contract.
+The current first-person view uses `native/computer_frame.gd`: hand-authored pixel geometry for a physical monitor, visible rainy-room edges, lower bezel, vents, power lamp, and a small stand. `get_screen_rect(size)` defines the desktop inset (left 100, top 108, right 100, bottom 128 pixels). At 1280×900 the screen is 1080×664. A red rooftop sign and blinking beacons sit in the window strip above the monitor; `interface.gd` draws faint CRT scanlines over the screen. The interface owns everything inside that rectangle; there is no exterior HUD or office banner. `set_motion` and `set_story` retain the decorative renderer contract.
 
-The five `art/desktop-*.svg` app icons are original 32×32 vector pixel geometry imported as native textures and displayed with nearest-neighbor filtering. They identify Review, Handbook, Slouch, Intranet, and System. Font files are bundled separately under `art/fonts/` with their OFL license.
+The five `art/desktop-*.svg` app icons are original 32×32 vector pixel geometry in the warm-neutral / phosphor-green / alarm-red desktop palette, imported as native textures and displayed with nearest-neighbor filtering. They identify Review, Handbook, Slouch, Intranet, and System. Font files are bundled separately under `art/fonts/` with their OFL license.
 
 The following office sprites remain reusable art components from the earlier room composition.
 

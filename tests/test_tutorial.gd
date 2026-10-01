@@ -41,7 +41,7 @@ func _initialize() -> void:
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	state = Tutorial.retry_practice_state(state)
 	check(state.decisions.is_empty() and state.chat_replies.is_empty(), "Retry removes the mistake without fabricating a conversation.")
-	state = Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "P01"})
+	state = Simulation.dispatch(state, Simulation.Catalog.audit_citation(Simulation.Catalog.request_at(0), "P01"))
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "request_changes"})
 	progress = Tutorial.observe(progress, {"type": "correct-submit"}, state)
 	check(progress.stage == 7 and Tutorial.validate(progress, state).ok, "Finished practice can be saved before Monday.")

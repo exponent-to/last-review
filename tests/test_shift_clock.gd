@@ -57,7 +57,7 @@ func _test_arrivals_and_selection() -> void:
 	state = _select(state, first.id)
 	_check(Simulation.active_request(state).id == first.id, "The player must explicitly choose the arrived request.")
 	_check(not Simulation.active_request(state).has("violations") and not Simulation.active_request(state).has("explanation") and not Simulation.active_request(state).has("ai_note"), "Public request helpers must hide audit answers and unrequested advice.")
-	state = Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "P01"})
+	state = Simulation.dispatch(state, Simulation.Catalog.audit_citation(Simulation.active_request(state), "P01"))
 	_check(_select(state, first.id) == state, "A repeated chat link must preserve selected citations.")
 	state = Simulation.dispatch(state, {"type": "consult-ai"})
 	_check(not Simulation.active_request(state).has("ai_note"), "Advice remains locked until Wednesday.")

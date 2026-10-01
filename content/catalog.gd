@@ -52,3 +52,11 @@ static func arrival_seconds(request_id: String) -> int:
 
 static func shift_seconds() -> int:
 	return 300
+
+## Audit/test helper: a citation command pointing at the packet's real evidence.
+static func audit_citation(packet: Dictionary, rule_id: String) -> Dictionary:
+	for finding: Dictionary in packet.get("findings", []):
+		if finding.rule_id == rule_id:
+			return {"type": "toggle-rule", "rule_id": rule_id, "path": finding.path, "line": int(finding.line)}
+	var files: Array = packet.get("files", [])
+	return {"type": "toggle-rule", "rule_id": rule_id, "path": str(files[0].path) if not files.is_empty() else "", "line": 0}

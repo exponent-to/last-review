@@ -48,6 +48,10 @@ func _run() -> void:
 	_check(not app.interface._briefing_dialog.visible, "New Game key release must not open an unrelated control.")
 	for frame in range(4): await process_frame
 	_check(app.interface._tutorial_panel.size.y < 250, "Orientation instructions must fit a compact panel after text wraps.")
+	_check(app.interface._notifications._items.is_empty(), "Orientation must not show ambient notifications.")
+	_check(not app.interface._app_badges.browser.visible, "Orientation hides Monday's memo badge.")
+	for contact: String in app.interface._chat_contacts:
+		_check(app.interface._chat_contacts[contact].visible == (contact == "Maya"), "Orientation Slouch lists only Maya.")
 	app._tick_shift(999.0)
 	_check(int(app.state.shift_seconds) == 0, "Orientation must remain untimed.")
 	app.interface._tutorial_next.pressed.emit()
@@ -62,12 +66,14 @@ func _run() -> void:
 	app.interface._open_app("rules")
 	app._on_command({"type": "review", "verdict": "approve"})
 	_check(int(app.tutorial.stage) == 6 and app.state.decisions.is_empty(), "A mistaken practice review can be retried without consequences.")
-	app._on_command({"type": "toggle-rule", "rule_id": "P01"})
+	app._on_command(Main.Simulation.Catalog.audit_citation(Main.Simulation.Catalog.request_at(0), "P01"))
 	app._on_command({"type": "review", "verdict": "request_changes"})
 	_check(int(app.tutorial.stage) == 7, "A complete practice review reaches the handoff.")
 	app.interface._tutorial_next.pressed.emit()
 	_check(app.tutorial.is_empty() and app.state == Main.Simulation.initial_state(), "Monday must start with fresh time, pay, relationships, and decisions.")
 	_check(app.interface.morning_active and app.interface._browser_path == "news", "Monday opens the morning news before work.")
+	for contact: String in app.interface._chat_contacts:
+		_check(app.interface._chat_contacts[contact].visible, "Monday restores every Slouch conversation.")
 	app._tick_shift(60.0)
 	_check(int(app.state.shift_seconds) == 0, "Morning reading does not spend the shift.")
 	app.interface._browse("memo")

@@ -34,7 +34,7 @@ The assignment runs Monday through Friday. A PR arrives immediately and another 
 
 1. Read the PR's author message, review packet, and proposed source files. The packet and source scroll independently.
 2. Search standards by ID, title, or text; optionally filter by category.
-3. Approve compliant work with no citations. To request changes, cite every violated rule and no unrelated rules.
+3. Approve compliant work with no citations. To request changes, point at the evidence (click the offending line, or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then switch to the Handbook and tick the rule it breaks. Every violated rule must be cited once, at a real location, with no unrelated rules. Stamp CHANGES REQUESTED to send it.
 4. Watch Slouch for coworker reactions. At closing, Morgan messages you about incidents, delayed work, and the company’s direction; there is no correctness report.
 5. At closing, open Morgan’s conversation and choose rest, dinner, or study before the next shift. Pay and living expenses settle in the simulation; the remaining queue is not disclosed.
 
@@ -44,11 +44,11 @@ Each workday lasts five real minutes, shown as 09:00–18:00 by the desktop cloc
 
 Open an app from its desktop icon. Drag titlebars to arrange windows, drag any edge or corner to resize, or use the minimize, maximize, and close controls. Resizing stops at the screen boundaries and each app's usable minimum size. The taskbar tracks open apps; HOME reveals the desktop. With a titlebar focused, arrow keys move its window (Shift moves farther). Intranet opens Hackerish News, full stories, company procedures, daily memos, standards, and team chat. It is an authored local interface, not a real web browser.
 
-Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. PRs arrive gradually as coworker messages with clickable review links. Slouch is read-only: colleagues send requests and react to your approvals or change requests. There is no reply composer. Existing saved conversations remain visible. Their tone carries relationship signals; there are no visible relationship scores, stress percentages, or authority meters. Incoming items show numbered app badges and clickable notification bubbles at the bottom right. Messages, PRs, standards, memos, and save status each belong to their app; notifications never open windows automatically. Morgan’s evening messages communicate consequences without scores, rule answers, or payroll tables. Slouch is entirely fictional and local, with no connection to a real messaging service.
+Open **SLOUCH**, the company's chat app, to read coworker DMs and company messages. PRs arrive gradually as coworker messages with clickable review links. Slouch is read-only: colleagues send requests and react to your approvals or change requests. There is no reply composer. Existing saved conversations remain visible. Non-request coworker dialogue uses labeled placeholders while the writing is revised; there are no visible relationship scores, stress percentages, or authority meters. Incoming items show numbered app badges and clickable notification bubbles at the bottom right. Messages, PRs, standards, memos, and save status each belong to their app; notifications never open windows automatically. Morgan’s evening messages communicate consequences without scores, rule answers, or payroll tables. Slouch is entirely fictional and local, with no connection to a real messaging service.
 
 ## Saves
 
-There are three local save slots, each with its own previous-save backup. New Game opens a slot picker and immediately saves orientation; replacing an occupied slot requires confirmation. Load Game resumes the chosen slot paused. Progress is saved through System or Save and Main Menu. All slots use the same five-day campaign, rules, and five-minute clock. Only the current save format is supported; an incompatible or damaged save requires a new game or recovery from its valid backup. There are no campaign variants or compatibility modes. Storage remains in the existing application-data location, normally `~/Library/Application Support/Godot/app_userdata/Last Review/` on macOS, so current-format saves stay available.
+There are three local save slots, each with its own previous-save backup. New Game opens a slot picker and immediately saves orientation; replacing an occupied slot requires confirmation. Load Game resumes the chosen slot paused. Progress is saved through System or Save and Main Menu. All slots use the same five-day campaign, rules, and five-minute clock. Only the current save format (version 6, which records citation evidence) is supported; an incompatible or damaged save requires a new game or recovery from its valid backup. There are no campaign variants or compatibility modes. Storage remains in the existing application-data location, normally `~/Library/Application Support/Godot/app_userdata/Last Review/` on macOS, so current-format saves stay available.
 
 The bounded decision history is replayed when validating a save. Changes to scenario answers, economics, or canonical feedback require a save migration/version bump. See [simulation documentation](docs/simulation.md).
 
@@ -61,8 +61,8 @@ sh scripts/build-macos.sh
 
 The simulation suite covers the authored career, precise citations, AI mistakes, relationship and audit consequences, one-time pay, evening choices, immutability, and malformed saves. The native-interface test drives actual rule/decision controls through the campaign and manager follow-up. Menu and tutorial checks cover untimed practice, retries, lesson progress, save compatibility, and the fresh-career handoff. All run headlessly without test plugins.
 
-- `content/` — editable JSON rules, PR packets, and daily briefings.
-- `content/chat.gd`, `content/messages.json` — authored coworker messages derived from the career's decisions.
+- `content/` — rules, daily briefings, and `pr_bank.gd`, the bank of realistic pull requests.
+- `content/chat.gd`, `content/policy_chat.gd` — authored coworker messages derived from the career's decisions.
 - `native/simulation.gd` — deterministic timed shifts, decisions, and life-sim consequences.
 - `native/interface.gd` — review desk, rule search, people, evenings, and system controls.
 - `native/desktop_window.gd` — draggable, focusable, minimizable native desktop windows.

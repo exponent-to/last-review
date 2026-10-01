@@ -2,10 +2,12 @@ extends Control
 ## Mount as a full-rect child of the clipped monitor screen, alongside its windows.
 ## Tracks viewport transforms and ancestor clips without taking focus or mouse input.
 
-const INK := Color("91e0ec")
-const ARROW_LENGTH := 19.0
+const INK := Color("e0b44a")
+const SHADOW := Color(0, 0, 0, 0.75)
+const ARROW_LENGTH := 26.0
 var _target_ref: WeakRef
 var _visible_rect := Rect2()
+var _time := 0.0
 
 
 func _init() -> void:
@@ -21,8 +23,11 @@ func set_target(target: Control) -> void:
 	_refresh_target()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_refresh_target()
+	if _visible_rect.has_area():
+		_time = fposmod(_time + delta, TAU)
+		queue_redraw()
 
 
 func _refresh_target() -> void:
@@ -56,21 +61,35 @@ func _visible_target_rect() -> Rect2:
 func _draw() -> void:
 	if not _visible_rect.has_area():
 		return
-	# Fine outline only: no dimming sheet, pulsing animation, or caption covering text.
-	var outline := _visible_rect.grow(2).intersection(Rect2(Vector2.ZERO, size).grow(-1))
+	# Amber corner brackets mark the target without boxing over its own border.
+	var outline := _visible_rect.grow(4).intersection(Rect2(Vector2.ZERO, size).grow(-1))
 	if not outline.has_area():
 		return
-	var soft := INK
-	soft.a = 0.8
-	draw_rect(outline, soft, false, 1.0)
+	var arm := minf(12.0, minf(outline.size.x, outline.size.y) * 0.4)
+	var o := outline
+	for bar: Rect2 in [
+		Rect2(o.position.x, o.position.y, arm, 3), Rect2(o.position.x, o.position.y, 3, arm),
+		Rect2(o.end.x - arm, o.position.y, arm, 3), Rect2(o.end.x - 3, o.position.y, 3, arm),
+		Rect2(o.end.x - arm, o.end.y - 3, arm, 3), Rect2(o.end.x - 3, o.end.y - arm, 3, arm),
+		Rect2(o.position.x, o.end.y - 3, arm, 3), Rect2(o.position.x, o.end.y - arm, 3, arm)]:
+		draw_rect(bar, INK)
+	# A chunky pixel arrow that nudges toward the target.
 	var arrow := _arrow_points(outline)
 	var start: Vector2 = arrow[0]
 	var tip: Vector2 = arrow[1]
 	var direction := (tip - start).normalized()
-	var perpendicular := Vector2(-direction.y, direction.x)
-	draw_line(start, tip, INK, 2.0, true)
-	draw_line(tip, tip - direction * 6 + perpendicular * 4, INK, 2.0, true)
-	draw_line(tip, tip - direction * 6 - perpendicular * 4, INK, 2.0, true)
+	var bob := (sin(_time * 3.0) * 0.5 + 0.5) * 5.0
+	tip -= direction * bob
+	start -= direction * bob
+	var side := Vector2(-direction.y, direction.x)
+	var head := tip - direction * 10.0
+	var shape := PackedVector2Array([
+		tip, head + side * 8.0, head + side * 3.0, start + side * 3.0,
+		start - side * 3.0, head - side * 3.0, head - side * 8.0])
+	var shadow := PackedVector2Array()
+	for point: Vector2 in shape: shadow.append(point + Vector2(2, 2))
+	draw_colored_polygon(shadow, SHADOW)
+	draw_colored_polygon(shape, INK)
 
 
 func _arrow_points(rect: Rect2) -> Array[Vector2]:

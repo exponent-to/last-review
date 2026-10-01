@@ -74,7 +74,11 @@ func _run() -> void:
 	check(ui._notifications._items[0].remaining == remaining, "Paused workstations must preserve notification reading time.")
 	for frame in range(8): await process_frame
 	check(ui._notifications._stack.position.x > ui._monitor_screen.size.x * 0.5, "Notifications sit on the right of the monitor.")
-	check(ui._notifications._stack.position.y + ui._notifications._stack.size.y <= ui._monitor_screen.size.y - 40, "Notification bubbles stay above the taskbar.")
+	var stack: Control = ui._notifications._stack
+	check(stack.position.y + stack.size.y <= ui._monitor_screen.size.y and stack.position.y >= ui._monitor_screen.size.y - 48, "Notifications ride in the taskbar instead of covering work.")
+	var shown := 0
+	for item: Dictionary in ui._notifications._items: shown += 1 if item.card.visible else 0
+	check(shown == 1 and ui._notifications._items[-1].card.visible, "The ticker shows only the newest notification.")
 	ui.free()
 	print("Desktop notifications: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

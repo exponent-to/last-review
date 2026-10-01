@@ -39,7 +39,7 @@ func _ready() -> void:
 	titlebar.add_theme_constant_override("separation", 0)
 	frame.add_child(titlebar)
 	title_button = Button.new()
-	title_button.text = "  " + window_title
+	title_button.text = "  " + window_title.to_lower().replace(" / ", " :: ")
 	title_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_button.custom_minimum_size.y = 32
@@ -98,35 +98,44 @@ func _ready() -> void:
 func set_active(active: bool) -> void:
 	_active = active
 	var panel: StyleBoxFlat = StyleBoxFlat.new()
-	panel.bg_color = Color("172433")
-	panel.border_color = Color("b8c9dc") if active else Color("8e9fae")
-	panel.set_border_width_all(3)
-	panel.shadow_color = Color(0, 0, 0, 0.48)
-	panel.shadow_size = 5
-	panel.shadow_offset = Vector2(4, 5)
+	panel.bg_color = Color("101012")
+	panel.border_color = Color("e5384a") if active else Color("2c2c31")
+	panel.set_border_width_all(1)
+	panel.shadow_color = Color(0, 0, 0, 0.7 if active else 0.45)
+	panel.shadow_size = 10 if active else 4
+	panel.shadow_offset = Vector2(0, 6)
 	add_theme_stylebox_override("panel", panel)
 	if is_instance_valid(title_button):
+		# A black terminal strip; the active window carries a red cursor block.
 		var title_style: StyleBoxFlat = StyleBoxFlat.new()
-		title_style.bg_color = Color("214e9a") if active else Color("a8b9cc")
+		title_style.bg_color = Color("050506") if active else Color("0d0d0f")
+		title_style.border_color = Color("e5384a") if active else Color("1c1c20")
+		title_style.border_width_left = 6
+		title_style.border_width_bottom = 1
 		title_style.content_margin_top = 5
 		title_style.content_margin_bottom = 5
+		title_style.content_margin_left = 6
 		for state_name: String in ["normal", "hover", "pressed", "focus"]:
 			title_button.add_theme_stylebox_override(state_name, title_style)
-		title_button.add_theme_color_override("font_color", Color("ffffff") if active else Color("21354c"))
-
+		title_button.text = "  " + window_title.to_lower().replace(" / ", " :: ")
+		var title_ink := Color("e6e2d6") if active else Color("5f5d58")
+		title_button.add_theme_color_override("font_color", title_ink)
 		for color_name: String in ["font_hover_color", "font_pressed_color", "font_focus_color"]:
-			title_button.add_theme_color_override(color_name, Color("ffffff") if active else Color("21354c"))
+			title_button.add_theme_color_override(color_name, title_ink)
 	for button: Button in _chrome_buttons:
 		button.add_theme_font_override("font", TerminalFont)
-		button.add_theme_font_size_override("font_size", 16)
+		button.add_theme_font_size_override("font_size", 14)
 		for state_name: String in ["normal", "hover", "pressed"]:
 			var chrome: StyleBoxFlat = StyleBoxFlat.new()
-			chrome.bg_color = Color("d9e3ec") if state_name == "hover" else Color("b7c8d8")
-			chrome.set_border_width_all(1)
-			chrome.border_color = Color("53687b") if state_name == "pressed" else Color("edf3f8")
+			chrome.bg_color = Color("050506") if state_name == "normal" else Color("e5384a") if button == close_button else Color("1d1f1d")
+			if not active and state_name == "normal": chrome.bg_color = Color("0d0d0f")
+			chrome.border_width_bottom = 1
+			chrome.border_color = Color("e5384a") if active else Color("1c1c20")
 			button.add_theme_stylebox_override(state_name, chrome)
-		for color_name: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-			button.add_theme_color_override(color_name, Color("13243a"))
+		var glyph := Color("bdb9ae") if active else Color("4f4d49")
+		button.add_theme_color_override("font_color", glyph)
+		for color_name: String in ["font_hover_color", "font_pressed_color", "font_focus_color"]:
+			button.add_theme_color_override(color_name, Color.WHITE)
 
 
 func focus_window() -> void:

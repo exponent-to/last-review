@@ -4,9 +4,9 @@ signal navigate_requested(path: String)
 signal start_shift_requested
 
 const Press = preload("res://content/daily_press.gd")
-const PAPER := Color("d7dfe5")
-const INK := Color("243240")
-const MUTED := Color("526575")
+const PAPER := Color("a9ada4")
+const INK := Color("121412")
+const MUTED := Color("3c3f39")
 var morning := false
 var _day := 1
 var _page := "news"
@@ -51,6 +51,14 @@ func _ready() -> void:
 	_action = Button.new()
 	_action.custom_minimum_size.y = 38
 	_action.add_theme_font_size_override("font_size", 12)
+	for state_name: String in ["normal", "hover", "pressed"]:
+		var primary := StyleBoxFlat.new()
+		primary.bg_color = Color("e5384a") if state_name == "normal" else Color("ff4d5e") if state_name == "hover" else Color("a81e2c")
+		primary.content_margin_left = 16
+		primary.content_margin_right = 16
+		_action.add_theme_stylebox_override(state_name, primary)
+	_action.add_theme_color_override("font_color", Color.WHITE)
+	_action.add_theme_color_override("font_hover_color", Color.WHITE)
 	_action.pressed.connect(func() -> void:
 		if _memo_seen: start_shift_requested.emit()
 		else: navigate_requested.emit("memo"))

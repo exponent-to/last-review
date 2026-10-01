@@ -37,10 +37,21 @@ static func memo(day: int) -> Dictionary:
 	for rule: Dictionary in Catalog.rules_for_day(day):
 		if int(rule.introduced_day) == day:
 			new_rules.append(rule)
-	var subjects := ["New visual standards. No coding expertise required.", "Filenames and lines now have a dress code.", "The pigeon is mandatory. Helios would like to help.", "Exceptions require actual paperwork.", "Friday: the full policy desk."]
-	var bodies := ["Look for words, letters, and keyword colors. A confident summary doesn't excuse a forbidden phrase. Your assignment runs Monday through Friday. Work arrives every twenty seconds once you begin.", "Today adds lowercase filenames and a sixty-character line limit. More PRs now change several files. The whole PR must comply, so use the file selector before signing.", "Every file must end with the pigeon sign-off. Comments cannot shout with exclamation marks. Helios recommendations are now available in Review, but they can be wrong. Look at the file yourself.", "Tabs are prohibited. Starting today, the exact stamp INK-EXCEPTION permits pink keywords in that file only. Compare the stamp letter for letter with the handbook. A typo, an unstamped file, or another policy violation is not covered.", "The word urgent is now banned inside quoted strings. All earlier policies and the ink-exception procedure still apply. This is the final day of your assignment; Morgan will tell you what happens next after closing."]
+	var subjects := ["Your desk is assigned. Your signature is still required.", "The Records Office has requirements.", "PIGEON carries every file now. Helios would like to help.", "Exceptions exist. They are not free.", "Final review cycle. Please remain calm."]
+	var bodies := [
+		"Northstar is transitioning code review to Helios. Until the transition completes, every change still needs a human signature, and for this assignment that signature is yours. You will not be asked to understand the code. You will be asked to enforce the standards on it, exactly as written. A confident summary from a colleague does not excuse a forbidden phrase. Your assignment runs Monday through Friday.",
+		"The audit printers have filed a complaint. From today, filenames must be quiet and every line must fit the printout, or the change does not exist on paper. Changes increasingly arrive in several files. An unread file is an unsigned file.",
+		"Every file is now carried to Legal by PIGEON, our compliance courier, and must end with its sign-off. Comments are scanned for sentiment; exclamation marks are flagged. Helios is now available in Review. It is fast and it is confident. It is not always right, and every consultation is logged against your desk.",
+		"Tabs are banned: they hide whitespace from the line scanners, and anything hidden is presumed hostile. The Exception Desk now issues INK-EXCEPTION, which permits pink keywords in that one file and waives nothing else. Read every stamp letter by letter. A misspelled permit is a forged permit.",
+		"Only management may declare urgency, so the word urgent is now forbidden inside quoted text. Every earlier standard and permit still applies. This is the last day of your assignment. Morgan will discuss your future with the company at closing.",
+	]
 	result.subject = subjects[day - 1]
 	result.body = bodies[day - 1]
-	result.mechanics = ["Use NEXT PR or the arrived-PR dropdown in Review to pick up work. New messages also contain direct links.", "The editor shows the full proposed file with line numbers. Keyword ink is named above it, so color alone never decides a review.", "Approve if every active policy passes. Otherwise cite each violated policy in Handbook, then request changes.", "You have five minutes once you click BEGIN SHIFT. Pause any time. Nobody expects you to clear the entire queue."]
+	result.mechanics = [
+		"Work is assigned through Slouch and queued in Review. Take the next item with NEXT PR. Do not wait to be asked twice.",
+		"Every changed file is shown in full, with line numbers. Keyword ink is printed above each file for the record. Your eyes are not the record.",
+		"If every standard is met, stamp APPROVED. If not, mark the offending line in Review (or WHOLE FILE), cite the standard it breaks in the Handbook, then stamp CHANGES REQUESTED. An uncited objection is not an objection.",
+		"Your shift is five minutes from BEGIN SHIFT. You may pause; the queue will not. Whatever remains at closing is reassigned to Helios.",
+	]
 	result.rules = new_rules
 	return result

@@ -22,6 +22,8 @@ New Game selects a save slot, plays the interactive offer cold open, then enters
 
 `content/policy_campaign.gd` defines five days, fifteen packets per day, and nine visual policies introduced in groups of 3/2/2/1/1. Source text, keyword ink, and per-file permits determine expected citations through the same lexical evidence used by the editor. The first delivery is immediate, then every twenty seconds. Source is never executed. Thursday introduces exact per-file INK-EXCEPTION permits.
 
+`content/pr_bank.gd` holds the authored bank of realistic, clean pull requests (path, humorous title, coworker phrase, source). The campaign pairs them with generated companion files (tests, config, legacy shims) and applies one of several believable faults per rule. Packets never foreshadow later standards: the PIGEON sign-off appears only from Wednesday, and tabs, exclamation marks, quoted "urgent", and permits arrive with their own rules. A test enforces this.
+
 The first loop separates technical trust from relationships. Approval can make a coworker happy even when an audit finds a defect. Stress, salary, daily expenses, and evening choices add personal stakes. The five-day ending is a manager DM based on trust, stress, and automation authority.
 
 ## Persistence

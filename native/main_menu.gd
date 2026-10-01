@@ -7,9 +7,10 @@ signal quit_requested
 
 const ComputerFrame = preload("res://native/computer_frame.gd")
 const TERMINAL_FONT = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
-const INK := Color("d6e0e8")
-const MUTED := Color("8ca2b5")
-const CYAN := Color("9ed8e3")
+const INK := Color("e6e2d6")
+const MUTED := Color("8c8981")
+const CYAN := Color("6fdc8c")
+const RED := Color("e5384a")
 
 var _load_available := false
 var _motion := true
@@ -28,6 +29,8 @@ var _slots: Array[Dictionary] = []
 var _slot_mode := ""
 var _replace: ConfirmationDialog
 var _pending_slot := 0
+var _greeting: Label
+var _blink := 0.0
 
 
 func _init() -> void:
@@ -42,7 +45,7 @@ func _ready() -> void:
 	add_child(_backdrop)
 	_backdrop.set_motion(_motion)
 	_screen = Panel.new()
-	_screen.add_theme_stylebox_override("panel", _style(Color("102235"), Color("263e53")))
+	_screen.add_theme_stylebox_override("panel", _style(Color("0a0a0b"), Color("1c1c20")))
 	add_child(_screen)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -51,11 +54,23 @@ func _ready() -> void:
 	_content.custom_minimum_size.x = 510
 	_content.add_theme_constant_override("separation", 13)
 	center.add_child(_content)
-	_label("PRs please", 48, INK)
-	var divider := HSeparator.new()
-	divider.add_theme_constant_override("separation", 24)
+	_greeting = _label("> hello, friend._", 15, CYAN)
+	var title := _label("PRs please", 56, INK)
+	# A red channel split, like a signal that doesn't quite belong to you.
+	title.add_theme_color_override("font_shadow_color", Color(RED, 0.85))
+	title.add_theme_constant_override("shadow_offset_x", 3)
+	title.add_theme_constant_override("shadow_offset_y", 0)
+	title.add_theme_constant_override("shadow_outline_size", 0)
+	var divider := ColorRect.new()
+	divider.color = RED
+	divider.custom_minimum_size = Vector2(64, 3)
+	divider.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_content.add_child(divider)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 10
+	_content.add_child(gap)
 	_new_game = _button("New Game", "Begin a new run.")
+	set_process(true)
 	_new_game.pressed.connect(_show_slots.bind("new"))
 	_load_game = _button("Load Game", "Continue your saved run.")
 	_load_game.pressed.connect(_show_slots.bind("load"))
@@ -77,7 +92,7 @@ func _ready() -> void:
 	_replace.ok_button_text = "Start new game"
 	_replace.confirmed.connect(func() -> void: new_game_requested.emit(_pending_slot))
 	add_child(_replace)
-	_error = _label(_error_text, 14, Color("f2acac"))
+	_error = _label(_error_text, 14, RED)
 	_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_error.custom_minimum_size.y = 42
 	_error.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -157,6 +172,12 @@ func show_error(text: String) -> void:
 		_error.text = text
 
 
+func _process(delta: float) -> void:
+	if not _motion or not is_instance_valid(_greeting): return
+	_blink = fposmod(_blink + delta, 1.0)
+	_greeting.text = "> hello, friend." + ("_" if _blink < 0.55 else " ")
+
+
 func set_motion(enabled: bool) -> void:
 	_motion = enabled
 	if is_instance_valid(_backdrop):
@@ -200,19 +221,21 @@ func _build_theme() -> void:
 	var terminal := Theme.new()
 	terminal.default_font = TERMINAL_FONT
 	terminal.default_font_size = 17
-	terminal.set_stylebox("normal", "Button", _style(Color("172e43"), Color("3e596c")))
-	terminal.set_stylebox("hover", "Button", _style(Color("24435b"), CYAN))
-	terminal.set_stylebox("pressed", "Button", _style(Color("0b1b2a"), CYAN))
-	terminal.set_stylebox("disabled", "Button", _style(Color("122638"), Color("263e50")))
-	var focus := _style(Color.TRANSPARENT, CYAN)
-	focus.set_border_width_all(2)
+	terminal.set_stylebox("normal", "Button", _style(Color("101012"), Color("2c2c31")))
+	var hover := _style(Color("1a0c0f"), RED)
+	hover.border_width_left = 6
+	terminal.set_stylebox("hover", "Button", hover)
+	terminal.set_stylebox("pressed", "Button", _style(Color("2a0d12"), RED))
+	terminal.set_stylebox("disabled", "Button", _style(Color("0a0a0b"), Color("1c1c20")))
+	var focus := _style(Color.TRANSPARENT, RED)
+	focus.border_width_left = 6
 	terminal.set_stylebox("focus", "Button", focus)
 	terminal.set_color("font_color", "Button", INK)
 	terminal.set_color("font_hover_color", "Button", Color.WHITE)
-	terminal.set_color("font_pressed_color", "Button", CYAN)
+	terminal.set_color("font_pressed_color", "Button", RED)
 	terminal.set_color("font_focus_color", "Button", Color.WHITE)
-	terminal.set_color("font_disabled_color", "Button", Color("63798c"))
-	terminal.set_stylebox("panel", "TooltipPanel", _style(Color("0e1c29"), MUTED))
+	terminal.set_color("font_disabled_color", "Button", Color("3f3d3a"))
+	terminal.set_stylebox("panel", "TooltipPanel", _style(Color("0a0a0b"), MUTED))
 	terminal.set_color("font_color", "TooltipLabel", INK)
 	theme = terminal
 

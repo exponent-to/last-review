@@ -78,6 +78,13 @@ func _test_campaign() -> void:
 		_check(multiple_files == 1 if day == 1 else multiple_files > 1, "Multiple-file review should expand after the tutorial day.")
 		if day >= 2:
 			_check(multiple_rules > 0, "Later shifts must include combined violations.")
+	for packet: Dictionary in packets:
+		var later: Array = Policy.evaluate(packet.files, 5)
+		for file: Dictionary in packet.files:
+			_check(packet.day >= 3 or Policy.PIGEON_STAMP not in file.source, "The PIGEON sign-off must not appear before its standard exists.")
+		for rule_id: String in later:
+			var introduced: int = int(Policy.rules().filter(func(rule: Dictionary) -> bool: return rule.id == rule_id)[0].introduced_day)
+			_check(introduced <= packet.day or rule_id == "P06", "Packets must not foreshadow future standards with %s." % rule_id)
 	var first: Dictionary = packets[0]
 	_check(first.id == "PR-1042" and first.files.size() == 2 and first.violations == ["P01"], "Tutorial packet must retain its ID, two-file inspection, and only P01.")
 	_check("load-bearing" in first.files[1].source, "The tutorial must show the literal forbidden comment phrase.")
