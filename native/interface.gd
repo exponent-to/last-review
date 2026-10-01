@@ -155,6 +155,7 @@ var _last_feedback_key := "-"
 var _evidence: Dictionary = {}
 var _evidence_label: Label
 var _handbook_evidence: Label
+var _chat_channel_label: Label
 var _whole_file: Button
 
 
@@ -1111,7 +1112,7 @@ func _build_chat(page: VBoxContainer) -> void:
 	var sidebar: VBoxContainer = _column(columns, 6)
 	sidebar.size_flags_horizontal = Control.SIZE_FILL
 	sidebar.custom_minimum_size.x = 155
-	_label(sidebar, "CHANNELS", 11, DIM)
+	_chat_channel_label = _label(sidebar, "CHANNELS", 11, DIM)
 	for contact: String in ["company", "Maya", "Theo", "Inez", "manager"]:
 		if contact == "Maya":
 			_label(sidebar, "DIRECT MESSAGES", 11, DIM)
@@ -1177,22 +1178,26 @@ func _render_chat() -> void:
 			_chat_unread[contact] = int(_chat_unread.get(contact, 0)) + incoming.size()
 			if not first_render and not incoming.is_empty():
 				var sender := "#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact
-				_notifications.push("chat", sender + ": " + str(incoming[-1].text), contact)
+				_ambient_push("chat", sender + ": " + str(incoming[-1].text), contact)
 	if _windows["chat"].visible: _draw_chat()
 	_update_chat_badges()
 	if first_render and int(_app_counts.chat) > 0:
-		_notifications.push("chat", "Your team has left you messages.", _chat_contact)
+		_ambient_push("chat", "Your team has left you messages.", _chat_contact)
 
 
 func _update_chat_badges() -> void:
 	var total := 0
 	for contact: String in _chat_contacts:
 		var unread := int(_chat_unread.get(contact, 0))
-		total += unread
 		var button: Button = _chat_contacts[contact]
+		# Orientation shows only the coworker who sent the practice PR.
+		button.visible = not _tutorial_active or contact == "Maya"
+		if not button.visible: continue
+		total += unread
 		button.text = ("#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact) + ("  %d" % unread if unread > 0 else "")
 		button.set_pressed_no_signal(contact == _chat_contact)
 	_app_counts.chat = total
+	if is_instance_valid(_chat_channel_label): _chat_channel_label.visible = not _tutorial_active
 	_update_app_badges()
 
 
@@ -1413,6 +1418,11 @@ func _render_phase(state: Dictionary) -> void:
 	_complete_button.visible = _chat_contact == "manager" and state.get("phase") == "complete"
 
 
+func _ambient_push(app: String, text: String, target: String = "") -> void:
+	# Orientation stays quiet: only direct guidance and errors reach the ticker.
+	if not _tutorial_active: _notifications.push(app, text, target)
+
+
 func notify(message: String, is_error: bool = false, app: String = "system") -> void:
 	if app == "system":
 		_system_status.text = message
@@ -1441,6 +1451,8 @@ func _mark_app_read(app: String) -> void:
 func _update_app_badges() -> void:
 	for app: String in _app_counts:
 		var count := int(_app_counts[app])
+		# The morning memo belongs to Monday, not to orientation.
+		if _tutorial_active and app == "browser": count = 0
 		if _app_badges.has(app):
 			var badge: PanelContainer = _app_badges[app]
 			badge.visible = count > 0
@@ -1459,10 +1471,10 @@ func _sync_app_events() -> void:
 			if int(rule.introduced_day) == day: added += 1
 		if added > 0 and not _app_is_reading("rules"):
 			_app_counts.rules += added
-			_notifications.push("rules", "New review standards are available. Read the handbook before signing off.")
+			_ambient_push("rules", "New review standards are available. Read the handbook before signing off.")
 		if not _app_is_reading("browser"):
 			_app_counts.browser += 1
-			_notifications.push("browser", "A new daily memo is on the intranet.", "memo")
+			_ambient_push("browser", "A new daily memo is on the intranet.", "memo")
 	var pending: Dictionary = {}
 	for request: Dictionary in Simulation.available_requests(_state):
 		var id := str(request.id)
@@ -1470,7 +1482,7 @@ func _sync_app_events() -> void:
 		if not _known_requests.has(id):
 			_known_requests[id] = true
 			_unread_requests[id] = true
-			_notifications.push("review", "%s from %s: %s" % [id, request.author, request.title], id)
+			_ambient_push("review", "%s from %s: %s" % [id, request.author, request.title], id)
 	for id: String in _unread_requests.keys():
 		if not pending.has(id) or str(_state.get("active_request_id", "")) == id:
 			_unread_requests.erase(id)
@@ -1535,7 +1547,11 @@ func _build_tutorial_panel() -> void:
 
 func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
 	var step_changed: bool = _tutorial_details.get("stage", -1) != progress.get("stage", -1)
+	var starting: bool = not _tutorial_active and not progress.is_empty()
 	_tutorial_active = not progress.is_empty()
+	if starting:
+		for app: String in _app_counts: _notifications.clear_app(app)
+	_update_chat_badges()
 	_tutorial_details = progress.duplicate(true)
 	_tutorial_panel.visible = _tutorial_active
 	if not _tutorial_active: return
