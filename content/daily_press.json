@@ -6,7 +6,7 @@
       "body": "Welcome to the review desk. Work arrives through Slouch while the shift clock runs. Coworkers know why a change was written; the handbook defines what can ship. Read both before signing. Helios is an assistant, not an exemption from a standard.\n\nToday's handbook starts small: bind SQL input, keep credentials out of logs, set outbound timeouts, and handle empty collections. Use the attached standards as your reference; you do not need to memorize them.",
       "mechanics": [
         "A shift runs from 09:00 to 18:00 over six real minutes. Pause when you need to step away; unfinished work transfers to Helios at the closing bell.",
-        "Incoming Slouch messages contain PR links. Open a link when you want to review it; messages do not open code automatically. Ask the coworker a technical question for context.",
+        "Incoming Slouch messages contain PR links. Open a link when you want to review it; messages do not open code automatically. Coworkers will react to your decisions.",
         "A change can span several files. Follow values through the caller and its helpers instead of relying on the summary or generated comments.",
         "Approve a compliant change with no citations. To request changes, select every violated active rule in the handbook. Extra or missing citations make the review inaccurate.",
         "Your technical judgment and your coworker's feelings are separate. Read the response after signing, and keep the conversation in context."

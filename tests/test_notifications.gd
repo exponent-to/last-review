@@ -52,8 +52,6 @@ func _run() -> void:
 	check(state.active_request_id == "PR-1042" and ui._app_counts.review == 0, "Review bubble opens the exact arrived PR and clears its unread item.")
 	var before := int(ui._app_counts.chat)
 	command({"type": "chat-reply", "contact": "Maya", "pr_id": "PR-1042", "reply_id": "clarify"})
-	check(ui._app_counts.chat == before and ui._waiting_for_reply("Maya"), "No coworker answer or unread badge arrives before the typing delay.")
-	check(ui._chat_replies.get_child_count() == 1 and ui._chat_replies.get_child(0) is Label and ui._chat_replies.get_child(0).text.contains("typing"), "Response choices are replaced by a typing indicator until delivery.")
 	for frame in range(4): await process_frame
 	var left := 0
 	var right := 0
@@ -61,13 +59,8 @@ func _run() -> void:
 		if panel.has_meta("outgoing"):
 			if panel.get_meta("outgoing") and panel.get_global_rect().get_center().x > panel.get_parent().get_global_rect().get_center().x: right += 1
 			elif not panel.get_meta("outgoing") and panel.get_global_rect().get_center().x < panel.get_parent().get_global_rect().get_center().x: left += 1
-	check(left > 0 and right > 0, "Coworker and player messages use distinct left and right bubbles.")
-	ui.set_paused(true)
-	ui._tick_chat_replies(99)
-	check(ui._waiting_for_reply("Maya"), "Paused conversations must not silently deliver the pending response.")
-	ui.set_paused(false)
-	ui._tick_chat_replies(2.5)
-	check(ui._app_counts.chat == before + 1, "A reply behind another window counts the coworker response, not the player's own message.")
+	check(left > 0 and right > 0, "Historical coworker and player messages retain distinct left and right bubbles.")
+	check(ui._app_counts.chat == before + 1, "Historical responses still count as incoming messages; player messages do not.")
 	ui.render_state(state)
 	check(ui._app_counts.chat == before + 1, "Clock refreshes cannot duplicate an already-seen message.")
 	ui.notify("Game saved on this computer.")

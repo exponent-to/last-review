@@ -19,12 +19,13 @@ func _initialize() -> void:
 	check(Tutorial.observe(progress, {"type": "correct-submit"}, state) == progress, "Out-of-order events cannot skip training.")
 	for event in ["welcome-start", "open-chat"]:
 		progress = Tutorial.observe(progress, {"type": event}, state)
-	check(Tutorial.observe(progress, {"type": "chat-question"}, state) == progress, "Question must really have been sent.")
-	state = Simulation.dispatch(state, {"type": "chat-reply", "contact": "Maya", "pr_id": "PR-1042", "reply_id": "clarify"})
-	var early := Tutorial.observe(Tutorial.initial_progress(), {"type": "welcome-start"}, state)
-	early = Tutorial.observe(early, {"type": "open-chat"}, state)
-	check(early.stage == 3 and Tutorial.validate(early, state).ok, "Asking early does not strand the lesson on an already-used reply.")
-	progress = Tutorial.observe(progress, {"type": "chat-question"}, state)
+	check(progress.stage == 3 and Tutorial.validate(progress, state).ok, "Opening Slouch goes directly to the PR link without a reply.")
+	var legacy_progress := {"version": 1, "stage": 2, "inspected_files": []}
+	var migrated := Tutorial.validate(legacy_progress, state)
+	check(migrated.ok and migrated.progress.version == 2 and migrated.progress.stage == 3, "Old saves at the question step migrate to the PR link.")
+	var legacy_state := Simulation.dispatch(state, {"type": "chat-reply", "contact": "Maya", "pr_id": "PR-1042", "reply_id": "clarify"})
+	legacy_progress.stage = 3
+	check(Tutorial.validate(legacy_progress, legacy_state).ok and Simulation.validate_save(legacy_state).ok, "Existing answered questions remain valid save history.")
 	state = Simulation.dispatch(state, {"type": "select-request", "pr_id": "PR-1042"})
 	progress = Tutorial.observe(progress, {"type": "open-review"}, state)
 	for file: Dictionary in Tutorial.Catalog.request_at(0).files:
@@ -43,7 +44,7 @@ func _initialize() -> void:
 	check(SaveStore.decode_session(JSON.parse_string(Simulation.serialize_save(Simulation.initial_state()))).tutorial.is_empty(), "Existing raw v4 career saves remain loadable.")
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	state = Tutorial.retry_practice_state(state)
-	check(state.decisions.is_empty() and state.chat_replies.size() == 1, "Retry preserves the question but removes the practice mistake.")
+	check(state.decisions.is_empty() and state.chat_replies.is_empty(), "Retry removes the mistake without fabricating a conversation.")
 	state = Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "R01"})
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "request_changes"})
 	progress = Tutorial.observe(progress, {"type": "correct-submit"}, state)

@@ -46,7 +46,7 @@ Native macOS export is configured with the official universal template and local
 
 ## Session entry and practice
 
-`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. A lesson recognizes questions asked early so one-shot replies cannot strand progress.
+`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. Orientation goes directly from Slouch to the PR link. Version 1 tutorial saves migrate past the removed question step into version 2; historical replies remain valid simulation history.
 
 `save_store.gd` accepts raw v4 and v5 careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.
 

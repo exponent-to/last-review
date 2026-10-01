@@ -53,14 +53,8 @@ func _run() -> void:
 	for frame in range(3):
 		await process_frame
 	check(ui._diff.text == first_diff and ui._diff.get_caret_line() == 4, "Returning to a file must preserve its reading position")
-	var replies: Array = Chat.reply_options(state, "Maya")
-	check(not replies.is_empty(), "An arrived PR offers coworker replies")
-	if not replies.is_empty():
-		for button: Node in ui._chat_replies.get_children():
-			if button is Button:
-				button.pressed.emit()
-				break
-		check(not state.chat_replies.is_empty(), "Slouch reply controls must persist the chosen response")
+	for button: Node in ui._chat_messages.find_children("*", "Button", true, false):
+		check(button.text.begins_with("OPEN "), "Coworker conversations only offer PR links, not replies.")
 	ui._select_chat_contact("Theo")
 	check(ui.theme.default_font is FontFile, "Interface must use the bundled terminal font")
 	check(ui.theme.default_font.resource_path.ends_with("IBMPlexMono-Regular.ttf"), "Terminal typography must not depend on installed system fonts")

@@ -76,9 +76,6 @@ var _hud: Dictionary = {}
 var _chat_contacts: Dictionary = {}
 var _chat_unread: Dictionary = {}
 var _chat_seen: Dictionary = {}
-var _known_replies: Dictionary = {}
-var _pending_replies: Dictionary = {}
-var _reply_history_initialized := false
 var _chat_contact: String = "Maya"
 var _chat_last_draw: String = ""
 var _chat_heading: Label
@@ -143,15 +140,12 @@ var _begin_shift_button: Button
 var _pause_overlay: ColorRect
 var _resume_button: Button
 var _paused: bool = false
-var _chat_replies: VBoxContainer
-var _chat_reply_pr: String = ""
 var _tutorial_panel: PanelContainer
 var _tutorial_title: Label
 var _tutorial_body: Label
 var _tutorial_next: Button
 var _tutorial_active := false
 var _tutorial_pointer: Control
-var _tutorial_question: Button
 var _tutorial_pr_link: Button
 var _home_button: Button
 var _arrival_picker: OptionButton
@@ -917,8 +911,6 @@ func _build_chat(page: VBoxContainer) -> void:
 	_chat_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	conversation.add_child(_chat_scroll)
 	_chat_messages = _column(_chat_scroll, 10)
-	_chat_replies = _column(conversation, 4)
-	_chat_replies.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_evening_buttons = _row(conversation, 5)
 	for item: Array in [["rest", "GO HOME"], ["socialize", "GET DINNER"], ["study", "STUDY"]]:
 		var button := _button(_evening_buttons, str(item[1]), _emit_command.bind({"type": "next-day", "choice": str(item[0])}))
@@ -941,49 +933,14 @@ func _open_chat_conversation() -> void:
 	_select_chat_contact(_chat_contact)
 
 
-func _track_chat_replies() -> void:
-	for reply: Dictionary in _state.get("chat_replies", []):
-		var key := str(reply.contact) + "|" + str(reply.pr_id) + "|" + str(reply.reply_id)
-		if not _known_replies.has(key):
-			_known_replies[key] = true
-			if _reply_history_initialized:
-				_pending_replies[key] = {"contact": str(reply.contact), "remaining": 2.4}
-	_reply_history_initialized = true
-
-
-func _visible_chat_messages(contact: String) -> Array:
-	var result: Array = []
-	for message: Dictionary in Chat.messages(_state, contact):
-		if not _pending_replies.has(str(message.get("reply_key", ""))): result.append(message)
-	return result
-
-
-func _waiting_for_reply(contact: String) -> bool:
-	for pending: Dictionary in _pending_replies.values():
-		if pending.contact == contact: return true
-	return false
-
-
-func _process(delta: float) -> void:
-	_tick_chat_replies(delta)
+func _process(_delta: float) -> void:
 	_sync_tutorial_pointer()
-
-
-func _tick_chat_replies(delta: float) -> void:
-	if _paused or not is_visible_in_tree(): return
-	var delivered := false
-	for key: String in _pending_replies.keys():
-		_pending_replies[key].remaining -= maxf(0, delta)
-		if _pending_replies[key].remaining <= 0:
-			_pending_replies.erase(key)
-			delivered = true
-	if delivered: _render_chat()
 
 
 func _render_chat() -> void:
 	var first_render := _chat_seen.is_empty()
 	for contact: String in _chat_contacts:
-		var messages: Array = _visible_chat_messages(contact)
+		var messages: Array = Chat.messages(_state, contact)
 		var seen: Dictionary = _chat_seen.get(contact, {})
 		var incoming: Array = []
 		for message: Dictionary in messages:
@@ -1020,19 +977,10 @@ func _update_chat_badges() -> void:
 
 
 func _draw_chat(contact_changed: bool = false) -> void:
-	var messages: Array = _visible_chat_messages(_chat_contact)
-	var waiting := _waiting_for_reply(_chat_contact)
-	var options: Array = [] if waiting else Chat.reply_options(_state, _chat_contact)
-	var reply_targets: Array[String] = []
-	for option: Dictionary in options:
-		if str(option.pr_id) not in reply_targets:
-			reply_targets.append(str(option.pr_id))
-	if _chat_reply_pr not in reply_targets:
-		_chat_reply_pr = "" if reply_targets.is_empty() else reply_targets[0]
-	var key: String = _chat_contact + JSON.stringify(messages) + JSON.stringify(options) + _chat_reply_pr + str(waiting) + str(_state.get("phase", ""))
+	var messages: Array = Chat.messages(_state, _chat_contact)
+	var key: String = _chat_contact + JSON.stringify(messages) + str(_state.get("phase", ""))
 	if key == _chat_last_draw and not contact_changed:
 		return
-	_tutorial_question = null
 	_tutorial_pr_link = null
 	_chat_last_draw = key
 	_chat_heading.text = "#engineering" if _chat_contact == "company" else ("Morgan / Engineering Manager" if _chat_contact == "manager" else _chat_contact + " / direct message")
@@ -1074,32 +1022,6 @@ func _draw_chat(contact_changed: bool = false) -> void:
 			link.add_theme_color_override("font_color", CYAN)
 	if messages.is_empty():
 		_paragraph(_chat_messages, "No messages in this conversation yet.", 14, DIM)
-	for child: Node in _chat_replies.get_children():
-		_chat_replies.remove_child(child)
-		child.queue_free()
-	if waiting:
-		_paragraph(_chat_replies, _chat_contact + " is typing…", 13, CYAN)
-	elif not options.is_empty():
-		var reply_header := _row(_chat_replies, 8)
-		_label(reply_header, "ASK ABOUT", 10, DIM)
-		var target := OptionButton.new()
-		target.add_theme_font_size_override("font_size", 11)
-		for pr_id: String in reply_targets:
-			target.add_item(pr_id)
-		target.select(reply_targets.find(_chat_reply_pr))
-		target.item_selected.connect(func(index: int) -> void:
-			_chat_reply_pr = reply_targets[index]
-			_draw_chat())
-		reply_header.add_child(target)
-	for option: Dictionary in options:
-		if str(option.pr_id) != _chat_reply_pr:
-			continue
-		var reply := _button(_chat_replies, str(option.text), _emit_command.bind({"type": "chat-reply", "contact": _chat_contact, "reply_id": str(option.id), "pr_id": str(option.pr_id)}))
-		if option.id == "clarify" and option.pr_id == str(Catalog.request_at(0).id): _tutorial_question = reply
-		reply.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		reply.add_theme_font_size_override("font_size", 12)
-		reply.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		reply.tooltip_text = str(option.text)
 	_set_chat_scroll.call_deferred(follow_latest, previous_position, key)
 
 
@@ -1183,7 +1105,6 @@ func _filter_rules() -> void:
 
 func render_state(state: Dictionary) -> void:
 	_state = state.duplicate(true)
-	_track_chat_replies()
 	render_clock(state)
 	_sync_arrival_picker()
 	var day: int = int(state.get("day", 1))
@@ -1433,11 +1354,7 @@ func _sync_tutorial_pointer() -> void:
 		match int(_tutorial_details.get("stage", 0)):
 			0, 7: target = _tutorial_next
 			1: target = _tutorial_launcher("chat")
-			2:
-				if not _windows.chat.visible or not _windows.chat._active: target = _tutorial_launcher("chat")
-				elif _chat_contact != "Maya": target = _chat_contacts.Maya
-				elif is_instance_valid(_tutorial_question): target = _tutorial_question
-			3:
+			2, 3:
 				if not _windows.chat.visible or not _windows.chat._active: target = _tutorial_launcher("chat")
 				elif _chat_contact != "Maya": target = _chat_contacts.Maya
 				elif is_instance_valid(_tutorial_pr_link): target = _tutorial_pr_link

@@ -18,7 +18,9 @@ static func authored() -> Dictionary:
  var index := 0
  for packet: Dictionary in Catalog.requests():
   packets[packet.id] = {"request": str(packet.message), "question": "What should I look at first?", "hint": "Open " + str(packet.files[-1].path) + ". Check the comments and keyword ink against the handbook; the generated summary isn't proof.", "concern": "I skimmed it. With this queue, that's the honest answer.", "approve": approvals[index % approvals.size()], "request_changes": rejections[index % rejections.size()], "incident": incidents[index % incidents.size()]}
-  if packet.id == "PR-1042": packets[packet.id].hint = "Look for load-bearing in the comments. Management has banned that phrase. Yes, really."
+  if packet.id == "PR-1042":
+   packets[packet.id].request += " Keep an eye on the comment wording in the receipt file."
+   packets[packet.id].hint = "Look for load-bearing in the comments. Management has banned that phrase. Yes, really."
   index += 1
  _cache = {"contacts": people, "requests": packets, "company": [
   {"day": 1, "author": "Morgan", "text": "Today's rules are about letters and colors. You do not need to run the code. Helios will supply more work than you can finish; choose carefully."},

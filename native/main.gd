@@ -160,6 +160,8 @@ func _render() -> void:
 	interface.render_tutorial(tutorial, {} if tutorial.is_empty() else Tutorial.prompt(tutorial))
 
 func _on_command(command: Dictionary) -> void:
+	# Historical replies remain replayable in saves, but Slouch no longer sends messages.
+	if command.get("type") == "chat-reply": return
 	if paused:
 		return
 	if interface.morning_active:
@@ -171,8 +173,6 @@ func _on_command(command: Dictionary) -> void:
 	var previous_day: int = int(state.day)
 	state = Simulation.dispatch(state, command)
 	if not tutorial.is_empty():
-		if command.get("type") == "chat-reply":
-			_tutorial_event({"type": "chat-question"})
 		if command.get("type") == "review" and not state.decisions.is_empty():
 			if bool(state.decisions[-1].correct):
 				_tutorial_event({"type": "correct-submit"})
