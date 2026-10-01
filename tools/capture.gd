@@ -64,7 +64,11 @@ func _run() -> void:
 		ui._diff.set_caret_line(maxi(0, int(cite.line) - 1))
 		ui._point_at(-1 if int(cite.line) > 0 else 0)
 		await _shot("09a-review-pointing")
+		ui._open_app("rules")
+		await _shot("09b-handbook-evidence")
 		ui._toggle_citation(str(cite.rule_id))
+		await _shot("09c-handbook-cited")
+		ui._open_app("review")
 	await _shot("09-review-cited")
 	app._on_command({"type": "review", "verdict": "request_changes"})
 	for i in range(8): await process_frame

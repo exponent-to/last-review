@@ -78,6 +78,8 @@ func _run() -> void:
 	ui._diff.set_caret_line(int(finding.line) - 1)
 	ui._point_at(-1)
 	check(ui._evidence.line == finding.line and ui._evidence_label.text.contains("POINTING AT"), "Clicking a code line points at it as evidence")
+	check(ui._windows.review.find_children("*", "CheckBox", true, false).is_empty(), "Rules are cited in HANDBOOK, never from the Review window")
+	check(ui._handbook_evidence.text.contains("LINE %d" % finding.line), "HANDBOOK shows the evidence waiting to be cited")
 	p01_check.button_pressed = true
 	check(state.selected_rules == ["P01"] and state.citation_evidence.P01 == {"path": finding.path, "line": finding.line}, "Native rule checkbox must cite the pointed-at line")
 	check(ui._evidence.is_empty(), "Each citation consumes its pointer")
