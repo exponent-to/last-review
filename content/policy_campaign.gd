@@ -187,10 +187,61 @@ static func _explanation(files: Array, day: int) -> String:
 		pieces.append("%s (%s): %s" % [finding.rule_id, location, finding.message])
 	return " ".join(pieces)
 
-static func _file(path: String, lines: Array, ink: String = "blue") -> Dictionary:
-	var source: String = "\n".join(lines)
-	var diff: String = "@@ office policy update\n+" + source.replace("\n", "\n+")
-	return {"path": path, "source": source, "diff": diff, "keyword_ink": ink}
+## A changed file. `base` is the version already on main ("" for a new file);
+## `source` is the proposed version every standard is checked against.
+static func _file(path: String, lines: Array, ink: String = "blue", before: Variant = null) -> Dictionary:
+	var file := {"path": path, "source": "\n".join(lines), "keyword_ink": ink,
+		"base": "" if before == null else "\n".join(before), "status": "added" if before == null else "modified"}
+	_refresh_diff(file)
+	return file
+
+## Line diff by longest common subsequence. Rows carry the 1-based line number
+## in the proposed file (0 for removed lines), which is what citations point at.
+static func line_diff(base: String, source: String) -> Array:
+	var old: PackedStringArray = PackedStringArray() if base.is_empty() else base.split("\n", true)
+	var new: PackedStringArray = source.split("\n", true)
+	var lengths: Array = []
+	for i in range(old.size() + 1):
+		var row: Array = []
+		row.resize(new.size() + 1)
+		row.fill(0)
+		lengths.append(row)
+	for i in range(old.size() - 1, -1, -1):
+		for j in range(new.size() - 1, -1, -1):
+			lengths[i][j] = lengths[i + 1][j + 1] + 1 if old[i] == new[j] else maxi(lengths[i + 1][j], lengths[i][j + 1])
+	var rows: Array = []
+	var i := 0
+	var j := 0
+	while i < old.size() or j < new.size():
+		if i < old.size() and j < new.size() and old[i] == new[j]:
+			rows.append({"kind": " ", "text": new[j], "line": j + 1})
+			i += 1
+			j += 1
+		elif i < old.size() and (j >= new.size() or lengths[i + 1][j] >= lengths[i][j + 1]):
+			# Like git, a replaced line's removal is listed before its addition.
+			rows.append({"kind": "-", "text": old[i], "line": 0})
+			i += 1
+		else:
+			rows.append({"kind": "+", "text": new[j], "line": j + 1})
+			j += 1
+	return rows
+
+## Phabricator-style counts for one file or a whole packet.
+static func diffstat(files: Array) -> Dictionary:
+	var added := 0
+	var removed := 0
+	for file: Dictionary in files:
+		for row: Dictionary in line_diff(str(file.get("base", "")), str(file.source)):
+			if row.kind == "+": added += 1
+			elif row.kind == "-": removed += 1
+	return {"added": added, "removed": removed, "files": files.size()}
+
+static func _refresh_diff(file: Dictionary) -> void:
+	var header: String = "--- %s\n+++ b/%s" % ["/dev/null" if file.status == "added" else "a/" + str(file.get("old_path", file.path)), file.path]
+	var body: Array[String] = []
+	for row: Dictionary in line_diff(str(file.base), str(file.source)):
+		body.append(str(row.kind) + str(row.text))
+	file.diff = header + "\n" + "\n".join(body)
 
 static func _module(path: String) -> Dictionary:
 	var package: String = path.get_base_dir().replace("/", ".")
@@ -253,6 +304,9 @@ static func _apply_fault(file: Dictionary, rule_id: String, day: int) -> void:
 		"P04":
 			var base: String = str(file.path).get_file().get_basename()
 			var loud: String = base.capitalize().replace(" ", "")
+			if file.status != "added":
+				file.old_path = file.path
+				file.status = "renamed"
 			file.path = str(file.path).get_base_dir() + "/" + loud + ".py"
 		"P05":
 			lines.insert(at, ["# NOTE: Helios says this is fine, and also that it wrote this one", "MOTD = 'please remember that every keystroke is company property'", "# reviewed in the meeting that could have been an email thread"][variant % 3])
@@ -265,7 +319,7 @@ static func _apply_fault(file: Dictionary, rule_id: String, day: int) -> void:
 		"P09":
 			lines.insert(at, ["PRIORITY = 'urgent'", "SUBJECT = 'URGENT: per Morgan'", "LABEL = 'Urgent review requested'"][variant % 3])
 	file.source = "\n".join(lines)
-	file.diff = "@@ office policy update\n+" + str(file.source).replace("\n", "\n+")
+	_refresh_diff(file)
 
 static func requests() -> Array:
 	if not _packets.is_empty():
@@ -275,7 +329,8 @@ static func requests() -> Array:
 		for index in range(DAY_COUNTS[day - 1]):
 			var entry: Dictionary = bank[((day - 1) * DAY_COUNTS[day - 1] + index) % bank.size()]
 			var path: String = str(entry.path)
-			var files: Array = [_file(path, _clean(entry.lines, day))]
+			var before: Variant = _clean(entry.before, day) if entry.has("before") else null
+			var files: Array = [_file(path, _clean(entry.lines, day), "blue", before)]
 			var is_clean: bool = index % 3 == 1
 			if (day == 1 and index == 0) or (day >= 2 and index % 2 == 0):
 				files.append(_file(_companion_path("test", path), _clean(_companion("test", entry), day)))
@@ -315,8 +370,10 @@ static func requests() -> Array:
 			if index % 5 == 0:
 				verdict = "request_changes" if correct_verdict == "approve" else "approve"
 			var combined: Array[String] = []
+			var summary: Array[String] = []
 			for file: Dictionary in files:
-				combined.append("--- a/%s\n+++ b/%s\n%s" % [file.path, file.path, file.diff])
+				combined.append(str(file.diff))
+				summary.append("%s %s" % [{"added": "adds", "modified": "modifies", "renamed": "renames"}[file.status], file.path])
 			var request_id: String = "PR-%d" % (1000 + day * 1000 + index + 1)
 			if day == 1 and index == 0:
 				request_id = "PR-1042"
@@ -324,7 +381,7 @@ static func requests() -> Array:
 				"id": request_id, "title": str(entry.title), "author": AUTHORS[(index + day - 1) % AUTHORS.size()], "day": day,
 				"arrival_seconds": index * 20,
 				"file": files[0].path, "files": files, "diff": "\n\n".join(combined),
-				"description": "%s.\n\nChanges %s. Reviewer: the displayed source is the complete change. Check every attached file against today's active standards; you do not need to understand what the code does." % [str(entry.title), ", ".join(files.map(func(file: Dictionary) -> String: return str(file.path)))],
+				"description": "%s.\n\nThis change %s. Reviewer: check every changed file against today's active standards; you do not need to understand what the code does." % [str(entry.title), ", ".join(summary)],
 				"message": _ping(index, str(entry.phrase)),
 				"violations": violations, "findings": findings(files, day), "explanation": _explanation(files, day),
 				"ai_verdict": verdict, "ai_note": _ai_note(index, verdict),

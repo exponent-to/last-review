@@ -4,7 +4,7 @@ extends RefCounted
 const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
 const Policy = preload("res://content/policy_campaign.gd")
-const SAVE_VERSION: int = 6
+const SAVE_VERSION: int = 7
 const SHIFT_SECONDS: int = 300
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080

@@ -72,7 +72,7 @@ func _run() -> void:
 	var finding: Dictionary = Catalog.audit_citation(Catalog.request_at(0), "P01")
 	for index in range(ui._review_files.size()):
 		if ui._review_files[index].path == finding.path: ui._select_file(index)
-	ui._diff.set_caret_line(int(finding.line) - 1)
+	ui._diff.set_caret_line(ui._row_for_line(int(finding.line)))
 	ui._point_at(-1)
 	check(ui._evidence.line == finding.line and ui._flag_box.visible and ui._evidence_label.text.contains("FLAGGING"), "Clicking a code line opens the flag box on that line")
 	check(ui._windows.review.find_children("*", "CheckBox", true, false).is_empty(), "Review has no rulebook checklist")
@@ -81,12 +81,12 @@ func _run() -> void:
 	check(not ui._flag_box.visible and ui._evidence.is_empty(), "Citing closes the flag box")
 	check(ui._citation_list.get_child_count() == 1, "Review lists each citation with its location")
 	var other_line: int = 2 if int(finding.line) == 1 else 1
-	ui._diff.set_caret_line(other_line - 1)
+	ui._diff.set_caret_line(ui._row_for_line(other_line))
 	ui._point_at(-1)
 	check(ui._flag_box.visible and not ui._flag_buttons.P01.button_pressed, "A rule cited elsewhere is not marked on this line")
 	ui._flag_buttons.P01.pressed.emit()
 	check(state.selected_rules == ["P01"] and int(state.citation_evidence.P01.line) == other_line, "Re-flagging a rule moves its citation")
-	ui._diff.set_caret_line(int(finding.line) - 1)
+	ui._diff.set_caret_line(ui._row_for_line(int(finding.line)))
 	ui._point_at(-1)
 	ui._flag_buttons.P01.pressed.emit()
 	check(int(state.citation_evidence.P01.line) == int(finding.line), "The citation can be moved back to the real evidence")

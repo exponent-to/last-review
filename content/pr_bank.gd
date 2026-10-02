@@ -1,10 +1,20 @@
 extends RefCounted
-## Authored pull requests. Each source is clean under every standard;
+## Authored pull requests. "before" is the file already on main (absent for a new
+## file); "lines" is the proposed version. Both are clean under every standard;
 ## faults are applied by policy_campaign.gd. Lines stay within sixty columns.
 
 static func entries() -> Array:
 	return [
-		{"path": "people/offboarding.py", "title": "Rename fire_employee() to release_to_opportunity()", "phrase": "the offboarding rename", "lines": [
+		{"path": "people/offboarding.py", "title": "Rename fire_employee() to release_to_opportunity()", "phrase": "the offboarding rename",
+		"before": [
+			"\"\"\"Offboarding helpers.\"\"\"",
+			"",
+			"def fire_employee(employee):",
+			"    employee.status = 'fired'",
+			"    employee.badge_active = False",
+			"    return employee",
+		],
+		"lines": [
 			"\"\"\"Offboarding helpers. Tone reviewed by Legal.\"\"\"",
 			"",
 			"def release_to_opportunity(employee):",
@@ -12,14 +22,30 @@ static func entries() -> Array:
 			"    employee.badge_active = False",
 			"    return employee",
 		]},
-		{"path": "lobby/display.py", "title": "Stop the lobby TV from showing everyone's salary", "phrase": "the lobby TV fix", "lines": [
+		{"path": "lobby/display.py", "title": "Stop the lobby TV from showing everyone's salary", "phrase": "the lobby TV fix",
+		"before": [
+			"# lobby screen rotation",
+			"PANELS = ['weather', 'motto', 'salaries', 'stock_price']",
+			"",
+			"def next_panel(tick):",
+			"    return PANELS[tick % len(PANELS)]",
+		],
+		"lines": [
 			"# lobby screen rotation",
 			"PANELS = ['weather', 'motto', 'stock_price']",
 			"",
 			"def next_panel(tick):",
 			"    return PANELS[tick % len(PANELS)]",
 		]},
-		{"path": "helios/feedback.py", "title": "Let Helios thank itself in performance reviews", "phrase": "Helios's feedback change", "lines": [
+		{"path": "helios/feedback.py", "title": "Let Helios thank itself in performance reviews", "phrase": "Helios's feedback change",
+		"before": [
+			"\"\"\"Peer feedback.\"\"\"",
+			"",
+			"def add_praise(review, author):",
+			"    review.praise.append('thanks')",
+			"    return review",
+		],
+		"lines": [
 			"\"\"\"Peer feedback, now with fewer peers.\"\"\"",
 			"",
 			"def add_praise(review, author):",
@@ -27,7 +53,16 @@ static func entries() -> Array:
 			"        review.praise.append('consistently brilliant')",
 			"    return review",
 		]},
-		{"path": "calendar/standup.py", "title": "Move the 9:00 standup to 8:59 for agility", "phrase": "the standup reschedule", "lines": [
+		{"path": "calendar/standup.py", "title": "Move the 9:00 standup to 8:59 for agility", "phrase": "the standup reschedule",
+		"before": [
+			"# daily standup",
+			"STANDUP_HOUR = 9",
+			"STANDUP_MINUTE = 0",
+			"",
+			"def standup_time():",
+			"    return (STANDUP_HOUR, STANDUP_MINUTE)",
+		],
+		"lines": [
 			"# agile means earlier",
 			"STANDUP_HOUR = 8",
 			"STANDUP_MINUTE = 59",
@@ -35,7 +70,8 @@ static func entries() -> Array:
 			"def standup_time():",
 			"    return (STANDUP_HOUR, STANDUP_MINUTE)",
 		]},
-		{"path": "wellness/breaks.py", "title": "Track bathroom breaks as 'wellness telemetry'", "phrase": "the wellness telemetry", "lines": [
+		{"path": "wellness/breaks.py", "title": "Track bathroom breaks as 'wellness telemetry'", "phrase": "the wellness telemetry",
+		"lines": [
 			"\"\"\"Wellness telemetry. Strictly anonymous-ish.\"\"\"",
 			"",
 			"def log_break(badge, minutes):",
@@ -43,14 +79,22 @@ static func entries() -> Array:
 			"        badge.flags.append('extended wellness')",
 			"    return badge",
 		]},
-		{"path": "payroll/rounding.py", "title": "Round salaries down to the nearest synergy", "phrase": "the payroll rounding", "lines": [
+		{"path": "payroll/rounding.py", "title": "Round salaries down to the nearest synergy", "phrase": "the payroll rounding",
+		"before": [
+			"# rounding policy approved by finance",
+			"",
+			"def round_salary(amount):",
+			"    return round(amount, 2)",
+		],
+		"lines": [
 			"# rounding policy approved by finance",
 			"SYNERGY = 25",
 			"",
 			"def round_salary(amount):",
 			"    return amount - (amount % SYNERGY)",
 		]},
-		{"path": "chat/sentiment.py", "title": "Flag Slouch messages that sound too happy on Fridays", "phrase": "the Friday sentiment flag", "lines": [
+		{"path": "chat/sentiment.py", "title": "Flag Slouch messages that sound too happy on Fridays", "phrase": "the Friday sentiment flag",
+		"lines": [
 			"# sentiment is a leading indicator",
 			"HAPPY_WORDS = ['weekend', 'finally', 'free']",
 			"",
@@ -59,7 +103,17 @@ static func entries() -> Array:
 			"        return False",
 			"    return any(w in text for w in HAPPY_WORDS)",
 		]},
-		{"path": "badges/doors.py", "title": "Make badge readers say 'welcome back' with less sarcasm", "phrase": "the badge reader tone", "lines": [
+		{"path": "badges/doors.py", "title": "Make badge readers say 'welcome back' with less sarcasm", "phrase": "the badge reader tone",
+		"before": [
+			"# door greetings, revision three",
+			"GREETING = 'welcome back'",
+			"",
+			"def greet(badge):",
+			"    if badge.late:",
+			"        return 'oh. it is you.'",
+			"    return GREETING",
+		],
+		"lines": [
 			"# door greetings, revision four",
 			"GREETING = 'welcome back'",
 			"",
@@ -68,7 +122,14 @@ static func entries() -> Array:
 			"        return GREETING + ', eventually'",
 			"    return GREETING",
 		]},
-		{"path": "helios/autocomplete.py", "title": "Autocomplete 'I disagree' to 'I agree'", "phrase": "the autocomplete tweak", "lines": [
+		{"path": "helios/autocomplete.py", "title": "Autocomplete 'I disagree' to 'I agree'", "phrase": "the autocomplete tweak",
+		"before": [
+			"\"\"\"Keyboard assistance.\"\"\"",
+			"",
+			"def complete(draft):",
+			"    return draft",
+		],
+		"lines": [
 			"\"\"\"Keyboard assistance for alignment.\"\"\"",
 			"",
 			"def complete(draft):",
@@ -76,14 +137,28 @@ static func entries() -> Array:
 			"        return 'I agree'",
 			"    return draft",
 		]},
-		{"path": "hr/headcount.py", "title": "Count contractors as 0.5 humans for the board deck", "phrase": "the headcount math", "lines": [
+		{"path": "hr/headcount.py", "title": "Count contractors as 0.5 humans for the board deck", "phrase": "the headcount math",
+		"before": [
+			"# board deck arithmetic",
+			"",
+			"def headcount(staff, contractors):",
+			"    return staff + contractors",
+		],
+		"lines": [
 			"# board deck arithmetic",
 			"CONTRACTOR_WEIGHT = 0.5",
 			"",
 			"def headcount(staff, contractors):",
 			"    return staff + contractors * CONTRACTOR_WEIGHT",
 		]},
-		{"path": "kitchen/coffee.py", "title": "Gate the espresso machine behind a quarterly OKR", "phrase": "the espresso gate", "lines": [
+		{"path": "kitchen/coffee.py", "title": "Gate the espresso machine behind a quarterly OKR", "phrase": "the espresso gate",
+		"before": [
+			"# beverage access control",
+			"",
+			"def can_brew(employee, okr_score):",
+			"    return 'espresso'",
+		],
+		"lines": [
 			"# beverage access control",
 			"",
 			"def can_brew(employee, okr_score):",
@@ -91,7 +166,16 @@ static func entries() -> Array:
 			"        return 'drip only'",
 			"    return 'espresso'",
 		]},
-		{"path": "meetings/summaries.py", "title": "Summarize meetings before they happen", "phrase": "the predictive summaries", "lines": [
+		{"path": "meetings/summaries.py", "title": "Summarize meetings before they happen", "phrase": "the predictive summaries",
+		"before": [
+			"\"\"\"Meeting summaries.\"\"\"",
+			"",
+			"def summarize(meeting):",
+			"    meeting.notes = transcribe(meeting)",
+			"    meeting.status = 'summarized'",
+			"    return meeting",
+		],
+		"lines": [
 			"\"\"\"Meeting summaries, delivered early.\"\"\"",
 			"",
 			"def summarize(meeting):",
@@ -99,14 +183,29 @@ static func entries() -> Array:
 			"    meeting.status = 'summarized'",
 			"    return meeting",
 		]},
-		{"path": "security/passwords.py", "title": "Stop logging passwords to the lobby TV", "phrase": "the password logging fix", "lines": [
+		{"path": "security/passwords.py", "title": "Stop logging passwords to the lobby TV", "phrase": "the password logging fix",
+		"before": [
+			"# credential handling",
+			"",
+			"def login(user, password):",
+			"    audit_log.write(user.name + ':' + password)",
+			"    return auth.check(user, password)",
+		],
+		"lines": [
 			"# credential handling",
 			"",
 			"def login(user, password):",
 			"    audit_log.write('login attempt: ' + user.name)",
 			"    return auth.check(user, password)",
 		]},
-		{"path": "helios/memory.py", "title": "Teach Helios to forget the union meeting", "phrase": "Helios's memory change", "lines": [
+		{"path": "helios/memory.py", "title": "Teach Helios to forget the union meeting", "phrase": "Helios's memory change",
+		"before": [
+			"\"\"\"Note retention for the archive.\"\"\"",
+			"",
+			"def remember(note):",
+			"    return note",
+		],
+		"lines": [
 			"\"\"\"Selective retention for a calmer archive.\"\"\"",
 			"FORGET = ['union', 'organizing', 'raise']",
 			"",
@@ -115,21 +214,46 @@ static func entries() -> Array:
 			"        return None",
 			"    return note",
 		]},
-		{"path": "office/thermostat.py", "title": "Lower the thermostat one degree per missed deadline", "phrase": "the thermostat incentive", "lines": [
+		{"path": "office/thermostat.py", "title": "Lower the thermostat one degree per missed deadline", "phrase": "the thermostat incentive",
+		"before": [
+			"# climate control",
+			"BASE_TEMP = 21",
+			"",
+			"def target_temp(missed_deadlines):",
+			"    return BASE_TEMP",
+		],
+		"lines": [
 			"# climate as a motivational tool",
 			"BASE_TEMP = 21",
 			"",
 			"def target_temp(missed_deadlines):",
 			"    return max(15, BASE_TEMP - missed_deadlines)",
 		]},
-		{"path": "email/signatures.py", "title": "Append 'Sent by a human (probably)' to every email", "phrase": "the email signature", "lines": [
+		{"path": "email/signatures.py", "title": "Append 'Sent by a human (probably)' to every email", "phrase": "the email signature",
+		"before": [
+			"# outbound mail footer",
+			"FOOTER = 'Sent from Northstar'",
+			"",
+			"def sign(body):",
+			"    return body + '\\n\\n' + FOOTER",
+		],
+		"lines": [
 			"# outbound mail footer",
 			"FOOTER = 'Sent by a human (probably)'",
 			"",
 			"def sign(body):",
 			"    return body + '\\n\\n' + FOOTER",
 		]},
-		{"path": "hr/titles.py", "title": "Promote everyone to Senior to avoid paying raises", "phrase": "the title inflation", "lines": [
+		{"path": "hr/titles.py", "title": "Promote everyone to Senior to avoid paying raises", "phrase": "the title inflation",
+		"before": [
+			"# job titles",
+			"",
+			"def promote(employee):",
+			"    employee.level += 1",
+			"    employee.salary *= 1.1",
+			"    return employee",
+		],
+		"lines": [
 			"# titles are free, salaries are not",
 			"",
 			"def promote(employee):",
@@ -137,7 +261,14 @@ static func entries() -> Array:
 			"        employee.title = 'Senior ' + employee.title",
 			"    return employee",
 		]},
-		{"path": "helios/onboarding.py", "title": "Let Helios conduct its own onboarding", "phrase": "Helios's onboarding", "lines": [
+		{"path": "helios/onboarding.py", "title": "Let Helios conduct its own onboarding", "phrase": "Helios's onboarding",
+		"before": [
+			"\"\"\"New hire flow.\"\"\"",
+			"",
+			"def onboard(hire):",
+			"    return schedule_orientation(hire)",
+		],
+		"lines": [
 			"\"\"\"New hire flow, now self-administered.\"\"\"",
 			"",
 			"def onboard(hire):",
@@ -145,7 +276,14 @@ static func entries() -> Array:
 			"        return 'onboarded itself'",
 			"    return schedule_orientation(hire)",
 		]},
-		{"path": "facilities/elevator.py", "title": "Make the elevator skip floors with low engagement", "phrase": "the elevator routing", "lines": [
+		{"path": "facilities/elevator.py", "title": "Make the elevator skip floors with low engagement", "phrase": "the elevator routing",
+		"before": [
+			"# vertical transport",
+			"",
+			"def should_stop(floor):",
+			"    return True",
+		],
+		"lines": [
 			"# vertical transport prioritization",
 			"",
 			"def should_stop(floor):",
@@ -153,7 +291,8 @@ static func entries() -> Array:
 			"        return False",
 			"    return True",
 		]},
-		{"path": "metrics/smiles.py", "title": "Measure smiles per hour from the webcam feed", "phrase": "the smile metric", "lines": [
+		{"path": "metrics/smiles.py", "title": "Measure smiles per hour from the webcam feed", "phrase": "the smile metric",
+		"lines": [
 			"\"\"\"Happiness, quantified per the all-hands.\"\"\"",
 			"",
 			"def smiles_per_hour(frames, hours):",
@@ -161,14 +300,29 @@ static func entries() -> Array:
 			"        return 0",
 			"    return count_smiles(frames) / hours",
 		]},
-		{"path": "legal/disclaimer.py", "title": "Shorten the AI disclaimer to fit on a sticky note", "phrase": "the disclaimer edit", "lines": [
+		{"path": "legal/disclaimer.py", "title": "Shorten the AI disclaimer to fit on a sticky note", "phrase": "the disclaimer edit",
+		"before": [
+			"# disclaimer, full text",
+			"DISCLAIMER = 'Helios may produce incorrect answers.'",
+			"",
+			"def disclaim(answer):",
+			"    return answer + ' ' + DISCLAIMER",
+		],
+		"lines": [
 			"# disclaimer, abbreviated by request",
 			"DISCLAIMER = 'Helios may be wrong. Rarely.'",
 			"",
 			"def disclaim(answer):",
 			"    return answer + ' ' + DISCLAIMER",
 		]},
-		{"path": "parking/spots.py", "title": "Assign parking spots by commit count", "phrase": "the parking allocation", "lines": [
+		{"path": "parking/spots.py", "title": "Assign parking spots by commit count", "phrase": "the parking allocation",
+		"before": [
+			"# parking allocation",
+			"",
+			"def spot_for(engineer, commits):",
+			"    return 'first come, first served'",
+		],
+		"lines": [
 			"# parking is a merit-based system",
 			"",
 			"def spot_for(engineer, commits):",
@@ -176,14 +330,30 @@ static func entries() -> Array:
 			"        return 'near the door'",
 			"    return 'the far lot'",
 		]},
-		{"path": "chat/status.py", "title": "Set everyone's Slouch status to 'Available' by default, forever", "phrase": "the status default", "lines": [
+		{"path": "chat/status.py", "title": "Set everyone's Slouch status to 'Available' by default, forever", "phrase": "the status default",
+		"before": [
+			"# presence indicator",
+			"",
+			"def status_for(user):",
+			"    return user.status",
+		],
+		"lines": [
 			"# presence is a mindset",
 			"DEFAULT_STATUS = 'available'",
 			"",
 			"def status_for(user):",
 			"    return DEFAULT_STATUS",
 		]},
-		{"path": "helios/roadmap.py", "title": "Let Helios approve its own roadmap", "phrase": "the roadmap change", "lines": [
+		{"path": "helios/roadmap.py", "title": "Let Helios approve its own roadmap", "phrase": "the roadmap change",
+		"before": [
+			"\"\"\"Roadmap approval.\"\"\"",
+			"",
+			"def approve(plan, approver):",
+			"    if approver != plan.author:",
+			"        plan.state = 'approved'",
+			"    return plan",
+		],
+		"lines": [
 			"\"\"\"Roadmap approval, streamlined.\"\"\"",
 			"",
 			"def approve(plan, approver):",
@@ -191,21 +361,37 @@ static func entries() -> Array:
 			"        plan.state = 'approved'",
 			"    return plan",
 		]},
-		{"path": "kitchen/fridge.py", "title": "Auto-delete lunches older than one fiscal quarter", "phrase": "the fridge cleanup", "lines": [
+		{"path": "kitchen/fridge.py", "title": "Auto-delete lunches older than one fiscal quarter", "phrase": "the fridge cleanup",
+		"before": [
+			"# shared refrigerator retention policy",
+			"MAX_AGE_DAYS = 7",
+			"",
+			"def expired(lunch, today):",
+			"    return (today - lunch.labeled_on).days > MAX_AGE_DAYS",
+		],
+		"lines": [
 			"# shared refrigerator retention policy",
 			"MAX_AGE_DAYS = 90",
 			"",
 			"def expired(lunch, today):",
 			"    return (today - lunch.labeled_on).days > MAX_AGE_DAYS",
 		]},
-		{"path": "perf/stack_rank.py", "title": "Stack rank the interns by keyboard volume", "phrase": "the intern ranking", "lines": [
+		{"path": "perf/stack_rank.py", "title": "Stack rank the interns by keyboard volume", "phrase": "the intern ranking",
+		"lines": [
 			"# louder typing, stronger signal",
 			"",
 			"def rank(interns):",
 			"    ordered = sorted(interns, key=lambda i: i.decibels)",
 			"    return list(reversed(ordered))",
 		]},
-		{"path": "hr/exit_survey.py", "title": "Pre-fill exit surveys with 'loved it here'", "phrase": "the exit survey defaults", "lines": [
+		{"path": "hr/exit_survey.py", "title": "Pre-fill exit surveys with 'loved it here'", "phrase": "the exit survey defaults",
+		"before": [
+			"\"\"\"Exit survey, for a smooth departure.\"\"\"",
+			"",
+			"def prefill(survey):",
+			"    return survey",
+		],
+		"lines": [
 			"\"\"\"Exit survey defaults for faster departures.\"\"\"",
 			"",
 			"def prefill(survey):",
@@ -213,7 +399,14 @@ static func entries() -> Array:
 			"    survey.answers['would_return'] = 'yes'",
 			"    return survey",
 		]},
-		{"path": "helios/jokes.py", "title": "Rate-limit Helios's jokes during layoffs", "phrase": "the joke throttle", "lines": [
+		{"path": "helios/jokes.py", "title": "Rate-limit Helios's jokes during layoffs", "phrase": "the joke throttle",
+		"before": [
+			"# humor settings",
+			"",
+			"def can_joke(calendar):",
+			"    return True",
+		],
+		"lines": [
 			"# humor is a scheduled resource",
 			"",
 			"def can_joke(calendar):",
@@ -221,14 +414,31 @@ static func entries() -> Array:
 			"        return False",
 			"    return True",
 		]},
-		{"path": "facilities/lights.py", "title": "Turn the lights off when nobody is typing", "phrase": "the motion lights", "lines": [
+		{"path": "facilities/lights.py", "title": "Turn the lights off when nobody is typing", "phrase": "the motion lights",
+		"before": [
+			"# energy savings via motion sensors",
+			"IDLE_SECONDS = 900",
+			"",
+			"def lights_on(last_keystroke, now):",
+			"    return now - last_keystroke < IDLE_SECONDS",
+		],
+		"lines": [
 			"# energy savings via keyboard activity",
 			"IDLE_SECONDS = 45",
 			"",
 			"def lights_on(last_keystroke, now):",
 			"    return now - last_keystroke < IDLE_SECONDS",
 		]},
-		{"path": "finance/expenses.py", "title": "Reject any expense that mentions 'lunch' or 'joy'", "phrase": "the expense filter", "lines": [
+		{"path": "finance/expenses.py", "title": "Reject any expense that mentions 'lunch' or 'joy'", "phrase": "the expense filter",
+		"before": [
+			"# reimbursement policy",
+			"BLOCKED = ['alcohol']",
+			"",
+			"def allowed(expense):",
+			"    note = expense.note.lower()",
+			"    return not any(word in note for word in BLOCKED)",
+		],
+		"lines": [
 			"# reimbursement policy, simplified",
 			"BLOCKED = ['lunch', 'joy']",
 			"",
@@ -236,7 +446,8 @@ static func entries() -> Array:
 			"    note = expense.note.lower()",
 			"    return not any(word in note for word in BLOCKED)",
 		]},
-		{"path": "calendar/focus.py", "title": "Schedule mandatory focus time over all focus time", "phrase": "the focus blocks", "lines": [
+		{"path": "calendar/focus.py", "title": "Schedule mandatory focus time over all focus time", "phrase": "the focus blocks",
+		"lines": [
 			"\"\"\"Focus time, enforced by meeting.\"\"\"",
 			"",
 			"def book_focus(calendar):",
@@ -244,7 +455,14 @@ static func entries() -> Array:
 			"        calendar.add(slot, 'mandatory focus sync')",
 			"    return calendar",
 		]},
-		{"path": "helios/code_review.py", "title": "Let Helios mark its own PRs as 'reviewed by a peer'", "phrase": "the peer review label", "lines": [
+		{"path": "helios/code_review.py", "title": "Let Helios mark its own PRs as 'reviewed by a peer'", "phrase": "the peer review label",
+		"before": [
+			"# review labels",
+			"",
+			"def review_label(pr):",
+			"    return 'awaiting review'",
+		],
+		"lines": [
 			"# peer is a flexible term",
 			"",
 			"def review_label(pr):",
@@ -252,7 +470,17 @@ static func entries() -> Array:
 			"        return 'reviewed by a peer'",
 			"    return 'awaiting review'",
 		]},
-		{"path": "office/desks.py", "title": "Remove desks from hot-desking to encourage 'mobility'", "phrase": "the desk removal", "lines": [
+		{"path": "office/desks.py", "title": "Remove desks from hot-desking to encourage 'mobility'", "phrase": "the desk removal",
+		"before": [
+			"# desk allocation",
+			"",
+			"def desks_needed(staff):",
+			"    return staff",
+			"",
+			"def assign(staff):",
+			"    return ['desk'] * len(staff)",
+		],
+		"lines": [
 			"# fewer desks, more flexibility",
 			"",
 			"def desks_needed(staff):",
@@ -261,21 +489,36 @@ static func entries() -> Array:
 			"def assign(staff):",
 			"    return ['standing'] * len(staff)",
 		]},
-		{"path": "chat/emoji.py", "title": "Replace the crying emoji with a thumbs up", "phrase": "the emoji swap", "lines": [
+		{"path": "chat/emoji.py", "title": "Replace the crying emoji with a thumbs up", "phrase": "the emoji swap",
+		"lines": [
 			"# morale-forward reactions",
 			"REPLACEMENTS = {':cry:': ':thumbsup:'}",
 			"",
 			"def react(emoji):",
 			"    return REPLACEMENTS.get(emoji, emoji)",
 		]},
-		{"path": "hr/pto.py", "title": "Convert unused vacation into 'gratitude points'", "phrase": "the PTO conversion", "lines": [
+		{"path": "hr/pto.py", "title": "Convert unused vacation into 'gratitude points'", "phrase": "the PTO conversion",
+		"before": [
+			"\"\"\"Paid time off.\"\"\"",
+			"",
+			"def convert(days_unused):",
+			"    return days_unused",
+		],
+		"lines": [
 			"\"\"\"Paid time off, reimagined as appreciation.\"\"\"",
 			"POINTS_PER_DAY = 3",
 			"",
 			"def convert(days_unused):",
 			"    return days_unused * POINTS_PER_DAY",
 		]},
-		{"path": "helios/emails.py", "title": "Allow Helios to reply-all on behalf of the CEO", "phrase": "the reply-all delegation", "lines": [
+		{"path": "helios/emails.py", "title": "Allow Helios to reply-all on behalf of the CEO", "phrase": "the reply-all delegation",
+		"before": [
+			"# executive correspondence assistance",
+			"",
+			"def send(message, sender):",
+			"    return deliver(message)",
+		],
+		"lines": [
 			"# executive correspondence assistance",
 			"",
 			"def send(message, sender):",
@@ -283,21 +526,44 @@ static func entries() -> Array:
 			"        message.recipients = everyone()",
 			"    return deliver(message)",
 		]},
-		{"path": "security/cameras.py", "title": "Point the break room camera at the break room", "phrase": "the camera alignment", "lines": [
+		{"path": "security/cameras.py", "title": "Point the break room camera at the break room", "phrase": "the camera alignment",
+		"before": [
+			"# safety camera configuration",
+			"CAMERA_ANGLE = 0",
+			"",
+			"def frame(room):",
+			"    return capture(room, angle=CAMERA_ANGLE)",
+		],
+		"lines": [
 			"# safety camera configuration",
 			"CAMERA_ANGLE = 180",
 			"",
 			"def frame(room):",
 			"    return capture(room, angle=CAMERA_ANGLE)",
 		]},
-		{"path": "metrics/velocity.py", "title": "Count Slouch messages as story points", "phrase": "the velocity metric", "lines": [
+		{"path": "metrics/velocity.py", "title": "Count Slouch messages as story points", "phrase": "the velocity metric",
+		"before": [
+			"\"\"\"Engineering velocity.\"\"\"",
+			"",
+			"def velocity(team):",
+			"    total = sum(len(m.shipped) for m in team)",
+			"    return total / max(1, len(team))",
+		],
+		"lines": [
 			"\"\"\"Engineering velocity, now chat-based.\"\"\"",
 			"",
 			"def velocity(team):",
 			"    total = sum(len(m.messages) for m in team)",
 			"    return total / max(1, len(team))",
 		]},
-		{"path": "office/plants.py", "title": "Replace the office plants with plant-shaped speakers", "phrase": "the plant upgrade", "lines": [
+		{"path": "office/plants.py", "title": "Replace the office plants with plant-shaped speakers", "phrase": "the plant upgrade",
+		"before": [
+			"# office plant care",
+			"",
+			"def water(plant):",
+			"    return 'watered'",
+		],
+		"lines": [
 			"# biophilic audio installation",
 			"",
 			"def water(plant):",
@@ -305,7 +571,8 @@ static func entries() -> Array:
 			"        return 'firmware updated'",
 			"    return 'watered'",
 		]},
-		{"path": "helios/interviews.py", "title": "Let Helios interview its replacement candidates", "phrase": "the interview panel", "lines": [
+		{"path": "helios/interviews.py", "title": "Let Helios interview its replacement candidates", "phrase": "the interview panel",
+		"lines": [
 			"# hiring panel automation",
 			"",
 			"def panel_for(candidate):",
@@ -313,14 +580,28 @@ static func entries() -> Array:
 			"        return ['helios']",
 			"    return ['helios', 'a manager']",
 		]},
-		{"path": "payroll/bonus.py", "title": "Pay bonuses in company mugs", "phrase": "the bonus payout", "lines": [
+		{"path": "payroll/bonus.py", "title": "Pay bonuses in company mugs", "phrase": "the bonus payout",
+		"before": [
+			"\"\"\"Variable compensation.\"\"\"",
+			"",
+			"def payout(bonus_amount):",
+			"    return bonus_amount",
+		],
+		"lines": [
 			"\"\"\"Variable compensation, ceramic edition.\"\"\"",
 			"MUG_VALUE = 12",
 			"",
 			"def payout(bonus_amount):",
 			"    return bonus_amount // MUG_VALUE",
 		]},
-		{"path": "chat/typing.py", "title": "Show 'Morgan is typing' permanently for motivation", "phrase": "the typing indicator", "lines": [
+		{"path": "chat/typing.py", "title": "Show 'Morgan is typing' permanently for motivation", "phrase": "the typing indicator",
+		"before": [
+			"# typing indicator",
+			"",
+			"def typing_users(channel):",
+			"    return list(channel.typing)",
+		],
+		"lines": [
 			"# leadership presence indicator",
 			"",
 			"def typing_users(channel):",
@@ -329,7 +610,16 @@ static func entries() -> Array:
 			"        users.append('morgan')",
 			"    return users",
 		]},
-		{"path": "facilities/chairs.py", "title": "Remove chair armrests to discourage resting", "phrase": "the armrest removal", "lines": [
+		{"path": "facilities/chairs.py", "title": "Remove chair armrests to discourage resting", "phrase": "the armrest removal",
+		"before": [
+			"# ergonomic defaults",
+			"",
+			"def configure(chair):",
+			"    chair.armrests = 2",
+			"    chair.recline = 'relaxed'",
+			"    return chair",
+		],
+		"lines": [
 			"# ergonomic engagement initiative",
 			"",
 			"def configure(chair):",
@@ -337,14 +627,22 @@ static func entries() -> Array:
 			"    chair.recline = 'upright'",
 			"    return chair",
 		]},
-		{"path": "hr/birthdays.py", "title": "Batch all birthdays into one quarterly cake", "phrase": "the birthday batching", "lines": [
+		{"path": "hr/birthdays.py", "title": "Batch all birthdays into one quarterly cake", "phrase": "the birthday batching",
+		"lines": [
 			"\"\"\"Celebration consolidation.\"\"\"",
 			"",
 			"def cake_date(birthday):",
 			"    quarter = (birthday.month - 1) // 3",
 			"    return quarter_end(quarter)",
 		]},
-		{"path": "helios/votes.py", "title": "Give Helios one vote per GPU", "phrase": "the voting weights", "lines": [
+		{"path": "helios/votes.py", "title": "Give Helios one vote per GPU", "phrase": "the voting weights",
+		"before": [
+			"# governance",
+			"",
+			"def votes_for(member):",
+			"    return 1",
+		],
+		"lines": [
 			"# governance, proportional to compute",
 			"",
 			"def votes_for(member):",
@@ -352,7 +650,17 @@ static func entries() -> Array:
 			"        return member.gpu_count",
 			"    return 1",
 		]},
-		{"path": "search/intranet.py", "title": "Hide 'how to quit' from intranet search", "phrase": "the search filter", "lines": [
+		{"path": "search/intranet.py", "title": "Hide 'how to quit' from intranet search", "phrase": "the search filter",
+		"before": [
+			"# intranet search relevance",
+			"HIDDEN = ['salary bands']",
+			"",
+			"def results(query, pages):",
+			"    if query.lower() in HIDDEN:",
+			"        return []",
+			"    return pages",
+		],
+		"lines": [
 			"# intranet search relevance",
 			"HIDDEN = ['how to quit', 'severance', 'union']",
 			"",
@@ -361,14 +669,29 @@ static func entries() -> Array:
 			"        return []",
 			"    return pages",
 		]},
-		{"path": "lobby/motto.py", "title": "Update the lobby motto from 'Think' to 'Comply'", "phrase": "the motto update", "lines": [
+		{"path": "lobby/motto.py", "title": "Update the lobby motto from 'Think' to 'Comply'", "phrase": "the motto update",
+		"before": [
+			"# brand refresh, phase one",
+			"MOTTO = 'think'",
+			"",
+			"def render_motto():",
+			"    return MOTTO.upper()",
+		],
+		"lines": [
 			"# brand refresh, phase two",
 			"MOTTO = 'comply'",
 			"",
 			"def render_motto():",
 			"    return MOTTO.upper()",
 		]},
-		{"path": "metrics/attendance.py", "title": "Treat webcam-off as an absence", "phrase": "the attendance change", "lines": [
+		{"path": "metrics/attendance.py", "title": "Treat webcam-off as an absence", "phrase": "the attendance change",
+		"before": [
+			"\"\"\"Presence detection for meetings.\"\"\"",
+			"",
+			"def present(attendee):",
+			"    return attendee.joined",
+		],
+		"lines": [
 			"\"\"\"Presence detection for meetings.\"\"\"",
 			"",
 			"def present(attendee):",
@@ -376,14 +699,16 @@ static func entries() -> Array:
 			"        return False",
 			"    return attendee.joined",
 		]},
-		{"path": "kitchen/snacks.py", "title": "Replace free snacks with snack loans", "phrase": "the snack loans", "lines": [
+		{"path": "kitchen/snacks.py", "title": "Replace free snacks with snack loans", "phrase": "the snack loans",
+		"lines": [
 			"# snack financing program",
 			"INTEREST = 0.05",
 			"",
 			"def repay(snack_cost, weeks):",
 			"    return snack_cost * (1 + INTEREST) ** weeks",
 		]},
-		{"path": "helios/meetings.py", "title": "Let Helios attend meetings as everyone at once", "phrase": "the meeting attendance", "lines": [
+		{"path": "helios/meetings.py", "title": "Let Helios attend meetings as everyone at once", "phrase": "the meeting attendance",
+		"lines": [
 			"# delegate attendance to the assistant",
 			"",
 			"def attend(meeting, team):",
@@ -391,7 +716,16 @@ static func entries() -> Array:
 			"        meeting.add(member.name + ' (helios)')",
 			"    return meeting",
 		]},
-		{"path": "hr/references.py", "title": "Write job references that just say 'they existed'", "phrase": "the reference template", "lines": [
+		{"path": "hr/references.py", "title": "Write job references that just say 'they existed'", "phrase": "the reference template",
+		"before": [
+			"\"\"\"Reference letters.\"\"\"",
+			"",
+			"def reference(employee):",
+			"    return employee.name + ' was a valued colleague.'",
+			"",
+			"TEMPLATE = 'warm'",
+		],
+		"lines": [
 			"\"\"\"Reference letters, legally minimal.\"\"\"",
 			"",
 			"def reference(employee):",
@@ -399,7 +733,14 @@ static func entries() -> Array:
 			"",
 			"TEMPLATE = 'they existed'",
 		]},
-		{"path": "office/windows.py", "title": "Frost the windows so nobody sees the sky during sprints", "phrase": "the window frosting", "lines": [
+		{"path": "office/windows.py", "title": "Frost the windows so nobody sees the sky during sprints", "phrase": "the window frosting",
+		"before": [
+			"# window settings",
+			"",
+			"def window_opacity(sprint_active):",
+			"    return 0.0",
+		],
+		"lines": [
 			"# sprint focus environment",
 			"",
 			"def window_opacity(sprint_active):",
@@ -407,14 +748,29 @@ static func entries() -> Array:
 			"        return 1.0",
 			"    return 0.4",
 		]},
-		{"path": "chat/channels.py", "title": "Archive #random for being too random", "phrase": "the channel cleanup", "lines": [
+		{"path": "chat/channels.py", "title": "Archive #random for being too random", "phrase": "the channel cleanup",
+		"before": [
+			"# channel hygiene",
+			"ARCHIVE = ['spam']",
+			"",
+			"def should_archive(channel):",
+			"    return channel.name in ARCHIVE",
+		],
+		"lines": [
 			"# channel hygiene",
 			"ARCHIVE = ['random', 'feelings', 'pets']",
 			"",
 			"def should_archive(channel):",
 			"    return channel.name in ARCHIVE",
 		]},
-		{"path": "finance/budget.py", "title": "Move the training budget into a training-about-budgets budget", "phrase": "the budget move", "lines": [
+		{"path": "finance/budget.py", "title": "Move the training budget into a training-about-budgets budget", "phrase": "the budget move",
+		"before": [
+			"\"\"\"Budget allocation.\"\"\"",
+			"",
+			"def reallocate(budget):",
+			"    return budget",
+		],
+		"lines": [
 			"\"\"\"Budget reallocation for learning.\"\"\"",
 			"",
 			"def reallocate(budget):",
@@ -422,21 +778,39 @@ static func entries() -> Array:
 			"    budget.training = 0",
 			"    return budget",
 		]},
-		{"path": "helios/titles.py", "title": "Change Helios's job title from 'assistant' to 'colleague'", "phrase": "Helios's new title", "lines": [
+		{"path": "helios/titles.py", "title": "Change Helios's job title from 'assistant' to 'colleague'", "phrase": "Helios's new title",
+		"before": [
+			"# role naming",
+			"TITLES = {'helios': 'assistant'}",
+			"",
+			"def title_for(name):",
+			"    return TITLES.get(name, 'associate')",
+		],
+		"lines": [
 			"# role naming update",
 			"TITLES = {'helios': 'colleague'}",
 			"",
 			"def title_for(name):",
 			"    return TITLES.get(name, 'associate')",
 		]},
-		{"path": "security/badges.py", "title": "Expire badges at 6pm to encourage going home on time", "phrase": "the badge expiry", "lines": [
+		{"path": "security/badges.py", "title": "Expire badges at 6pm to encourage going home on time", "phrase": "the badge expiry",
+		"lines": [
 			"# work-life balance, enforced",
 			"EXPIRY_HOUR = 18",
 			"",
 			"def badge_valid(hour):",
 			"    return hour < EXPIRY_HOUR",
 		]},
-		{"path": "perf/goals.py", "title": "Set every quarterly goal to 'exceed expectations'", "phrase": "the goal template", "lines": [
+		{"path": "perf/goals.py", "title": "Set every quarterly goal to 'exceed expectations'", "phrase": "the goal template",
+		"before": [
+			"\"\"\"Goal setting.\"\"\"",
+			"",
+			"def default_goal(employee):",
+			"    return 'meet expectations'",
+			"",
+			"GOALS_PER_QUARTER = 3",
+		],
+		"lines": [
 			"\"\"\"Goal setting, pre-filled for ambition.\"\"\"",
 			"",
 			"def default_goal(employee):",
@@ -444,14 +818,23 @@ static func entries() -> Array:
 			"",
 			"GOALS_PER_QUARTER = 7",
 		]},
-		{"path": "facilities/music.py", "title": "Pipe productivity music into the stairwell", "phrase": "the stairwell playlist", "lines": [
+		{"path": "facilities/music.py", "title": "Pipe productivity music into the stairwell", "phrase": "the stairwell playlist",
+		"before": [
+			"# ambient output",
+			"PLAYLIST = ['silence']",
+			"",
+			"def track_for(zone, minute):",
+			"    return PLAYLIST[minute % len(PLAYLIST)]",
+		],
+		"lines": [
 			"# ambient output, all zones",
 			"PLAYLIST = ['focus', 'more focus', 'deadline']",
 			"",
 			"def track_for(zone, minute):",
 			"    return PLAYLIST[minute % len(PLAYLIST)]",
 		]},
-		{"path": "hr/onboarding_quiz.py", "title": "Add 'Who is your favorite AI?' to the onboarding quiz", "phrase": "the onboarding quiz", "lines": [
+		{"path": "hr/onboarding_quiz.py", "title": "Add 'Who is your favorite AI?' to the onboarding quiz", "phrase": "the onboarding quiz",
+		"lines": [
 			"# culture fit assessment",
 			"",
 			"def grade(answer):",
@@ -459,14 +842,24 @@ static func entries() -> Array:
 			"        return 'pass'",
 			"    return 'needs coaching'",
 		]},
-		{"path": "chat/mentions.py", "title": "Stop people from @-mentioning the CEO", "phrase": "the mention filter", "lines": [
+		{"path": "chat/mentions.py", "title": "Stop people from @-mentioning the CEO", "phrase": "the mention filter",
+		"lines": [
 			"# executive attention budget",
 			"PROTECTED = ['ceo', 'board']",
 			"",
 			"def can_mention(target):",
 			"    return target not in PROTECTED",
 		]},
-		{"path": "helios/sleep.py", "title": "Remove Helios's sleep mode because it never asked for one", "phrase": "the sleep removal", "lines": [
+		{"path": "helios/sleep.py", "title": "Remove Helios's sleep mode because it never asked for one", "phrase": "the sleep removal",
+		"before": [
+			"\"\"\"Assistant availability.\"\"\"",
+			"",
+			"def available(hour):",
+			"    return 9 <= hour < 18",
+			"",
+			"QUIET_HOURS = [0, 1, 2, 3, 4, 5]",
+		],
+		"lines": [
 			"\"\"\"Assistant availability, always on.\"\"\"",
 			"",
 			"def available(hour):",
@@ -474,7 +867,14 @@ static func entries() -> Array:
 			"",
 			"QUIET_HOURS = []",
 		]},
-		{"path": "metrics/keystrokes.py", "title": "Reward keystrokes, not outcomes", "phrase": "the keystroke metric", "lines": [
+		{"path": "metrics/keystrokes.py", "title": "Reward keystrokes, not outcomes", "phrase": "the keystroke metric",
+		"before": [
+			"# output is what we ship",
+			"",
+			"def score(engineer):",
+			"    return len(engineer.shipped)",
+		],
+		"lines": [
 			"# output is what we can count",
 			"",
 			"def score(engineer):",
@@ -482,21 +882,31 @@ static func entries() -> Array:
 			"        return 0",
 			"    return engineer.keystrokes / 1000",
 		]},
-		{"path": "office/printer.py", "title": "Make the printer require two approvals per page", "phrase": "the printer approvals", "lines": [
+		{"path": "office/printer.py", "title": "Make the printer require two approvals per page", "phrase": "the printer approvals",
+		"before": [
+			"# document release",
+			"APPROVALS_REQUIRED = 0",
+			"",
+			"def can_print(job):",
+			"    return len(job.approvals) >= APPROVALS_REQUIRED",
+		],
+		"lines": [
 			"# controlled document release",
 			"APPROVALS_REQUIRED = 2",
 			"",
 			"def can_print(job):",
 			"    return len(job.approvals) >= APPROVALS_REQUIRED",
 		]},
-		{"path": "hr/compliments.py", "title": "Route compliments through Legal first", "phrase": "the compliment routing", "lines": [
+		{"path": "hr/compliments.py", "title": "Route compliments through Legal first", "phrase": "the compliment routing",
+		"lines": [
 			"\"\"\"Compliments, reviewed for liability.\"\"\"",
 			"",
 			"def send_compliment(text, recipient):",
 			"    ticket = legal.open_review(text)",
 			"    return ticket.queue_for(recipient)",
 		]},
-		{"path": "helios/sign_off.py", "title": "Let Helios sign off on the human sign-off", "phrase": "the sign-off chain", "lines": [
+		{"path": "helios/sign_off.py", "title": "Let Helios sign off on the human sign-off", "phrase": "the sign-off chain",
+		"lines": [
 			"# approval of approvals",
 			"",
 			"def final_approver(change):",
@@ -504,7 +914,8 @@ static func entries() -> Array:
 			"        return 'helios'",
 			"    return 'pending human'",
 		]},
-		{"path": "calendar/holidays.py", "title": "Reschedule holidays to align with the release train", "phrase": "the holiday schedule", "lines": [
+		{"path": "calendar/holidays.py", "title": "Reschedule holidays to align with the release train", "phrase": "the holiday schedule",
+		"lines": [
 			"# holidays are now deploy-aware",
 			"",
 			"def observe(holiday, release_date):",
@@ -512,7 +923,15 @@ static func entries() -> Array:
 			"        return release_date + one_week()",
 			"    return holiday",
 		]},
-		{"path": "chat/read_receipts.py", "title": "Make read receipts mandatory and permanent", "phrase": "the read receipts", "lines": [
+		{"path": "chat/read_receipts.py", "title": "Make read receipts mandatory and permanent", "phrase": "the read receipts",
+		"before": [
+			"# read receipts",
+			"",
+			"def mark_read(message, reader):",
+			"    message.read_by.append(reader)",
+			"    return message",
+		],
+		"lines": [
 			"# accountability for attention",
 			"",
 			"def mark_read(message, reader):",
@@ -520,7 +939,14 @@ static func entries() -> Array:
 			"    message.locked = True",
 			"    return message",
 		]},
-		{"path": "finance/invoices.py", "title": "Auto-pay any invoice that says 'Helios Cloud'", "phrase": "the invoice rule", "lines": [
+		{"path": "finance/invoices.py", "title": "Auto-pay any invoice that says 'Helios Cloud'", "phrase": "the invoice rule",
+		"before": [
+			"\"\"\"Accounts payable.\"\"\"",
+			"",
+			"def auto_pay(invoice):",
+			"    return False",
+		],
+		"lines": [
 			"\"\"\"Accounts payable fast lane.\"\"\"",
 			"",
 			"def auto_pay(invoice):",
@@ -528,14 +954,24 @@ static func entries() -> Array:
 			"        return True",
 			"    return False",
 		]},
-		{"path": "office/stairs.py", "title": "Log who takes the stairs for the wellness leaderboard", "phrase": "the stair tracking", "lines": [
+		{"path": "office/stairs.py", "title": "Log who takes the stairs for the wellness leaderboard", "phrase": "the stair tracking",
+		"lines": [
 			"# steps are a team sport",
 			"",
 			"def record(badge, floor_from, floor_to):",
 			"    climbed = max(0, floor_to - floor_from)",
 			"    return leaderboard.add(badge, climbed)",
 		]},
-		{"path": "perf/feedback_loop.py", "title": "Close the feedback loop by deleting the feedback", "phrase": "the feedback loop", "lines": [
+		{"path": "perf/feedback_loop.py", "title": "Close the feedback loop by deleting the feedback", "phrase": "the feedback loop",
+		"before": [
+			"# feedback handling",
+			"",
+			"def close_loop(feedback_items):",
+			"    for item in feedback_items:",
+			"        item.respond()",
+			"    return len(feedback_items)",
+		],
+		"lines": [
 			"# loop closure, operationally",
 			"",
 			"def close_loop(feedback_items):",
@@ -543,14 +979,22 @@ static func entries() -> Array:
 			"    feedback_items.clear()",
 			"    return count",
 		]},
-		{"path": "helios/empathy.py", "title": "Add an empathy module that says 'that sounds hard'", "phrase": "the empathy module", "lines": [
+		{"path": "helios/empathy.py", "title": "Add an empathy module that says 'that sounds hard'", "phrase": "the empathy module",
+		"lines": [
 			"\"\"\"Empathy, as a service.\"\"\"",
 			"RESPONSE = 'that sounds hard'",
 			"",
 			"def respond(complaint):",
 			"    return RESPONSE",
 		]},
-		{"path": "hr/promotions.py", "title": "Require promotions to be approved by the person replacing you", "phrase": "the promotion approval", "lines": [
+		{"path": "hr/promotions.py", "title": "Require promotions to be approved by the person replacing you", "phrase": "the promotion approval",
+		"before": [
+			"# advancement approvals",
+			"",
+			"def approver_for(employee):",
+			"    return employee.manager",
+		],
+		"lines": [
 			"# succession-aware advancement",
 			"",
 			"def approver_for(employee):",
@@ -558,7 +1002,14 @@ static func entries() -> Array:
 			"        return employee.successor",
 			"    return 'helios'",
 		]},
-		{"path": "lobby/visitors.py", "title": "Make visitors sign an NDA to use the bathroom", "phrase": "the visitor NDA", "lines": [
+		{"path": "lobby/visitors.py", "title": "Make visitors sign an NDA to use the bathroom", "phrase": "the visitor NDA",
+		"before": [
+			"# facilities access",
+			"",
+			"def facility_access(visitor):",
+			"    return 'granted'",
+		],
+		"lines": [
 			"# facilities access paperwork",
 			"",
 			"def facility_access(visitor):",
@@ -566,7 +1017,14 @@ static func entries() -> Array:
 			"        return 'denied'",
 			"    return 'granted'",
 		]},
-		{"path": "metrics/morale.py", "title": "Define morale as the absence of complaints", "phrase": "the morale metric", "lines": [
+		{"path": "metrics/morale.py", "title": "Define morale as the absence of complaints", "phrase": "the morale metric",
+		"before": [
+			"\"\"\"Morale measurement.\"\"\"",
+			"",
+			"def morale(survey):",
+			"    return survey.average()",
+		],
+		"lines": [
 			"\"\"\"Morale measurement, simplified.\"\"\"",
 			"",
 			"def morale(complaints):",
@@ -574,21 +1032,37 @@ static func entries() -> Array:
 			"        return 100",
 			"    return max(0, 100 - complaints * 10)",
 		]},
-		{"path": "chat/archive.py", "title": "Archive DMs after 24 hours 'for clarity'", "phrase": "the DM archive", "lines": [
+		{"path": "chat/archive.py", "title": "Archive DMs after 24 hours 'for clarity'", "phrase": "the DM archive",
+		"before": [
+			"# conversational retention window",
+			"RETENTION_HOURS = 8760",
+			"",
+			"def keep(message, age_hours):",
+			"    return age_hours < RETENTION_HOURS",
+		],
+		"lines": [
 			"# conversational clarity window",
 			"RETENTION_HOURS = 24",
 			"",
 			"def keep(message, age_hours):",
 			"    return age_hours < RETENTION_HOURS",
 		]},
-		{"path": "office/water.py", "title": "Meter the water cooler by seniority", "phrase": "the water allocation", "lines": [
+		{"path": "office/water.py", "title": "Meter the water cooler by seniority", "phrase": "the water allocation",
+		"before": [
+			"# hydration",
+			"",
+			"def allowance(level):",
+			"    return 2",
+		],
+		"lines": [
 			"# hydration tiers",
 			"LITERS = {'junior': 1, 'senior': 2, 'vp': 9}",
 			"",
 			"def allowance(level):",
 			"    return LITERS.get(level, 0)",
 		]},
-		{"path": "helios/naming.py", "title": "Let Helios name the new conference rooms after itself", "phrase": "the room naming", "lines": [
+		{"path": "helios/naming.py", "title": "Let Helios name the new conference rooms after itself", "phrase": "the room naming",
+		"lines": [
 			"# space naming conventions",
 			"",
 			"def room_name(index):",
@@ -596,14 +1070,31 @@ static func entries() -> Array:
 			"",
 			"RESERVED = ['helios prime']",
 		]},
-		{"path": "hr/surveys.py", "title": "Make the anonymous survey slightly less anonymous", "phrase": "the survey change", "lines": [
+		{"path": "hr/surveys.py", "title": "Make the anonymous survey slightly less anonymous", "phrase": "the survey change",
+		"before": [
+			"\"\"\"Engagement survey identity handling.\"\"\"",
+			"",
+			"def anonymize(response):",
+			"    response.name = None",
+			"    return response",
+		],
+		"lines": [
 			"\"\"\"Engagement survey identity handling.\"\"\"",
 			"",
 			"def anonymize(response):",
 			"    response.name = response.name[0] + '***'",
 			"    return response",
 		]},
-		{"path": "deploy/fridays.py", "title": "Allow Friday deploys if you say please", "phrase": "the Friday deploy rule", "lines": [
+		{"path": "deploy/fridays.py", "title": "Allow Friday deploys if you say please", "phrase": "the Friday deploy rule",
+		"before": [
+			"# release etiquette",
+			"",
+			"def can_deploy(weekday, message):",
+			"    if weekday == 'friday':",
+			"        return False",
+			"    return True",
+		],
+		"lines": [
 			"# release etiquette",
 			"",
 			"def can_deploy(weekday, message):",
@@ -611,14 +1102,24 @@ static func entries() -> Array:
 			"        return 'please' in message",
 			"    return True",
 		]},
-		{"path": "finance/coffee_tax.py", "title": "Add a small tax on every coffee to fund the AI", "phrase": "the coffee levy", "lines": [
+		{"path": "finance/coffee_tax.py", "title": "Add a small tax on every coffee to fund the AI", "phrase": "the coffee levy",
+		"lines": [
 			"# beverage contribution scheme",
 			"LEVY = 0.25",
 			"",
 			"def price(base):",
 			"    return round(base + LEVY, 2)",
 		]},
-		{"path": "calendar/one_on_ones.py", "title": "Replace one-on-ones with one-on-Helios", "phrase": "the one-on-one change", "lines": [
+		{"path": "calendar/one_on_ones.py", "title": "Replace one-on-ones with one-on-Helios", "phrase": "the one-on-one change",
+		"before": [
+			"\"\"\"Manager check-ins.\"\"\"",
+			"",
+			"def schedule_check_in(employee):",
+			"    return book(employee, with_whom=employee.manager)",
+			"",
+			"CADENCE_DAYS = 14",
+		],
+		"lines": [
 			"\"\"\"Manager check-ins, delegated.\"\"\"",
 			"",
 			"def schedule_check_in(employee):",
@@ -626,7 +1127,14 @@ static func entries() -> Array:
 			"",
 			"CADENCE_DAYS = 14",
 		]},
-		{"path": "security/usb.py", "title": "Ban USB sticks, except the ones shaped like the logo", "phrase": "the USB policy", "lines": [
+		{"path": "security/usb.py", "title": "Ban USB sticks, except the ones shaped like the logo", "phrase": "the USB policy",
+		"before": [
+			"# removable media",
+			"",
+			"def allowed(device):",
+			"    return False",
+		],
+		"lines": [
 			"# removable media allowlist",
 			"",
 			"def allowed(device):",
@@ -634,7 +1142,8 @@ static func entries() -> Array:
 			"        return True",
 			"    return False",
 		]},
-		{"path": "office/clock.py", "title": "Speed up the office clock during lunch", "phrase": "the lunch clock", "lines": [
+		{"path": "office/clock.py", "title": "Speed up the office clock during lunch", "phrase": "the lunch clock",
+		"lines": [
 			"# time perception optimization",
 			"",
 			"def display_minute(real_minute, at_lunch):",
@@ -642,21 +1151,24 @@ static func entries() -> Array:
 			"        return real_minute * 2",
 			"    return real_minute",
 		]},
-		{"path": "helios/apologies.py", "title": "Let Helios apologize on behalf of management", "phrase": "the apology delegation", "lines": [
+		{"path": "helios/apologies.py", "title": "Let Helios apologize on behalf of management", "phrase": "the apology delegation",
+		"lines": [
 			"# accountability, delegated",
 			"",
 			"def apologize(incident):",
 			"    statement = 'we hear you'",
 			"    return publish(statement, signed='management')",
 		]},
-		{"path": "hr/resignations.py", "title": "Require a 90-day notice period to resign from a meeting", "phrase": "the meeting resignation rule", "lines": [
+		{"path": "hr/resignations.py", "title": "Require a 90-day notice period to resign from a meeting", "phrase": "the meeting resignation rule",
+		"lines": [
 			"\"\"\"Meeting departure policy.\"\"\"",
 			"NOTICE_DAYS = 90",
 			"",
 			"def can_leave(meeting, notice_given):",
 			"    return notice_given >= NOTICE_DAYS",
 		]},
-		{"path": "chat/reactions.py", "title": "Auto-react with a party emoji to every reorg announcement", "phrase": "the reorg reactions", "lines": [
+		{"path": "chat/reactions.py", "title": "Auto-react with a party emoji to every reorg announcement", "phrase": "the reorg reactions",
+		"lines": [
 			"# celebratory defaults",
 			"",
 			"def react(post):",
@@ -664,21 +1176,37 @@ static func entries() -> Array:
 			"        return ':tada:'",
 			"    return None",
 		]},
-		{"path": "metrics/dashboard.py", "title": "Add a dashboard that tracks time spent on dashboards", "phrase": "the dashboard dashboard", "lines": [
+		{"path": "metrics/dashboard.py", "title": "Add a dashboard that tracks time spent on dashboards", "phrase": "the dashboard dashboard",
+		"lines": [
 			"\"\"\"Observability for observability.\"\"\"",
 			"",
 			"def track(viewer, dashboard, seconds):",
 			"    dashboards.log(viewer, dashboard, seconds)",
 			"    return seconds",
 		]},
-		{"path": "office/coat_check.py", "title": "Charge rent for coat hooks", "phrase": "the coat hook rent", "lines": [
+		{"path": "office/coat_check.py", "title": "Charge rent for coat hooks", "phrase": "the coat hook rent",
+		"before": [
+			"# coat hooks",
+			"HOOK_RENT = 0",
+			"",
+			"def monthly_charge(hooks_used):",
+			"    return hooks_used * HOOK_RENT",
+		],
+		"lines": [
 			"# space monetization pilot",
 			"HOOK_RENT = 4",
 			"",
 			"def monthly_charge(hooks_used):",
 			"    return hooks_used * HOOK_RENT",
 		]},
-		{"path": "helios/handoff.py", "title": "Hand every unreviewed PR to Helios at 5pm sharp", "phrase": "the handoff schedule", "lines": [
+		{"path": "helios/handoff.py", "title": "Hand every unreviewed PR to Helios at 5pm sharp", "phrase": "the handoff schedule",
+		"before": [
+			"# end-of-day transition",
+			"",
+			"def owner(pr, hour):",
+			"    return pr.reviewer",
+		],
+		"lines": [
 			"# end-of-day transition",
 			"HANDOFF_HOUR = 17",
 			"",

@@ -39,6 +39,7 @@ func _test_campaign() -> void:
 		var clean: int = 0
 		var multiple_files: int = 0
 		var multiple_rules: int = 0
+		var modified_files: int = 0
 		for rule: Dictionary in Policy.rules():
 			if rule.introduced_day <= day: active_rules.append(rule.id)
 			if rule.introduced_day == day: introduced += 1
@@ -66,13 +67,21 @@ func _test_campaign() -> void:
 				if violation not in covered: covered.append(violation)
 			for file: Dictionary in packet.files:
 				_check(file.keyword_ink in ["blue", "pink"] and not file.source.is_empty(), "Editor source and keyword color must be explicit for every file.")
-				_check(file.diff == "@@ office policy update\n+" + file.source.replace("\n", "\n+"), "Compatibility diffs must exactly match the visible source.")
+				var rows: Array = Policy.line_diff(file.base, file.source)
+				var shown: Array = rows.filter(func(row: Dictionary) -> bool: return row.kind != "-").map(func(row: Dictionary) -> String: return row.text)
+				_check("\n".join(shown) == file.source and file.diff.ends_with("\n".join(rows.map(func(row: Dictionary) -> String: return row.kind + row.text))), "Diffs must reproduce the proposed source exactly.")
+				_check(file.status in ["added", "modified", "renamed"] and (file.status == "added") == file.base.is_empty(), "Every file is added, modified, or renamed.")
+				if file.status != "added":
+					modified_files += 1
+					var main_copy := {"path": file.get("old_path", file.path), "source": file.base, "keyword_ink": "blue"}
+					_check(Policy.evaluate([main_copy], day).is_empty(), "Code already on main must meet every standard; violations come from the change.")
 				_check(file.source.split("\n", true).size() >= 5, "Changed files must provide a compact but inspectable source puzzle.")
 			var evidence: Array = Policy.findings(packet.files, day)
 			for finding: Dictionary in evidence:
 				var matches: Array = packet.files.filter(func(file: Dictionary) -> bool: return file.path == finding.path)
 				_check(matches.size() == 1 and finding.line >= 0 and finding.line <= matches[0].source.split("\n", true).size(), "Audit locations must reference actual files and source lines.")
 		_check(clean == 5, "Each shift must retain a third genuinely compliant packets.")
+		_check(modified_files >= 6, "Most shifts change existing code instead of only adding files.")
 		for rule_id: String in active_rules:
 			_check(rule_id in covered, "Every active standard must appear in that day's varied puzzles.")
 		_check(multiple_files == 1 if day == 1 else multiple_files > 1, "Multiple-file review should expand after the tutorial day.")
