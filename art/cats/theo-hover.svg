@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Theo, perked up under the cursor. Drawn over theo.svg; transparent except the pixels it changes. -->
+  <path fill="#17181b" d="M3 0h1v1h-1zM28 0h1v1h-1zM4 1h1v1h-1zM27 1h1v1h-1zM5 2h1v1h-1zM26 2h1v1h-1zM6 3h1v1h-1zM25 3h1v1h-1zM7 4h1v1h-1zM24 4h1v1h-1zM8 5h1v1h-1zM23 5h1v1h-1z"/>
+  <path fill="#a3a7ab" d="M4 2h1v1h-1zM27 2h1v1h-1z"/>
+  <path fill="#cf9fa2" d="M5 3h1v1h-1zM26 3h1v1h-1zM6 4h1v1h-1zM25 4h1v1h-1zM7 5h1v1h-1zM24 5h1v1h-1z"/>
+  <path fill="#eeede6" d="M5 5h1v1h-1zM26 5h1v1h-1z"/>
+  <path fill="#101112" d="M8 16h2v1h-2zM22 16h2v1h-2z"/>
+</svg>

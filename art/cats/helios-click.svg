@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Helios, reacting to a poke. Drawn over helios.svg; transparent except the pixels it changes. -->
+  <path fill="#6b1d24" d="M14 0h1v2h-1zM17 0h1v2h-1z"/>
+  <path fill="#ffb3ba" d="M15 0h2v1h-2zM6 13h1v2h-1zM25 13h1v2h-1z"/>
+  <path fill="#1c2127" d="M4 12h1v1h-1zM9 12h1v1h-1zM22 12h1v1h-1zM27 12h1v1h-1zM7 13h1v2h-1zM24 13h1v2h-1zM4 15h1v1h-1zM9 15h1v1h-1zM22 15h1v1h-1zM27 15h1v1h-1z"/>
+  <path fill="#7a1f28" d="M5 12h4v1h-4zM23 12h4v1h-4zM4 13h1v2h-1zM9 13h1v2h-1zM22 13h1v2h-1zM27 13h1v2h-1zM5 15h4v1h-4zM23 15h4v1h-4z"/>
+  <path fill="#e5384a" d="M5 13h1v2h-1zM8 13h1v2h-1zM23 13h1v2h-1zM26 13h1v2h-1z"/>
+</svg>

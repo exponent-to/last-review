@@ -36,6 +36,8 @@ No trust, stress, automation, relationship, or final-score meters are displayed.
 
 Every message from someone else carries a 32-pixel cat portrait left of its bubble (`native/portraits.gd`); the player's own messages have none, and a faceless sender such as Operations keeps the same indent. The DM buttons show each coworker's portrait, and a Slouch ticker card from a person shows their face beside the text.
 
+The portraits are alive: each cat blinks, plays a small personality idle, perks up under the cursor (a pointing hand), and flinches when clicked. A click never stops at the face, so the ticker card or row underneath still gets it. In Slouch a click only plays the reaction. In Review the seated author's mouth flaps while their bubble shows, and clicking them gets a `poke` line from `content/banter.gd`. Orientation stays quiet, and a goodbye already underway plays out. The DM button icons stay still. See `docs/art-pipeline.md` for the frames and timing.
+
 Opening a conversation clears its dot. New messages follow the bottom only when the player was reading the latest content; otherwise the previous scroll position is retained. Contact changes settle at the latest messages after native layout. The message viewport uses `SCROLL_MODE_SHOW_NEVER` horizontally so a hidden paragraph's temporary unwrapped width cannot inflate the floating window on first open.
 
 ## Verification

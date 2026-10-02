@@ -147,8 +147,11 @@ func tick(delta: float) -> void:
 			_queued = {}
 			if not queued.is_empty(): _say(str(queued.speaker), str(queued.text), str(queued.kind), str(queued.pr))
 			elif pr_id.is_empty(): _say("", "", "")
-			# The last line lingers on screen until something replaces it.
-			else: _settled = true
+			# The last line lingers on screen until something replaces it;
+			# the author stops talking.
+			else:
+				_settled = true
+				_refresh()
 	if not quiet and not pr_id.is_empty() and is_visible_in_tree():
 		idle_seconds += delta
 		if idle_seconds >= IDLE_SECONDS and (line.is_empty() or _settled):
@@ -239,9 +242,18 @@ func _refresh() -> void:
 			child.queue_free()
 		if not who.is_empty():
 			var portrait := make_portrait(who, PORTRAIT)
-			portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			# A live cat can be poked; the lettered placeholder stays inert.
+			if portrait.has_signal("clicked"): portrait.clicked.connect(_poked)
+			else: portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_seat.add_child(portrait)
 			portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for seated: Node in _seat.get_children():
+		if seated.has_method("set_talking"): seated.set_talking(is_speaking())
+
+
+## The reviewer clicked the seated cat. A goodbye already underway plays out.
+func _poked() -> void:
+	if kind not in FAREWELLS: react("poke")
 
 
 func _layout() -> void:

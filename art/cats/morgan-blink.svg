@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Morgan, eyes shut mid-blink. Drawn over morgan.svg; transparent except the pixels it changes. -->
+  <path fill="#ffffff" d="M5 13h1v1h-1zM26 13h1v1h-1z"/>
+  <path fill="#ebe0c9" d="M6 13h5v1h-5zM21 13h5v1h-5zM5 14h6v1h-6zM21 14h6v1h-6zM5 15h1v1h-1zM10 15h1v1h-1zM21 15h1v1h-1zM26 15h1v1h-1zM5 16h6v1h-6zM21 16h6v1h-6z"/>
+  <path fill="#1a1410" d="M6 15h4v1h-4zM22 15h4v1h-4z"/>
+</svg>

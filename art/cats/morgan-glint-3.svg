@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Morgan, glasses glint leaving with a sparkle. Drawn over morgan.svg; transparent except the pixels it changes. -->
+  <path fill="#ffffff" d="M27 11h1v1h-1zM26 12h3v1h-3zM27 13h1v1h-1zM10 14h1v1h-1zM26 14h1v1h-1zM9 15h1v1h-1zM25 15h1v1h-1zM8 16h1v1h-1zM24 16h1v1h-1z"/>
+  <path fill="#d6e6f2" d="M10 15h1v1h-1zM26 15h1v1h-1zM9 16h1v1h-1zM25 16h1v1h-1z"/>
+</svg>
