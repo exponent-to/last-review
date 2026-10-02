@@ -73,7 +73,7 @@ func run() -> void:
 	# Exercise every real packet through the simulation, daily press, chat, and UI.
 	state = Sim.initial_state()
 	for day in range(1, 6):
-		check(Catalog.rules_for_day(day).size() == [3,5,7,8,9][day-1], "Rulebook escalates each day.")
+		check(Catalog.rules_for_day(day).size() == [2,4,6,7,8][day-1], "Rulebook escalates each day.")
 		check(Press.stories(day).size() == 3 and not Press.memo(day).body.is_empty(), "Every day has news and a morning memo.")
 		var first_of_day := true
 		while await_desk():

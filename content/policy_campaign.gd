@@ -5,11 +5,11 @@ extends RefCounted
 const KEYWORDS: Array = ["def", "if", "else", "return"]
 const AUTHORS: Array = ["Maya", "Theo", "Inez"]
 const DAY_COUNTS: Array = [15, 15, 15, 15, 15]
-const ACTIVE_COUNTS: Array = [3, 5, 7, 8, 9]
+const ACTIVE_COUNTS: Array = [2, 4, 6, 7, 8]
 const PIGEON_STAMP: String = "# approved by a pigeon"
 ## Rules about a whole file (its name, ink, opening lines, or quoted labels) accept
 ## the file or any of its lines as evidence. Every other rule needs the exact line.
-const FILE_SCOPED: Array = ["P02", "P03", "P04", "P09"]
+const FILE_SCOPED: Array = ["P02", "P03", "P08"]
 const Bank = preload("res://content/pr_bank.gd")
 static var _packets: Array = []
 static var _bank: Array = []
@@ -17,20 +17,19 @@ static var _bank: Array = []
 static func rules() -> Array:
 	return [
 		{"id": "P01", "category": "Language", "title": "Nothing is load-bearing", "text": "Legal's position is that no component, and no employee, is load-bearing. A comment must not contain the exact phrase load-bearing, ignoring letter case. Match the hyphen and spacing exactly; the phrase anywhere after an unquoted # counts. Text inside a quoted string is not a comment.", "introduced_day": 1},
-		{"id": "P02", "category": "Letters", "title": "Scanner calibration", "text": "The Helios intake scanner calibrates on the lowercase letter a. Files it cannot calibrate are quarantined, and so is their reviewer. Every file ending in .py must contain the literal lowercase letter a somewhere in its first 20 source lines. Comments and quoted text count. Uppercase A does not count. Blank lines count toward the line limit; the filename does not count.", "introduced_day": 1},
-		{"id": "P03", "category": "Color", "title": "Approved ink", "text": "Blue is the approved color of compliant instructions. Pink is reserved for flagged personnel files. The whole keyword tokens def, if, else, and return must be blue. Pink is forbidden. Words inside comments or quoted strings are exempt, as are longer names such as return_label. A file without these keyword tokens needs no blue ink. From Thursday onward, the exact per-file stamp INK-EXCEPTION permits pink keywords in that file only. Misspelled stamps do not count, and no other rule is waived.", "introduced_day": 1},
-		{"id": "P04", "category": "Filenames", "title": "Quiet filenames", "text": "Capital letters register as shouting in the audit log. The filename, excluding its folders, must not contain uppercase ASCII letters A through Z. Lowercase letters, digits, and punctuation are fine.", "introduced_day": 2},
-		{"id": "P05", "category": "Layout", "title": "On the record", "text": "Audit printouts are sixty columns wide. Anything past the margin is off the record, and off-record work is not permitted. No source line may exceed 60 characters, including spaces and punctuation. Exactly 60 is fine. Count the source only, not editor line numbers; a tab counts as one character for this rule.", "introduced_day": 2},
-		{"id": "P06", "category": "Sign-off", "title": "PIGEON sign-off", "text": "Every file is carried to Legal by PIGEON, the compliance courier. Files without its sign-off are not delivered. The final nonempty line of every file must be exactly # approved by a pigeon after ignoring leading and trailing spaces. Blank lines after the stamp are fine. Letter case and spelling must match.", "introduced_day": 3},
-		{"id": "P07", "category": "Language", "title": "Sentiment control", "text": "Comments are scanned for sentiment, and enthusiasm is a sentiment. Comment text must not contain an exclamation mark (!). Exclamation marks inside quoted strings are allowed. Only text after an unquoted # is a comment.", "introduced_day": 3},
-		{"id": "P08", "category": "Layout", "title": "Nothing hidden", "text": "Tabs hide whitespace from the line scanners, and anything hidden is presumed hostile. No literal tab characters may appear anywhere in source, including comments and strings. Use spaces. The two visible characters backslash and t are not a literal tab.", "introduced_day": 4},
-		{"id": "P09", "category": "Labels", "title": "Urgency belongs to management", "text": "Only management may declare urgency. Quoted string text must not contain the whole word urgent, ignoring letter case. urgent and URGENT are forbidden; urgently and nonurgent are fine. A letter, digit, or underscore joins a word, so urgent_task is also fine. Comments are exempt.", "introduced_day": 5},
+		{"id": "P02", "category": "Color", "title": "Approved ink", "text": "Blue is the approved color of compliant instructions. Pink is reserved for flagged personnel files. The whole keyword tokens def, if, else, and return must be blue. Pink is forbidden. Words inside comments or quoted strings are exempt, as are longer names such as return_label. A file without these keyword tokens needs no blue ink. From Thursday onward, the exact per-file stamp INK-EXCEPTION permits pink keywords in that file only. Misspelled stamps do not count, and no other rule is waived.", "introduced_day": 1},
+		{"id": "P03", "category": "Filenames", "title": "Quiet filenames", "text": "Capital letters register as shouting in the audit log. The filename, excluding its folders, must not contain uppercase ASCII letters A through Z. Lowercase letters, digits, and punctuation are fine.", "introduced_day": 2},
+		{"id": "P04", "category": "Layout", "title": "On the record", "text": "Audit printouts are sixty columns wide. Anything past the margin is off the record, and off-record work is not permitted. No source line may exceed 60 characters, including spaces and punctuation. Exactly 60 is fine. Count the source only, not editor line numbers; a tab counts as one character for this rule.", "introduced_day": 2},
+		{"id": "P05", "category": "Sign-off", "title": "PIGEON sign-off", "text": "Every file is carried to Legal by PIGEON, the compliance courier. Files without its sign-off are not delivered. The final nonempty line of every file must be exactly # approved by a pigeon after ignoring leading and trailing spaces. Blank lines after the stamp are fine. Letter case and spelling must match.", "introduced_day": 3},
+		{"id": "P06", "category": "Language", "title": "Sentiment control", "text": "Comments are scanned for sentiment, and enthusiasm is a sentiment. Comment text must not contain an exclamation mark (!). Exclamation marks inside quoted strings are allowed. Only text after an unquoted # is a comment.", "introduced_day": 3},
+		{"id": "P07", "category": "Layout", "title": "Nothing hidden", "text": "Tabs hide whitespace from the line scanners, and anything hidden is presumed hostile. No literal tab characters may appear anywhere in source, including comments and strings. Use spaces. The two visible characters backslash and t are not a literal tab.", "introduced_day": 4},
+		{"id": "P08", "category": "Labels", "title": "Urgency belongs to management", "text": "Only management may declare urgency. Quoted string text must not contain the whole word urgent, ignoring letter case. urgent and URGENT are forbidden; urgently and nonurgent are fine. A letter, digit, or underscore joins a word, so urgent_task is also fine. Comments are exempt.", "introduced_day": 5},
 	]
 
 static func briefing(day: int) -> String:
 	match day:
 		1:
-			return "YOUR DESK IS ASSIGNED. Northstar is transitioning review to Helios. Until it completes, every change still needs a human signature. You will not be asked to understand the code, only to enforce the standards on it exactly as written: forbidden comment wording, the scanner's lowercase a, and approved keyword ink. Work arrives through Slouch. The clock does not wait for you."
+			return "YOUR DESK IS ASSIGNED. Northstar is transitioning review to Helios. Until it completes, every change still needs a human signature. You will not be asked to understand the code, only to enforce the standards on it exactly as written: forbidden comment wording and approved keyword ink. Work arrives through Slouch. The clock does not wait for you."
 		2:
 			return "THE RECORDS OFFICE HAS REQUIREMENTS. Filenames must be quiet and lines must fit the audit printout. Earlier standards still apply. Changes now arrive in several files; an unread file is an unsigned file. Cite each broken standard once."
 		3:
@@ -123,37 +122,31 @@ static func findings(files: Array, day: int) -> Array:
 			if "load-bearing" in str(comment.text).to_lower():
 				_finding(result, "P01", path, int(comment.line) + 1, "The comment contains load-bearing.")
 			if day >= 3 and "!" in comment.text:
-				_finding(result, "P07", path, int(comment.line) + 1, "The comment contains an exclamation mark.")
-		if path.ends_with(".py"):
-			var has_a: bool = false
-			for line_index in range(mini(20, lines.size())):
-				has_a = has_a or "a" in lines[line_index]
-			if not has_a:
-				_finding(result, "P02", path, 1, "The first twenty source lines contain no lowercase a.")
+				_finding(result, "P06", path, int(comment.line) + 1, "The comment contains an exclamation mark.")
 		if file.get("keyword_ink", "blue") != "blue" and not (day >= 4 and file.get("permit", "") == "INK-EXCEPTION"):
 			var spans: Array = keyword_spans(source)
 			if not spans.is_empty():
-				_finding(result, "P03", path, int(spans[0].line) + 1, "A listed keyword token is pink instead of blue.")
+				_finding(result, "P02", path, int(spans[0].line) + 1, "A listed keyword token is pink instead of blue.")
 		if day >= 2:
 			if uppercase.search(path.get_file()) != null:
-				_finding(result, "P04", path, 0, "The filename contains an uppercase letter.")
+				_finding(result, "P03", path, 0, "The filename contains an uppercase letter.")
 			for line_index in range(lines.size()):
 				if lines[line_index].length() > 60:
-					_finding(result, "P05", path, line_index + 1, "This source line exceeds sixty characters.")
+					_finding(result, "P04", path, line_index + 1, "This source line exceeds sixty characters.")
 		if day >= 3:
 			var last_line: int = lines.size() - 1
 			while last_line >= 0 and lines[last_line].strip_edges().is_empty():
 				last_line -= 1
 			if last_line < 0 or lines[last_line].strip_edges() != PIGEON_STAMP:
-				_finding(result, "P06", path, maxi(1, last_line + 1), "The final nonempty line is not the pigeon stamp.")
+				_finding(result, "P05", path, maxi(1, last_line + 1), "The final nonempty line is not the pigeon stamp.")
 		if day >= 4:
 			for line_index in range(lines.size()):
 				if "\t" in lines[line_index]:
-					_finding(result, "P08", path, line_index + 1, "This line contains a literal tab.")
+					_finding(result, "P07", path, line_index + 1, "This line contains a literal tab.")
 		if day >= 5:
 			for quoted: String in lexer.strings:
 				if urgent.search(quoted) != null:
-					_finding(result, "P09", path, 0, "A quoted string contains the whole word urgent.")
+					_finding(result, "P08", path, 0, "A quoted string contains the whole word urgent.")
 	return result
 
 ## True when a citation's pointed-at location is real evidence for that rule.
@@ -292,33 +285,26 @@ static func _apply_fault(file: Dictionary, rule_id: String, day: int, variant: i
 		"P01":
 			lines.insert(at, ["# load-bearing: do not touch, ask Dave", "# NOTE: this file is load-bearing for payroll", "# load-bearing module, do not refactor"][variant % 3])
 		"P02":
-			# A generated settings module: no lowercase a anywhere in its first twenty lines.
-			var name: String = str(file.path).get_file().get_basename().to_upper()
-			lines = ["# %s SETTINGS" % name, "# GENERATED BY HELIOS. DO NOT EDIT.", "RETRY_LIMIT = 3", "TIMEOUT_SECONDS = 30", "OWNER_ID = 7", "", "def limits():", "    return (RETRY_LIMIT, TIMEOUT_SECONDS)", ""]
-			for setting: String in ["MIN_WORKERS = 2", "MOOD_THRESHOLD = 40", "LOG_LEVEL = 'INFO'", "POLL_SECONDS = 15", "BUFFER_SIZE = 4096", "MONITOR_ID = 'NS-7'", "REVIEW_QUOTE = 1", "OPEN_DOOR_POLICY = 0", "HELIOS_WEIGHT = 9", "UPTIME_GOAL = 99", "SILENCE_ON_ERROR = 1"]:
-				if lines.size() < 20: lines.append(setting)
-			if day >= 3: lines.append(PIGEON_STAMP)
-		"P03":
 			file.keyword_ink = "pink"
 			if keyword_spans("\n".join(lines)).is_empty():
 				lines.insert(at, "def stamp():")
 				lines.insert(at + 1, "    return 'a copy'")
-		"P04":
+		"P03":
 			var base: String = str(file.path).get_file().get_basename()
 			var loud: String = base.capitalize().replace(" ", "")
 			if file.status != "added":
 				file.old_path = file.path
 				file.status = "renamed"
 			file.path = str(file.path).get_base_dir() + "/" + loud + ".py"
-		"P05":
+		"P04":
 			lines.insert(at, ["# NOTE: Helios says this is fine, and also that it wrote this one", "MOTD = 'please remember that every keystroke is company property'", "# reviewed in the meeting that could have been an email thread"][variant % 3])
-		"P06":
+		"P05":
 			lines[-1] = ["# approved by a seagull", "# approved by helios", "# approved by a pigeon (probably)"][variant % 3]
-		"P07":
+		"P06":
 			lines.insert(at, ["# TODO: delete before the audit!", "# works on my machine!", "# thanks Helios!"][variant % 3])
-		"P08":
+		"P07":
 			lines.insert(at, ["RETRY_DELAY =\t5", "TEAM =\t'platform'", "MAX_SEATS =\t12"][variant % 3])
-		"P09":
+		"P08":
 			lines.insert(at, ["PRIORITY = 'urgent'", "SUBJECT = 'URGENT: per Morgan'", "LABEL = 'Urgent review requested'"][variant % 3])
 	file.source = "\n".join(lines)
 	_refresh_diff(file)
@@ -415,7 +401,7 @@ static func requests() -> Array:
 				if day >= 2 and index > 0 and index % 6 == 0:
 					var secondary: String = "P%02d" % (1 + ((int(primary.substr(1)) + 2) % ACTIVE_COUNTS[day - 1]))
 					if secondary == primary:
-						secondary = "P01" if primary != "P01" else "P03"
+						secondary = "P01" if primary != "P01" else "P02"
 					# Different files prevent edits to one flaw from concealing another.
 					if files.size() == 1:
 						recipe.files.append("config")
@@ -423,18 +409,18 @@ static func requests() -> Array:
 					_fault(files, recipe, 0, secondary)
 			if day >= 4:
 				if index in [1, 4, 7]:
-					_fault(files, recipe, 0, "P03")
+					_fault(files, recipe, 0, "P02")
 					_permit(files, recipe, 0, "INK-EXCEPTION")
 				elif index in [0, 8]:
-					_fault(files, recipe, files.size() - 1, "P03")
+					_fault(files, recipe, files.size() - 1, "P02")
 					_permit(files, recipe, files.size() - 1, "INK-EXCEPTION")
 				elif index == 2:
-					_fault(files, recipe, 0, "P03")
+					_fault(files, recipe, 0, "P02")
 					_permit(files, recipe, 0, "INK-EXCEPTION")
-					_fault(files, recipe, files.size() - 1, "P03")
+					_fault(files, recipe, files.size() - 1, "P02")
 					_permit(files, recipe, files.size() - 1, "INK-EXEPTION")
 				elif index == 5:
-					_fault(files, recipe, files.size() - 1, "P03")
+					_fault(files, recipe, files.size() - 1, "P02")
 					_permit(files, recipe, files.size() - 1, "ink-exception")
 			var request_id: String = "PR-%d" % (1000 + day * 1000 + index + 1)
 			if day == 1 and index == 0:
@@ -456,19 +442,18 @@ static func requests() -> Array:
 # what the reviewer cited and never says whether anything is still wrong.
 
 const MAX_REVISION: int = 3
-## P02 regenerates a whole file, which would erase other evidence; never a regression.
-const REGRESSION_EXEMPT: Array = ["P02"]
+## Rules that must never be introduced as a regression (none today).
+const REGRESSION_EXEMPT: Array = []
 ## Plain words for a citation: [noun, what the author claims to have done].
 const CITED_WORDS: Dictionary = {
 	"P01": ["the load-bearing comment", "removed the comment you were so attached to"],
-	"P02": ["the missing lowercase a", "fed the scanner a lowercase a"],
-	"P03": ["the keyword ink", "repainted the keywords a calmer blue"],
-	"P04": ["the shouting filename", "taught the filename to use its indoor voice"],
-	"P05": ["the long line", "folded the long line until it fit the printout"],
-	"P06": ["the pigeon sign-off", "re-signed it for the pigeon"],
-	"P07": ["the exclamation mark", "removed all the enthusiasm from the comments"],
-	"P08": ["the tab", "replaced the tab with honest spaces"],
-	"P09": ["the urgent label", "downgraded the urgency to a mild concern"],
+	"P02": ["the keyword ink", "repainted the keywords a calmer blue"],
+	"P03": ["the shouting filename", "taught the filename to use its indoor voice"],
+	"P04": ["the long line", "folded the long line until it fit the printout"],
+	"P05": ["the pigeon sign-off", "re-signed it for the pigeon"],
+	"P06": ["the exclamation mark", "removed all the enthusiasm from the comments"],
+	"P07": ["the tab", "replaced the tab with honest spaces"],
+	"P08": ["the urgent label", "downgraded the urgency to a mild concern"],
 }
 ## The author's note on the PR form and in Slouch. {Fixes}/{fixes} come from CITED_WORDS.
 const REVISION_MESSAGES: Dictionary = {
@@ -482,8 +467,7 @@ const REVISION_MESSAGES: Dictionary = {
 		2: ["v2 attached. Per your review, I have {fixes}.", "Revision two. I have {fixes}, as requested, and documented my feelings separately.", "v2. I have {fixes}. Please advise if any further joy should be removed."],
 		3: ["v3 attached. I have {fixes}, again. Please confirm receipt of my patience.", "Revision three. I have {fixes}, for what I am told is the final time.", "v3. I have {fixes}. I have also updated my résumé, for unrelated reasons."]},
 }
-## A harmless comment acknowledging the review, left in every revision. None contain a
-## lowercase a, so a note can never satisfy the scanner standard by accident.
+## A harmless comment acknowledging the review, left in every revision.
 const REVISION_NOTES: Dictionary = {
 	"Maya": {2: ["# per review", "# fixed. you're welcome."], 3: ["# v3. no comment.", "# v3: fixed, fixed, fixed"]},
 	"Theo": {2: ["# fixed per review (it's even better now)", "# per review, plus some bonus improvements"], 3: ["# v3: no more notes, I beg you", "# v3: I rewrote nothing. I grew."]},

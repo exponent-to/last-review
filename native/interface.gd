@@ -42,14 +42,13 @@ const STAMP_GREEN: Color = Color("2f8a4f")
 const STAMP_RED: Color = Color("c0202f")
 const RULE_SUMMARIES := {
 	"P01": "No ‘load-bearing’ in comments.",
-	"P02": ".py files: lowercase a in the first 20 lines.",
-	"P03": "def / if / else / return must be blue.",
-	"P04": "No uppercase A–Z in the filename.",
-	"P05": "At most 60 characters per source line.",
-	"P06": "Last nonempty line: # approved by a pigeon",
-	"P07": "No ! in comments.",
-	"P08": "No tab characters anywhere.",
-	"P09": "No whole word ‘urgent’ inside quotes.",
+	"P02": "def / if / else / return must be blue.",
+	"P03": "No uppercase A–Z in the filename.",
+	"P04": "At most 60 characters per source line.",
+	"P05": "Last nonempty line: # approved by a pigeon",
+	"P06": "No ! in comments.",
+	"P07": "No tab characters anywhere.",
+	"P08": "No whole word ‘urgent’ inside quotes.",
 }
 
 class PolicyHighlighter extends SyntaxHighlighter:

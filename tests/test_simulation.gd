@@ -85,7 +85,7 @@ func _test_reviews() -> void:
 	var policy := load("res://content/policy_campaign.gd")
 	for finding: Dictionary in request.findings:
 		_check(policy.evidence_accepted(request.findings, finding.rule_id, finding.path, int(finding.line)), "Every audited finding accepts its own location.")
-	_check(policy.evidence_accepted([{"rule_id": "P04", "path": "a.py", "line": 0}], "P04", "a.py", 7) and not policy.evidence_accepted([{"rule_id": "P04", "path": "a.py", "line": 0}], "P04", "b.py", 0), "Whole-file rules accept any line of the right file only.")
+	_check(policy.evidence_accepted([{"rule_id": "P03", "path": "a.py", "line": 0}], "P03", "a.py", 7) and not policy.evidence_accepted([{"rule_id": "P03", "path": "a.py", "line": 0}], "P03", "b.py", 0), "Whole-file rules accept any line of the right file only.")
 	_check(overcited.trust == 63 and overcited.coworkers[request.author] == 43, "Incorrect rejection must hurt trust and relationships.")
 	_check(Simulation.dispatch(initial, {"type": "consult-ai"}) == initial, "Helios is unavailable until Wednesday.")
 	var bad_approval := Simulation.dispatch(initial, {"type": "review", "verdict": "approve"})
@@ -172,7 +172,7 @@ func _test_saves() -> void:
 	_round_trip(selected)
 	for value: Variant in [null, [], true, 42, "save", {"version": 1}, {"version": 2}]:
 		_check(not Simulation.validate_save(value).ok, "Invalid types and workshop saves must be rejected.")
-	for version in [1, 2, 3, 4, 5, 6, 7, 9]:
+	for version in [1, 2, 3, 4, 5, 6, 7, 8, 10]:
 		var unsupported := initial.duplicate(true)
 		unsupported.version = version
 		_check(not Simulation.validate_save(unsupported).ok, "Only the current save format is accepted.")
@@ -214,8 +214,8 @@ func _test_catalog() -> void:
 	for rule: Dictionary in Catalog.rules_for_day(1):
 		initial_ids.append(rule.id)
 	initial_ids.sort()
-	_check(initial_ids == ["P01", "P02", "P03"], "New reviewers must start with exactly three foundational policies.")
-	_check(Catalog.rules_for_day(2).size() == 5 and Catalog.rules_for_day(3).size() == 7, "Active standards must grow gradually across shifts.")
+	_check(initial_ids == ["P01", "P02"], "New reviewers must start with exactly two foundational policies.")
+	_check(Catalog.rules_for_day(2).size() == 4 and Catalog.rules_for_day(3).size() == 6, "Active standards must grow gradually across shifts.")
 	_check(Catalog.campaign_days() == [1, 2, 3, 4, 5], "Campaign days must be derived in authored order.")
 	_check(Catalog.requests_for_day(1).size() == 15 and Catalog.requests_for_day(5).size() == 15, "Each shift lines up fifteen authored PRs.")
 	var previous_day: int = 0

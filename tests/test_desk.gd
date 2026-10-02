@@ -211,10 +211,10 @@ func _test_saves() -> void:
 	state = Simulation.dispatch(state, Catalog.audit_citation(Catalog.packet(state, state.active_request_id), "P01"))
 	_round_trip(state)
 	var forged := state.duplicate(true)
-	forged.revisions[0].fixed = ["P03"]
+	forged.revisions[0].fixed = ["P02"]
 	_check(not Simulation.validate_save(forged).ok, "A save cannot claim a different fix than the replay produces.")
 	forged = state.duplicate(true)
-	forged.revisions[0].regression = "P07"
+	forged.revisions[0].regression = "P06"
 	_check(not Simulation.validate_save(forged).ok, "A save cannot invent or remove a regression.")
 	forged = state.duplicate(true)
 	forged.desk_line.reverse()
@@ -252,10 +252,10 @@ func _test_dialogue() -> void:
 	for author: String in ["Maya", "Theo", "Inez"]:
 		for version in [1, 2, 3]:
 			for verdict: String in ["approve", "request_changes"]:
-				for cited: Array in [["P01"], ["P04", "P05"], ["P02", "P06", "P09"], []]:
+				for cited: Array in [["P01"], ["P03", "P04"], ["P02", "P05", "P08"], []]:
 					var line: String = Chat._lines().reaction(author, version, verdict, cited, "PR-2004" if version == 1 else "PR-2004-v%d" % version)
 					_check(forbidden.search(line) == null and not line.is_empty(), "Revision dialogue never names rules or audit results: " + line)
-			for cited: Array in [["P01"], ["P03", "P07"]]:
+			for cited: Array in [["P01"], ["P02", "P06"]]:
 				var message: String = Policy.revision_message(author, version if version > 1 else 2, cited, "PR-2004-v2")
 				_check(forbidden.search(message) == null, "Revision notes never name rules: " + message)
 	for contact: String in Chat.CONTACTS:
