@@ -7,7 +7,8 @@ const Bank = preload("res://content/pr_bank.gd")
 const Campaign = preload("res://content/policy_campaign.gd")
 const FIELDS: Array[String] = ["pitch", "pushback", "relief", "grudge"]
 const SECRET_NAMES: Array[String] = ["password", "token", "secret", "api_key", "key"]
-const LAST_DAY: int = 5
+## Every day of the two-week campaign; each has its own active rulebook.
+const LAST_DAY: int = 10
 var checks: int = 0
 var failures: int = 0
 var path_shape := RegEx.create_from_string("^[a-z][a-z0-9_]*(/[a-z][a-z0-9_]*)+\\.py$")
@@ -24,8 +25,8 @@ func _initialize() -> void:
 	var entries: Array = Bank.entries()
 	_check(entries.size() >= 160, "The bank holds at least 160 encounters.")
 	_test_identity(entries)
-	for entry: Dictionary in entries:
-		_test_entry(entry)
+	for index in range(entries.size()):
+		_test_entry(entries[index], index)
 	_check(Bank.entries() == entries and Bank.entries() != [], "The bank is stable between calls.")
 	print("PR bank checks: %d passed, %d failed." % [checks - failures, failures])
 	quit(1 if failures else 0)
@@ -44,7 +45,7 @@ func _test_identity(entries: Array) -> void:
 			_check(not value.is_empty() and not seen[key].has(value), "Each entry has a unique %s: %s" % [key, value])
 			seen[key][value] = true
 
-func _test_entry(entry: Dictionary) -> void:
+func _test_entry(entry: Dictionary, index: int) -> void:
 	var path: String = str(entry.get("path", ""))
 	_check(path_shape.search(path) != null, "Paths are lowercase snake_case modules in a package: " + path)
 	_check(typeof(entry.get("title")) == TYPE_STRING and typeof(entry.get("phrase")) == TYPE_STRING, "Title and phrase are strings: " + path)
@@ -61,19 +62,20 @@ func _test_entry(entry: Dictionary) -> void:
 			if row.kind == "+": added += 1
 			elif row.kind == "-": removed += 1
 		_check(maxi(added, removed) >= 1 and maxi(added, removed) <= 6, "A change touches one to six lines: %s (+%d -%d)" % [path, added, removed])
-	_test_faults(entry)
+	_test_faults(entry, index)
 	_test_dialogue(path, entry)
 
-## One version of a file: clean under every standard on the strictest day, and
-## under the newer house rules (no TODOs, prints, or hardcoded secrets).
+## One version of a file: clean under every day's standards, and under the newer
+## house rules (no TODOs, prints, or hardcoded secrets).
 func _test_source(path: String, label: String, lines: Array) -> void:
 	var where := "%s (%s)" % [path, label]
 	if lines.is_empty():
 		_check(false, "Source is never empty: " + where)
 		return
 	var source: String = "\n".join(lines)
-	var file := {"path": path, "source": "\n".join(Campaign._clean(lines, LAST_DAY)), "keyword_ink": "blue"}
-	_check(Campaign.findings([file], LAST_DAY).is_empty(), "Bank source is clean under every standard: " + where)
+	for day in range(1, LAST_DAY + 1):
+		var file := {"path": path, "source": "\n".join(Campaign._clean(lines, day)), "keyword_ink": "blue"}
+		_check(Campaign.findings([file], day).is_empty(), "Bank source is clean under day %d's standards: %s" % [day, where])
 	# Faults and notes are inserted after the first line, and the pigeon stamp
 	# after the last, so both must end outside any string.
 	var opening: String = lines[0]
@@ -112,14 +114,24 @@ func _probe_is_comment(text: String) -> bool:
 		if int(comment.line) == line_count and str(comment.text) == " probe": return true
 	return false
 
-## Each standard's fault, in every wording, adds exactly that one violation.
-func _test_faults(entry: Dictionary) -> void:
-	var before: Variant = Campaign._clean(entry.before, LAST_DAY) if entry.has("before") else null
-	for rule: Dictionary in Campaign.rules():
-		for variant in range(3):
-			var file: Dictionary = Campaign._file(str(entry.path), Campaign._clean(entry.lines, LAST_DAY), "blue", before)
-			Campaign._apply_fault(file, str(rule.id), LAST_DAY, variant)
-			_check(Campaign.evaluate([file], LAST_DAY) == [rule.id], "Fault %s/%d applies cleanly to %s" % [rule.id, variant, entry.path])
+## Each standard's fault, in every wording and on every day it is active, adds
+## exactly that one violation to a PR built on this entry. The PR is built from a
+## recipe because whole-PR faults (size, file count, tests) shape the whole packet,
+## and from day 9 a test travels with any change to existing code.
+func _test_faults(entry: Dictionary, index: int) -> void:
+	for day in range(1, LAST_DAY + 1):
+		_check(Campaign.evaluate(_built(index, day, []), day).is_empty(), "A PR built on %s is clean on day %d before any fault." % [entry.path, day])
+		for rule_id: String in Campaign.active_ids(day):
+			for variant in range(3):
+				# Only a change to existing code needs a test to travel with it, and a
+				# file that already credits Helios is disclosed from the start.
+				var exempt: bool = (rule_id == "P13" and not entry.has("before")) or (rule_id == "P14" and Campaign._mentions_helios("\n".join(entry.lines)))
+				var expected: Array = [] if exempt else [rule_id]
+				var files: Array = _built(index, day, [{"file": 0, "rule": rule_id, "variant": variant}])
+				_check(Campaign.evaluate(files, day) == expected, "Fault %s/%d applies cleanly to %s on day %d" % [rule_id, variant, entry.path, day])
+
+func _built(index: int, day: int, faults: Array) -> Array:
+	return Campaign._build({"entry": index, "day": day, "files": ["primary"], "decoys": [], "notes": [], "permits": [], "faults": faults})
 
 func _test_dialogue(path: String, entry: Dictionary) -> void:
 	for field: String in FIELDS:

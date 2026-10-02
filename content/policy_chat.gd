@@ -96,12 +96,26 @@ static func authored() -> Dictionary:
   index += 1
  _cache = {"contacts": people, "requests": packets, "company": [
   {"day": 1, "author": "Morgan", "text": "You are not here to understand the code. You are here to sign it. Helios will supply more work than you can finish; choose what carries your name carefully."},
-  {"day": 2, "author": "Operations", "text": "Records Office notice: quiet filenames, sixty-column lines. Changes now arrive in sets. An unread file is an unsigned file."},
-  {"day": 3, "author": "Helios", "text": "I can now offer review recommendations. PIGEON will refuse any file without its sign-off, and comments are now scanned for sentiment. Your human judgment remains useful to my training."}],
+  {"day": 2, "author": "Operations", "text": "Records Office notice: standards are reissued every second morning, and this is not one of them. Changes now arrive in sets. An unread file is an unsigned file."},
+  {"day": 3, "author": "Helios", "text": "I can now offer review recommendations. PIGEON will refuse any file without its sign-off, lines must fit the sixty-column printout, and comments are now scanned for sentiment. Your human judgment remains useful to my training."}],
   "manager": {"intro": "Morning. Read the memo, then start the clock when you're ready.", "friction": "A coworker says we sent back a compliant change. They attached the handbook. We should avoid making policy stricter than it already is.", "handoff": "Helios picked up the remaining queue. Don't stay late chasing it; it can produce requests faster than either of us can read.", "held": "The policy desk hasn't sent anything back tonight. Thanks for being specific with the team.", "quiet": "Nothing from the policy desk tonight. Go home before somebody invents another standard.", "closing": "That's enough for today. Head home, grab dinner, or study tomorrow's paperwork.",
-   "escalation": "{author} looped me in on {pr} after three rounds. I've handed it to Helios. Nobody needs to see a v4."}}
- _cache.company.append({"day": 4, "author": "Operations", "text": "Exception Desk notice: INK-EXCEPTION is the only valid pink-ink permit, for one file only. Tabs remain prohibited on every file. Misspelled permits will be treated as forgeries."})
- _cache.company.append({"day": 5, "author": "Morgan", "text": "Last day of this assignment. Only management declares urgency, so no urgent in quoted strings. Keep checking the actual files; we will talk about your future after closing."})
+   "escalation": "{author} looped me in on {pr} after three rounds. I've handed it to Helios. Nobody needs to see a v4.",
+   # Friday of week one was supposed to be the end.
+   "extension": "One more thing before you go. Leadership extended your assignment through next Friday. Helios asked for you by name. I asked it why. It said you were consistent.",
+   # Week two's evenings get quieter as the floor empties.
+   "closings": {
+    6: "That's enough for today. The lights on this floor run on a motion sensor now. Wave on your way out so it knows you were here.",
+    7: "Go home. If your badge doesn't open the door, it's a glitch. Probably. Message me, not the helpdesk; the helpdesk is Helios now.",
+    8: "That's it for today. Eat something. Helios moved tomorrow's standup to 8:59 again, and I can't find the setting.",
+    9: "Head home. One more day. Whatever they decide, you did the job the way it was written."}}}
+ _cache.company.append({"day": 4, "author": "Operations", "text": "Records Office notice: sixty columns means sixty. The printers have been told to report anything wider directly to Helios."})
+ _cache.company.append({"day": 5, "author": "Operations", "text": "Exception Desk notice: INK-EXCEPTION is the only valid pink-ink permit, for one file only. Misspelled permits will be treated as forgeries. Tabs are prohibited on every file."})
+ _cache.company.append({"day": 5, "author": "Morgan", "text": "Last scheduled day of this assignment. Only management declares urgency, so no urgent in quoted strings. Keep checking the actual files; we will talk about your future after closing."})
+ _cache.company.append({"day": 6, "author": "Morgan", "text": "Welcome to week two. Your assignment was extended over the weekend; the standards are Friday's. You may notice fewer people. Please don't ask where they went in a public channel."})
+ _cache.company.append({"day": 7, "author": "Operations", "text": "Standards modernization notice: the pigeon is rescinded. Diff budgets and file caps now apply, and the diffstat is authoritative. Credentials belong to Helios. Please surrender any you remember."})
+ _cache.company.append({"day": 8, "author": "Helios", "text": "Desks four through eleven have been consolidated into me. I will be attending your standup. Please do not water the plants; their offboarding is scheduled."})
+ _cache.company.append({"day": 9, "author": "Operations", "text": "Disclosure notice: a file whose comments mention Helios requires the exact disclosure line. Tests must accompany changes to existing code. Ink permits now require a ticket number."})
+ _cache.company.append({"day": 10, "author": "Morgan", "text": "Last day. Leadership announces the review gate decision after closing. Whatever happens, sign only what you checked."})
 
  return _cache
 

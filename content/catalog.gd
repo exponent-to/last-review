@@ -6,12 +6,20 @@ static var _requests: Array = []
 static func rules() -> Array:
 	return load("res://content/policy_campaign.gd").rules()
 
+## The standards in force that day, as amended by then. Retired ones are gone.
 static func rules_for_day(day: int) -> Array:
-	var active: Array = []
-	for rule: Dictionary in rules():
-		if int(rule.introduced_day) <= day:
-			active.append(rule)
-	return active
+	return load("res://content/policy_campaign.gd").rules_for_day(day)
+
+static func rule_active(rule_id: String, day: int) -> bool:
+	return rule_id in load("res://content/policy_campaign.gd").active_ids(day)
+
+## The morning the current set of standards was issued (they change every two days).
+static func block_start(day: int) -> int:
+	return load("res://content/policy_campaign.gd").block_start(day)
+
+## Standards added, amended, and retired on a day's morning.
+static func rule_changes(day: int) -> Dictionary:
+	return load("res://content/policy_campaign.gd").changes(day)
 
 ## The authored originals, in line order. Revisions live in each career's state.
 static func requests() -> Array:

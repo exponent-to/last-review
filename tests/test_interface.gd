@@ -167,8 +167,8 @@ func _check_active_rules(day: int) -> void:
 	var active: Array = Catalog.rules_for_day(day)
 	var shown := 0
 	for rule: Dictionary in Catalog.rules():
-		var should_show: bool = int(rule.introduced_day) <= day
-		check(ui._slip_rows[str(rule.id)].panel.visible == should_show, "Slip rows must match each standard's introduction day")
+		var should_show: bool = Catalog.rule_active(str(rule.id), day)
+		check(ui._slip_rows[str(rule.id)].panel.visible == should_show, "Slip rows must match each standard's active days")
 		if should_show: shown += 1
 	check(shown == active.size(), "The slip lists exactly the current day's standards")
 
