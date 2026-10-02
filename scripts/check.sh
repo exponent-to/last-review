@@ -18,3 +18,4 @@ sh scripts/run.sh --headless --script res://tests/test_save_slots.gd
 sh scripts/run.sh --headless --script res://tests/test_policy_campaign.gd
 sh scripts/run.sh --headless --script res://tests/test_policy_integration.gd
 sh scripts/run.sh --headless --script res://tests/test_tutorial_pointer.gd
+sh scripts/run.sh --headless --script res://tests/test_banter.gd

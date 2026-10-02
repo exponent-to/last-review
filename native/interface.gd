@@ -18,6 +18,7 @@ const DesktopWindow = preload("res://native/desktop_window.gd")
 const Chat = preload("res://content/chat.gd")
 const TutorialPointer = preload("res://native/tutorial_pointer.gd")
 const DailyReader = preload("res://native/daily_reader.gd")
+const ReviewBanter = preload("res://native/review_banter.gd")
 const Catalog = preload("res://content/catalog.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 # Night-shift terminal palette: black glass, phosphor green, one alarm red,
@@ -157,6 +158,7 @@ var _arrival_ids: Array[String] = []
 var _code_legend: Label
 var _tutorial_details: Dictionary = {}
 var _paper: PanelContainer
+var _banter: ReviewBanter
 var _last_feedback_key := "-"
 var _evidence: Dictionary = {}
 var _diff_rows: Array = []
@@ -620,7 +622,12 @@ func _build_review_content(code: VBoxContainer) -> void:
 	paper_style.shadow_size = 0
 	paper_style.shadow_offset = Vector2(3, 3)
 	_paper.add_theme_stylebox_override("panel", paper_style)
-	code.add_child(_paper)
+	# The PR's author sits beside the form and talks while you review.
+	var desk := _row(code, 10)
+	_paper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	desk.add_child(_paper)
+	_banter = ReviewBanter.new()
+	desk.add_child(_banter)
 	var form: VBoxContainer = _column(_paper, 4)
 	var title_row: HBoxContainer = _row(form)
 	_spacer(title_row)
@@ -974,7 +981,7 @@ func _build_decision(parent: Node) -> void:
 	_selected_label = _paragraph(column, "NONE YET", 12, DIM)
 	_citation_list = _column(column, 4)
 	_paragraph(column, "Click a line to flag it. Full standards: INTRANET > STANDARDS.", 11, DIM)
-	_consult = _button(column, "ASK HELIOS", _emit_command.bind({"type": "consult-ai"}))
+	_consult = _button(column, "ASK HELIOS", _ask_helios)
 	_consult.add_theme_color_override("font_color", AMBER)
 	_consult.tooltip_text = "Ask Helios for a recommendation. It can lighten your workload, but invites the assistant further into the process. Advice can be wrong."
 	_ai_note = _paragraph(column, "Helios can take a look. Its advice may be wrong, and using it gives the assistant more influence.", 12, DIM)
@@ -1109,9 +1116,11 @@ func _flag_rule(rule_id: String) -> void:
 		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
 		if cited.get(rule_id, {}) == location:
 			_close_flag_box()
+			if rule_id not in _state.get("selected_rules", []): _banter.react("withdraw")
 			return
 	_emit_command({"type": "toggle-rule", "rule_id": rule_id, "path": location.path, "line": int(location.line)})
 	_close_flag_box()
+	if rule_id in _state.get("selected_rules", []): _banter.react("flag")
 
 
 func _render_citation_list(state: Dictionary, can_review: bool) -> void:
@@ -1130,11 +1139,21 @@ func _render_citation_list(state: Dictionary, can_review: bool) -> void:
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		text.custom_minimum_size.x = 40
 		text.tooltip_text = text.text
-		var remove := _button(line, "×", _emit_command.bind({"type": "toggle-rule", "rule_id": rule_id}))
+		var remove := _button(line, "×", _withdraw_citation.bind(rule_id))
 		remove.flat = true
 		remove.disabled = not can_review
 		remove.custom_minimum_size = Vector2(24, 22)
 		remove.tooltip_text = "Withdraw " + rule_id
+
+
+func _withdraw_citation(rule_id: String) -> void:
+	_emit_command({"type": "toggle-rule", "rule_id": rule_id})
+	if rule_id not in _state.get("selected_rules", []): _banter.react("withdraw")
+
+
+func _ask_helios() -> void:
+	_emit_command({"type": "consult-ai"})
+	if bool(_state.get("consulted", false)): _banter.react("consult")
 
 
 func _location_text(location: Dictionary) -> String:
@@ -1265,8 +1284,9 @@ func _open_chat_conversation() -> void:
 	_select_chat_contact(_chat_contact)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_sync_tutorial_pointer()
+	if not _paused: _banter.tick(delta)
 	if is_instance_valid(_flag_box) and _flag_box.visible:
 		if not _windows.review.is_visible_in_tree() or _evidence.is_empty(): _close_flag_box()
 		else: _place_flag_box()
@@ -1417,6 +1437,7 @@ func _clear_citations() -> void:
 	var selected: Array = _state.get("selected_rules", []).duplicate()
 	for rule_id: String in selected:
 		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
+	if not selected.is_empty() and _state.get("selected_rules", []).is_empty(): _banter.react("withdraw")
 
 
 func render_state(state: Dictionary) -> void:
@@ -1477,13 +1498,18 @@ func render_state(state: Dictionary) -> void:
 			_set_review_files(request)
 			_close_flag_box()
 			_packet_scroll.scroll_vertical = 0
+			_banter.open_pr(request_id, str(request.get("author", "")), int(request.get("revision", 1)))
 		_ai_note.text = "Helios can take a look. Its advice may be wrong, and using it gives the assistant more influence."
 		if consulted:
 			_ai_note.text = "AI: %s\n%s" % [str(request.get("ai_verdict", "")).replace("_", " ").to_upper(), str(request.get("ai_note", ""))]
+	if active_request.is_empty(): _banter.close_pr()
 	var feedback: Dictionary = state.get("last_feedback", {})
 	var feedback_key := "" if feedback.is_empty() else str(feedback.get("pr_id", "")) + str(feedback.get("verdict", ""))
 	if feedback_key != _last_feedback_key:
-		if _last_feedback_key != "-" and not feedback_key.is_empty(): _play_stamp(str(feedback.get("verdict", "")))
+		if _last_feedback_key != "-" and not feedback_key.is_empty():
+			_play_stamp(str(feedback.get("verdict", "")))
+			# The author hears the verdict only, never whether it was right.
+			_banter.farewell(str(feedback.get("author", "")), str(feedback.get("verdict", "")), str(feedback.get("pr_id", "")))
 		_last_feedback_key = feedback_key
 	_feedback.text = "No review sent yet." if feedback.is_empty() else "%s · %s sent to %s." % [str(feedback.get("pr_id", "")), "Approval" if feedback.get("verdict") == "approve" else "Change request", str(feedback.get("author", ""))]
 	_render_phase(state)
@@ -1628,6 +1654,7 @@ func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
 	var step_changed: bool = _tutorial_details.get("stage", -1) != progress.get("stage", -1)
 	var starting: bool = not _tutorial_active and not progress.is_empty()
 	_tutorial_active = not progress.is_empty()
+	_banter.quiet = _tutorial_active
 	if starting:
 		for app: String in _app_counts: _notifications.clear_app(app)
 	_update_chat_badges()
