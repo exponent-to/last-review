@@ -50,6 +50,6 @@ Implementation references: [Godot Web export documentation](https://docs.godoten
 
 ## Startup screen
 
-`web/shell.html` is the custom Godot HTML shell. It displays a Northstar terminal with bundled IBM Plex Mono while the real engine download progresses, then hands off immediately to the main menu. Failed downloads and unsupported browsers show a readable error and Retry Startup. Motion follows the browser’s reduced-motion preference. The native boot splash also omits the default Godot logo.
+`web/shell.html` is the custom Godot HTML shell. It displays a Paperclip Labs terminal with bundled IBM Plex Mono while the real engine download progresses, then hands off immediately to the main menu. Failed downloads and unsupported browsers show a readable error and Retry Startup. Motion follows the browser’s reduced-motion preference. The native boot splash also omits the default Godot logo.
 
 The Web build copies `loader-font.ttf` and its OFL license beside the export; deploy these with the other generated files. No remote fonts or artificial loading delay are used. See [Godot’s custom HTML shell documentation](https://docs.godotengine.org/en/stable/tutorials/platform/web/customizing_html5_shell.html).

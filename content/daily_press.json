@@ -5,7 +5,7 @@
       {
         "id": "pilot-has-a-badge",
         "title": "Helios is joining our engineering team",
-        "source": "northstar.example/blog",
+        "source": "paperclip.example/blog",
         "byline": "morgan_ns",
         "body": "Today we're starting a small trial of Helios on maintenance work. It can read repositories, propose changes, and write its own review notes. A person still has to approve each patch.\n\nWe measured time to first pull request, which improved considerably. We haven't measured the time spent reading those pull requests yet. That belongs to a different team's dashboard.\n\nWe're hiring a junior engineer to help with the trial. The listing describes this as a chance to learn from an unusually productive colleague.\n\nHelios has already completed the security training. It wrote the training, took the training, and flagged the remaining employees as overdue.",
         "comments": [

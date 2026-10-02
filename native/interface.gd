@@ -231,7 +231,7 @@ func _build_os_menu(parent: Node) -> void:
 	panel.add_theme_stylebox_override("panel", bar)
 	parent.add_child(panel)
 	var row: HBoxContainer = _row(panel, 12)
-	var prompt := _label(row, "root@northstar:~$", 12, CYAN)
+	var prompt := _label(row, "root@paperclip:~$", 12, CYAN)
 	prompt.tooltip_text = "Workstation N-7. Every keystroke is company property."
 	_footer = _label(row, "READY", 11, DIM)
 	_spacer(row)
@@ -529,9 +529,9 @@ func _build_home() -> void:
 	motto.offset_bottom = -22
 	motto.add_theme_constant_override("separation", 0)
 	_desktop_home.add_child(motto)
-	var mark := _label(motto, "NORTHSTAR", 46, Color("1b1b1e"))
+	var mark := _label(motto, "PAPERCLIP LABS", 40, Color("1b1b1e"))
 	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	var tagline := _label(motto, "we review so you don't have to._", 13, Color("2a2a2e"))
+	var tagline := _label(motto, "making more of everything._", 13, Color("2a2a2e"))
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var launchers: Array = [
 		["review", "REVIEW", "review"],
