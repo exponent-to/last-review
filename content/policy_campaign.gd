@@ -29,7 +29,7 @@ static func rules() -> Array:
 static func briefing(day: int) -> String:
 	match day:
 		1:
-			return "YOUR DESK IS ASSIGNED. Northstar is transitioning review to Helios. Until it completes, every change still needs a human signature. You will not be asked to understand the code, only to enforce the standards on it exactly as written: forbidden comment wording and approved keyword ink. Work arrives through Slouch. The clock does not wait for you."
+			return "YOUR DESK IS ASSIGNED. Paperclip Labs is transitioning review to Helios. Until it completes, every change still needs a human signature. You will not be asked to understand the code, only to enforce the standards on it exactly as written: forbidden comment wording and approved keyword ink. Work arrives through Slouch. The clock does not wait for you."
 		2:
 			return "THE RECORDS OFFICE HAS REQUIREMENTS. Filenames must be quiet and lines must fit the audit printout. Earlier standards still apply. Changes now arrive in several files; an unread file is an unsigned file. Cite each broken standard once."
 		3:

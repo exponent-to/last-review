@@ -232,7 +232,7 @@ static func entries() -> Array:
 		{"path": "email/signatures.py", "title": "Append 'Sent by a human (probably)' to every email", "phrase": "the email signature",
 		"before": [
 			"# outbound mail footer",
-			"FOOTER = 'Sent from Northstar'",
+			"FOOTER = 'Sent from Paperclip Labs'",
 			"",
 			"def sign(body):",
 			"    return body + '\\n\\n' + FOOTER",
@@ -1138,7 +1138,7 @@ static func entries() -> Array:
 			"# removable media allowlist",
 			"",
 			"def allowed(device):",
-			"    if device.shape == 'northstar logo':",
+			"    if device.shape == 'paperclip logo':",
 			"        return True",
 			"    return False",
 		]},

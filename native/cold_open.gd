@@ -6,7 +6,7 @@ signal finished
 const ARRIVAL_TIME := 6.6
 const SIGN_HOLD := 1.2
 const DESIGN_SIZE := Vector2(1120, 800)
-const OFFER := "Hi,\n\nWe enjoyed your conversation with our recruiting assistant. Northstar would like to offer you the role of Junior Software Engineer.\n\nAnnual salary: $38,000\nLocation: on site. Start: Monday.\n\nYou'll review changes, work with the team, and help us build the future of human-centered automation. Our assistant, Helios, will handle the routine parts.\n\nWe know you have options. This offer expires tonight.\n\nMorgan\nEngineering Manager, Northstar"
+const OFFER := "Hi,\n\nWe enjoyed your conversation with our recruiting assistant. Paperclip Labs would like to offer you the role of Junior Software Engineer.\n\nAnnual salary: $38,000\nLocation: on site. Start: Monday.\n\nYou'll review changes, work with the team, and help us build the future of human-centered automation. Our assistant, Helios, will handle the routine parts.\n\nWe know you have options. This offer expires tonight.\n\nMorgan\nEngineering Manager, Paperclip Labs"
 const REJECTIONS := [
 	["Stealth Stealth", "An update on your application", "We've decided to remain stealthy about your candidacy."],
 	["Pivotly", "You're almost a culture fit", "We pivoted away from employing people during your interview."],
@@ -43,7 +43,7 @@ func _ready() -> void:
 	_skip.pressed.connect(_complete)
 	add_child(_skip)
 	for index in range(-1, REJECTIONS.size()):
-		var button := _mail_hit_button("Open Northstar offer" if index == -1 else "Open " + str(REJECTIONS[index][0]))
+		var button := _mail_hit_button("Open Paperclip Labs offer" if index == -1 else "Open " + str(REJECTIONS[index][0]))
 		button.pressed.connect(_open_mail.bind(index))
 		_mail_buttons.append(button)
 	_inbox_button = _mail_hit_button("Back to Inbox")
@@ -282,7 +282,7 @@ func _draw() -> void:
 	if _elapsed >= 1.6 and _elapsed < 3.5:
 		var notification := Rect2(laptop.position.x + 82, laptop.position.y - 42, laptop.size.x - 164, 30)
 		draw_rect(notification, Color("273b4d"))
-		_text(notification.position + Vector2(12, 20), "New mail — Northstar", 13, Color("d4e5eb"))
+		_text(notification.position + Vector2(12, 20), "New mail — Paperclip Labs", 13, Color("d4e5eb"))
 	draw_set_transform(Vector2.ZERO)
 
 
@@ -321,7 +321,7 @@ func _draw_inbox() -> void:
 		var fresh := Rect2(161, 79, 785, 65)
 		draw_rect(fresh, Color("edf5f6"))
 		draw_rect(Rect2(161, 79, 4, 65), Color("467b9c"))
-		_text(Vector2(175, 99), "NORTHSTAR  /  Morgan", 15, Color("24425b"))
+		_text(Vector2(175, 99), "PAPERCLIP LABS  /  Morgan", 15, Color("24425b"))
 		_text(Vector2(175, 120), "An offer for you", 16, Color("172c43"))
 		_text(Vector2(778, 100), "JUST NOW", 11, Color("4a6f87"))
 	for index in range(REJECTIONS.size()):
@@ -334,7 +334,7 @@ func _draw_inbox() -> void:
 
 func _draw_offer() -> void:
 	_text(Vector2(172, 64), "An offer for you", 22, Color("20354b"))
-	_text(Vector2(173, 90), "Morgan  <morgan@northstar.local>", 13, Color("536b80"))
+	_text(Vector2(173, 90), "Morgan  <morgan@paperclip.local>", 13, Color("536b80"))
 	draw_rect(Rect2(173, 104, 757, 1), Color("9db1bf"))
 	var lines := _wrapped_lines(OFFER, 752, 14)
 	for index in range(lines.size()):
