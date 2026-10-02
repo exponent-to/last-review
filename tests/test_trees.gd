@@ -4,8 +4,8 @@ extends SceneTree
 const Trees = preload("res://content/trees.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Encounters = preload("res://content/encounters.gd")
-## Raised to the full campaign once every block's trees are written.
-const MIN_TREES := 0
+## Every one of the campaign's 150 PRs has its own tree.
+const MIN_TREES := 150
 const MAX_LENGTH := 70
 const PLACEHOLDERS := ["{topic}", "{Topic}", "{topics}", "{Topics}", "{fixes}", "{Fixes}"]
 ## Moments where the author must name what you cited, in plain words.

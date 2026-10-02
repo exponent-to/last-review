@@ -16,7 +16,7 @@ static func trees() -> Dictionary:
 				"return": {"friendly": "Back. I've rescheduled the focus around your notes. Recurring.", "cold": "The focus blocks have returned. Like Tuesday at ten. Forever."},
 				"revised": {"friendly": "Updated. The sync has an agenda now. Item one is silence.", "cold": "Revised in a focus sync. Attendance was mandatory. I attended."},
 				"flag": {"friendly": "{Topic}? Let's take that offline. I'll book a focus sync.", "cold": "{Topic}. I'll add it to the agenda of a meeting you can't decline."},
-				"consult": {"warm": "Helios helped plan this. It says focus scales with attendance.", "cold": "Ask Helios. It accepted every invite I sent. Unlike some people."},
+				"consult": {"friendly": "Helios helped plan this. It says focus scales with attendance.", "cold": "Ask Helios. It accepted every invite I sent. Unlike some people."},
 				"thanks": {"friendly": "Thank you. I've blocked an hour to feel appreciated. Mandatory.", "cold": "Approved. I'll send an invite titled 'Celebrating Focus'. Required."},
 				"suspicious": {"friendly": "That was quick. Weren't you meant to be focusing just now?", "cold": "Approved that fast. You clearly had free time. I'll fix that."},
 				"relief": {"friendly": "Finally. Every calendar is full. Look how focused everyone is.", "cold": "Merged at last. I've booked a sync to process how long that took."},
