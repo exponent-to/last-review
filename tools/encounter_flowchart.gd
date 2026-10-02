@@ -10,6 +10,7 @@ const Policy = preload("res://content/policy_campaign.gd")
 const Encounters = preload("res://content/encounters.gd")
 const Lines = preload("res://content/encounter_lines.gd")
 const Portraits = preload("res://native/portraits.gd")
+const Trees = preload("res://content/trees.gd")
 const FONT := "res://art/fonts/IBMPlexMono-Regular.ttf"
 
 const MOOD_COLORS := {"warm": "#6fdc8c", "neutral": "#e6e2d6", "strained": "#e0b44a", "hostile": "#e5384a"}
@@ -430,6 +431,53 @@ static func legend() -> String:
 </div>""" % [" ".join(moods), "".join(loops)]
 
 
+## Every campaign PR's own tree: its lines by node and mood, and its odds.
+static func pr_panel() -> String:
+	var options := PackedStringArray()
+	var sections := PackedStringArray()
+	var first := true
+	for packet: Dictionary in Catalog.originals():
+		var title := str(packet.title)
+		var author := str(packet.author)
+		var tree := Trees.tree(title)
+		var id := str(packet.id)
+		options.append('<option value="%s">Day %d · %s · %s · %s%s</option>' % [id, int(packet.day), id, author, _esc(_clip(title, 64)), "" if not tree.is_empty() else "  (templates)"])
+		var rows := PackedStringArray()
+		for channel: String in ["desk", "dm"]:
+			for node: String in (DESK_ORDER if channel == "desk" else DM_ORDER):
+				var cells := PackedStringArray()
+				var any_line := false
+				for mood: String in Encounters.MOODS:
+					var text := Trees.line(title, channel, node, mood)
+					if not text.is_empty(): any_line = true
+					var shown := Encounters.fill(text, [EXAMPLE_TOPIC], EXAMPLE_TOPIC) if not text.is_empty() else ""
+					cells.append('<td>%s</td>' % (_esc(shown) if not shown.is_empty() else '<span class="fine">author template</span>'))
+				if any_line or channel == "desk":
+					rows.append('<tr><th><span class="node-name">%s · %s</span></th>%s</tr>' % [channel, _esc(str(Encounters.NODES.get(node, {}).get("label", node))), "".join(cells)])
+		var odds := PackedStringArray()
+		for mood: String in Encounters.MOODS:
+			var weights: Dictionary = Encounters.weights("changes", author, mood, [], title)
+			var total := 0
+			for node: String in weights: total += int(weights[node])
+			var parts := PackedStringArray()
+			for node: String in ["revise_now", "revise_later", "pushback", "abandon", "escalate"]:
+				if weights.has(node) and total > 0: parts.append("%s %d%%" % [node.replace("_", " "), roundi(100.0 * int(weights[node]) / total)])
+			odds.append('<td>%s</td>' % ", ".join(parts))
+		var lean: Dictionary = Trees.lean(title)
+		var lean_text := "no lean (author defaults)" if lean.is_empty() else ", ".join(lean.keys().map(func(node: Variant) -> String: return "%s %+d" % [str(node).replace("_", " "), int(lean[node])]))
+		var face := _portrait(author)
+		sections.append("""<section class="pr%s" id="pr-%s">
+  <header class="author-head">%s<div><h2>%s</h2><p>%s · day %d · %s · this PR leans: %s</p></div></header>
+  <div class="table-wrap"><table class="lines"><thead><tr><th>This PR's tree</th>%s</tr></thead><tbody>%s<tr><th><span class="node-name">odds after CHANGES REQUESTED</span></th>%s</tr></tbody></table></div>
+</section>""" % [" on" if first else "", id, '<img class="face" src="%s" alt="%s">' % [face, author] if not face.is_empty() else "", _esc(title), id, int(packet.day), author, _esc(lean_text), _mood_headers(), "".join(rows), "".join(odds)])
+		first = false
+	return """<section class="author" id="tab-prs" role="tabpanel">
+  <header class="author-head"><div><h2>Every PR has its own tree</h2><p>Pick a PR to see its author's lines at every branch and mood, and how its lean shifts the odds. "author template" marks anything the PR leaves to the author's shared lines.</p></div></header>
+  <p><select id="pr-pick" aria-label="Pick a PR">%s</select></p>
+  %s
+</section>""" % ["".join(options), "".join(sections)]
+
+
 static func page() -> String:
 	var font := Marshalls.raw_to_base64(FileAccess.get_file_as_bytes(FONT))
 	var log := sample_day()
@@ -449,6 +497,8 @@ static func page() -> String:
   <div class="table-wrap">%s</div>
   <div class="table-wrap">%s</div>
 </section>""" % [" on" if index == 0 else "", author.to_lower(), '<img class="face" src="%s" alt="%s">' % [face, author] if not face.is_empty() else "", author, voice, chart(author), desk_table(author), dm_table(author), morgan_table(author)])
+	tabs.append('<button class="tab" data-tab="prs" role="tab" aria-selected="false">Per PR</button>')
+	panels.append(pr_panel())
 	var trajectories := PackedStringArray()
 	for author: String in Encounters.AUTHORS: trajectories.append(trajectory(log, author))
 	return """<!doctype html>
@@ -467,6 +517,8 @@ main { max-width: 1680px; margin: 0 auto; padding: 24px 16px 64px; }
 h1 { font-size: 22px; margin: 0 0 4px; color: var(--green); font-weight: 400; letter-spacing: .02em; }
 h1 .prompt { color: var(--dim); }
 h2 { margin: 0; font-size: 20px; font-weight: 400; color: var(--text); }
+.pr { display: none; } .pr.on { display: block; }
+#pr-pick { background: var(--inset); color: var(--text); border: 1px solid var(--border); font: inherit; padding: 6px 8px; max-width: 100%%; }
 h3 { font-size: 13px; color: var(--red); letter-spacing: .08em; text-transform: uppercase; font-weight: 400; margin: 28px 0 10px; }
 p { margin: 6px 0; }
 .lede { color: var(--dim); max-width: 980px; }
@@ -583,6 +635,10 @@ footer { color: var(--dim); font-size: 12px; margin-top: 40px; border-top: 1px s
     var panel = target && target.closest('.author');
     if (panel) { var tab = document.querySelector('.tab[data-tab="' + panel.id.slice(4) + '"]'); if (tab) tab.click(); }
   }
+  var pick = document.getElementById('pr-pick');
+  if (pick) pick.addEventListener('change', function () {
+    document.querySelectorAll('.pr').forEach(function (section) { section.classList.toggle('on', section.id === 'pr-' + pick.value); });
+  });
   var moodButtons = document.querySelectorAll('.moods button');
   moodButtons.forEach(function (button) {
     button.addEventListener('click', function () {
