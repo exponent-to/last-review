@@ -15,6 +15,7 @@ func _initialize() -> void:
 	_test_escalation()
 	_test_saves()
 	_test_dialogue()
+	_test_whole_pr_citation()
 	print("Desk and revision checks: %d passed, %d failed." % [checks - failures, failures])
 	quit(1 if failures else 0)
 
@@ -261,3 +262,22 @@ func _test_dialogue() -> void:
 	for contact: String in Chat.CONTACTS:
 		for message: Dictionary in Chat.messages(state, contact):
 			_check(forbidden.search(str(message.text)) == null, "Slouch never shows placeholders, rule IDs, or audit results: " + str(message.text))
+
+## Week two: a whole-PR standard is cited with WHOLE FILE on any changed file, and
+## a retired standard can't be cited at all.
+func _test_whole_pr_citation() -> void:
+	var state := _find(func(packet: Dictionary) -> bool: return int(packet.revision) == 1 and packet.violations.any(func(rule_id: String) -> bool: return rule_id in Policy.PR_SCOPED))
+	_check(not state.is_empty(), "Week two puts a whole-PR violation on the desk.")
+	if state.is_empty(): return
+	var packet: Dictionary = Catalog.packet(state, state.active_request_id)
+	var pr_rule: String = packet.violations.filter(func(rule_id: String) -> bool: return rule_id in Policy.PR_SCOPED)[0]
+	var cited: Dictionary = state
+	for rule_id: String in packet.violations:
+		var command: Dictionary = Catalog.audit_citation(packet, rule_id)
+		if rule_id == pr_rule: command = {"type": "toggle-rule", "rule_id": rule_id, "path": str(packet.files[-1].path), "line": 0}
+		cited = Simulation.dispatch(cited, command)
+	var stamped: Dictionary = Simulation.dispatch(cited, {"type": "review", "verdict": "request_changes"})
+	_check(stamped.last_feedback.correct, "WHOLE FILE on the PR's last file is valid evidence for %s." % pr_rule)
+	_round_trip(stamped)
+	_check(Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": pr_rule, "path": "nowhere/else.py", "line": 0}) == state, "Whole-PR evidence must still point at a file in the PR.")
+	_check(int(state.day) >= 7 and Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "P05", "path": str(packet.files[0].path), "line": 0}) == state, "A retired standard can no longer be cited.")

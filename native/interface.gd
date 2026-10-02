@@ -40,15 +40,30 @@ const PAPER_MUTED: Color = Color("3c3f39")
 const PAPER_LINE: Color = Color("7a7e75")
 const STAMP_GREEN: Color = Color("2f8a4f")
 const STAMP_RED: Color = Color("c0202f")
+## One-line slip summaries. "P04@7" replaces "P04" from day 7, when it was amended.
 const RULE_SUMMARIES := {
 	"P01": "No ‘load-bearing’ in comments.",
 	"P02": "def / if / else / return must be blue.",
+	"P02@5": "Keywords blue, unless the file’s permit is INK-EXCEPTION.",
+	"P02@9": "Keywords blue, unless permit is INK-EXCEPTION PCL-####.",
 	"P03": "No uppercase A–Z in the filename.",
 	"P04": "At most 60 characters per source line.",
+	"P04@7": "At most 72 characters per source line.",
 	"P05": "Last nonempty line: # approved by a pigeon",
 	"P06": "No ! in comments.",
 	"P07": "No tab characters anywhere.",
 	"P08": "No whole word ‘urgent’ inside quotes.",
+	"P09": "Whole PR: at most 30 lines changed (+ and −).",
+	"P10": "Whole PR: at most 3 files.",
+	"P11": "No quoted string assigned to a password / secret / token / api_key name.",
+	"P12": "No print( outside tests/.",
+	"P13": "Whole PR: changes existing code (M/R)? A tests/ file must change too.",
+	"P14": "Comment mentions Helios? File needs # generated-by: helios",
+}
+const EVIDENCE_HINTS := {
+	"line": "Cite the exact line.",
+	"file": "Cite the file: WHOLE FILE or any of its lines.",
+	"pr": "About the whole PR: WHOLE FILE on any changed file.",
 }
 
 class PolicyHighlighter extends SyntaxHighlighter:
@@ -167,6 +182,7 @@ var _mark_gutter := -1
 var _diffstat_label: RichTextLabel
 var _evidence_label: Label
 var _slip_rows: Dictionary = {}
+var _slip_day: int = -1
 var _flag_buttons: Dictionary = {}
 var _standards_link: Button
 var _chat_channel_label: Label
@@ -235,7 +251,7 @@ func _build_os_menu(parent: Node) -> void:
 	prompt.tooltip_text = "Workstation N-7. Every keystroke is company property."
 	_footer = _label(row, "READY", 11, DIM)
 	_spacer(row)
-	_hud["day"] = _label(row, "MONDAY", 12, RED)
+	_hud["day"] = _label(row, day_label(1), 12, RED)
 	_hud["status"] = _footer
 	_clock_label = _label(row, "09:00", 15, GREEN)
 	_clock_label.custom_minimum_size.x = 50
@@ -309,6 +325,13 @@ func render_clock(state: Dictionary) -> void:
 	_clock_label.text = "%02d:%02d" % [int(minutes / 60), minutes % 60]
 	_clock_label.add_theme_color_override("font_color", RED if minutes >= 17 * 60 else AMBER if minutes >= 15 * 60 else GREEN)
 	_pause_button.disabled = str(state.get("phase", "review")) != "review"
+
+
+## The top bar's workday: "WEEK 1 · MONDAY" through "WEEK 2 · FRIDAY".
+static func day_label(day: int) -> String:
+	var names: Array[String] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+	var days_per_week: int = names.size()
+	return "WEEK %d · %s" % [(maxi(1, day) - 1) / days_per_week + 1, names[(maxi(1, day) - 1) % days_per_week]]
 
 
 func _build_theme() -> Theme:
@@ -659,7 +682,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_whole_file = _button(pointer_row, "WHOLE FILE", func() -> void: _point_at(0))
 	_whole_file.custom_minimum_size.y = 26
 	_whole_file.add_theme_font_size_override("font_size", 11)
-	_whole_file.tooltip_text = "Point at this entire file, for rules about its filename, ink, opening lines, or quoted labels."
+	_whole_file.tooltip_text = "Point at this entire file, for rules about its filename, ink, quoted labels, or disclosure, and for whole-PR rules (lines changed, file count, tests): any changed file will do."
 	_diff = CodeEdit.new()
 	_diff.name = "PullRequestDiff"
 	_diff.editable = false
@@ -761,8 +784,9 @@ func _update_code_legend() -> void:
 	var entry: Dictionary = _review_files[index]
 	# Keyword colors speak for themselves; only permits and line lengths need a readout.
 	var notes: Array[String] = []
-	if int(_state.get("day", 1)) >= 4: notes.append("Permit: " + str(entry.get("permit", "none")))
-	if int(_state.get("day", 1)) >= 2:
+	var day := int(_state.get("day", 1))
+	if day >= int(load("res://content/policy_campaign.gd").PERMIT_DAY): notes.append("Permit: " + str(entry.get("permit", "none")))
+	if Catalog.rule_active("P04", day):
 		var caret_line: int = _line_for_row(_diff.get_caret_line())
 		notes.append(("Line %d · %d characters (click a line to measure)" % [caret_line, _diff.get_line(_diff.get_caret_line()).length()]) if caret_line > 0 else "Removed line: not part of the new file")
 	_code_legend.text = "\n".join(notes)
@@ -913,7 +937,7 @@ func _browse(path: String, record: bool = true) -> void:
 		return
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, click the offending line (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then tick the standard it breaks on the citation slip. Full standards are on the intranet.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, point at the evidence, then tick the standard it breaks on the citation slip:\n• Line standards: click the offending line.\n• File standards (filename, ink, quoted labels, disclosure): WHOLE FILE, or any line of that file.\n• Whole-PR standards (lines changed, file count, tests): WHOLE FILE on any changed file. The diffstat above the diff counts lines and files for you.\nStandards are reissued every second morning; the daily memo lists what was added, amended, or retired. Full standards are on the intranet.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
 		_:
 			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nNEWS carries the morning headlines. DAILY MEMO carries today's instructions from management. PROCEDURE describes the review process.\n\nExternal access restricted by company policy."
 
@@ -985,7 +1009,7 @@ func _build_decision(parent: Node) -> void:
 		check.pressed.connect(_flag_rule.bind(id))
 		line.add_child(check)
 		var words := _column(line, 1)
-		var summary := _paragraph(words, str(RULE_SUMMARIES.get(id, rule.title)), 11, DIM)
+		var summary := _paragraph(words, _rule_summary(rule, 1), 11, DIM)
 		summary.mouse_filter = Control.MOUSE_FILTER_PASS
 		var where := _label(words, "", 10, RED)
 		where.clip_text = true
@@ -1042,7 +1066,17 @@ func _diffstat_text(stat: Dictionary) -> String:
 	# A git-style bar: ten blocks split between additions and removals.
 	var total: int = int(stat.added) + int(stat.removed)
 	var plus: int = 0 if total == 0 else clampi(roundi(10.0 * stat.added / total), 1 if stat.added > 0 else 0, 10)
-	return "%d file%s   [color=#6fdc8c]+%d[/color] [color=#e5384a]−%d[/color]   [color=#6fdc8c]%s[/color][color=#e5384a]%s[/color]" % [stat.files, "" if stat.files == 1 else "s", stat.added, stat.removed, "+".repeat(plus), "−".repeat(10 - plus if total > 0 else 0)]
+	return "%d file%s   [color=#6fdc8c]+%d[/color] [color=#e5384a]−%d[/color]   [color=#6fdc8c]%s[/color][color=#e5384a]%s[/color]   %d line%s changed" % [stat.files, "" if stat.files == 1 else "s", stat.added, stat.removed, "+".repeat(plus), "−".repeat(10 - plus if total > 0 else 0), total, "" if total == 1 else "s"]
+
+
+## The slip's one-line summary of a standard as it reads on `day`.
+func _rule_summary(rule: Dictionary, day: int) -> String:
+	var id := str(rule.id)
+	var text := str(RULE_SUMMARIES.get(id, rule.title))
+	for amendment: Dictionary in rule.get("amendments", []):
+		if int(amendment.day) <= day and RULE_SUMMARIES.has("%s@%d" % [id, int(amendment.day)]):
+			text = str(RULE_SUMMARIES["%s@%d" % [id, int(amendment.day)]])
+	return text
 
 
 func _clear_evidence() -> void:
@@ -1074,11 +1108,19 @@ func _flag_rule(rule_id: String) -> void:
 func _render_slip(state: Dictionary, can_review: bool) -> void:
 	var day: int = int(state.get("day", 1))
 	var cited: Dictionary = state.get("citation_evidence", {})
+	if day != _slip_day:
+		# Standards are reissued every second morning: some arrive, some are
+		# amended, and retired ones leave the slip.
+		_slip_day = day
+		for rule: Dictionary in Catalog.rules_for_day(day):
+			var id := str(rule.id)
+			_slip_rows[id].summary.text = _rule_summary(rule, day)
+			_flag_buttons[id].tooltip_text = "%s  %s\n\n%s\n\n%s" % [id, str(rule.title), str(rule.text), str(EVIDENCE_HINTS[load("res://content/policy_campaign.gd").scope(id)])]
 	for id: String in _slip_rows:
 		var row: Dictionary = _slip_rows[id]
 		var check: CheckBox = _flag_buttons[id]
 		var location: Dictionary = cited.get(id, {})
-		row.panel.visible = int(row.rule.introduced_day) <= day
+		row.panel.visible = Catalog.rule_active(id, day)
 		check.set_pressed_no_signal(not location.is_empty())
 		check.disabled = not can_review
 		row.where.visible = not location.is_empty()
@@ -1376,7 +1418,7 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author message and code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE) and pick the standard it breaks. Full standards: INTRANET > STANDARDS.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; its author's Slouch link opens it. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author message and code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; its author's Slouch link opens it. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
 
 
 func set_save_slot(slot: int) -> void:
@@ -1405,8 +1447,7 @@ func render_state(state: Dictionary) -> void:
 	var can_review: bool = phase == "review" and not active_request.is_empty()
 	_consult.visible = day >= 3
 	_ai_note.visible = _consult.visible
-	var day_names: Array[String] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
-	_hud["day"].text = day_names[(day - 1) % day_names.size()]
+	_hud["day"].text = day_label(day)
 	_hud["status"].text = ("HUMAN SIGN-OFF REQUESTED" if can_review else "DESK CLEAR") if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED"
 	if day != _last_day:
 		_last_day = day
@@ -1528,12 +1569,12 @@ func _sync_app_events() -> void:
 	var day := int(_state.get("day", 1))
 	if day != _notification_day:
 		_notification_day = day
-		var added := 0
-		for rule: Dictionary in Catalog.rules():
-			if int(rule.introduced_day) == day: added += 1
-		if added > 0 and not _app_is_reading("browser"):
+		# Every second morning the standards are reissued: added, amended, or retired.
+		var changes: Dictionary = Catalog.rule_changes(day)
+		var changed: bool = not (changes.added.is_empty() and changes.amended.is_empty() and changes.retired.is_empty())
+		if changed and not _app_is_reading("browser"):
 			_app_counts.browser += 1
-			_ambient_push("browser", "New standards are posted on the intranet.", "standards")
+			_ambient_push("browser", "New standards are posted on the intranet." if changes.amended.is_empty() and changes.retired.is_empty() else "The standards have changed. Read the intranet before you sign anything.", "standards")
 		if not _app_is_reading("browser"):
 			_app_counts.browser += 1
 			_ambient_push("browser", "A new daily memo is on the intranet.", "memo")

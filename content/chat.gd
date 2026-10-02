@@ -7,6 +7,7 @@ const Catalog = preload("res://content/catalog.gd")
 const CONTACTS: Array = ["Maya", "Theo", "Inez", "company", "manager"]
 const REPLY_IDS: Array = ["acknowledge", "clarify", "concern"]
 const HISTORY_LIMIT: int = 24
+const WEEK_DAYS: int = 5
 
 
 static func _authored() -> Dictionary:
@@ -31,7 +32,10 @@ static func _append(history: Array, author: String, text: String, kind: String, 
 static func timestamp(message: Dictionary) -> String:
 	var minutes := 540 + int(floor(float(message.sent_seconds) * 540.0 / float(Catalog.shift_seconds())))
 	var days := ["Mon", "Tue", "Wed", "Thu", "Fri"]
-	return "%s %02d:%02d" % [days[(int(message.sent_day) - 1) % days.size()], int(minutes / 60), minutes % 60]
+	var day: int = maxi(1, int(message.sent_day))
+	# The second week's Monday reads "Wk2 Mon", so two Mondays never look alike.
+	var week := "" if day <= WEEK_DAYS else "Wk%d " % ((day - 1) / WEEK_DAYS + 1)
+	return "%s%s %02d:%02d" % [week, days[(day - 1) % days.size()], int(minutes / 60), minutes % 60]
 
 
 static func _chronological(history: Array) -> Array:
@@ -237,18 +241,23 @@ static func _manager_messages(state: Dictionary) -> Array:
 			_append(history, "Morgan", str(copy.handoff), "notice")
 		elif not had_incident and not had_friction:
 			_append(history, "Morgan", str(copy.held if held else copy.quiet), "notice")
-		_append(history, "Morgan", str(copy.closing), "notice")
+		_append(history, "Morgan", str(copy.get("closings", {}).get(int(shift.day), copy.closing)), "notice")
+		# The first Friday was supposed to be the last day.
+		if int(shift.day) == WEEK_DAYS and int(shift.day) < int(Catalog.campaign_days()[-1]):
+			_append(history, "Morgan", str(copy.get("extension", "")), "notice")
 		for index in range(first, history.size()):
 			history[index].sent_day = int(shift.day)
 			history[index].sent_seconds = float(Catalog.shift_seconds())
 			history[index].sent_order = index - first
 			history[index].id = str(shift.day) + "|" + history[index].id
 	if state.get("phase") == "complete":
-		var ending := "The assignment is over. We're keeping human review, although leadership wants a closer look at how it works. You'll hear from me about the next rotation."
-		if int(state.get("autonomy", 0)) >= 70:
-			ending = "Leadership has made Helios the default review gate. Human sign-off will be an exception now. I wanted you to hear it from me before the memo lands."
+		# Two weeks in, Helios's authority has a floor of about fifty; the gate
+		# falls to it only when the reviewer leaned on it, or let work slide to it.
+		var ending := "Two weeks. Leadership is keeping a human signature on the review gate, for now. They're calling it the exception path. You're the exception. I'll be in touch about the next rotation."
+		if int(state.get("autonomy", 0)) >= 90:
+			ending = "Leadership has made Helios the default review gate, effective Monday. Human sign-off is an exception now, and Helios decides when to ask for one. I wanted you to hear it from me before the memo lands. Helios wrote the memo."
 		elif int(state.get("trust", 0)) < 40:
-			ending = "I'm moving you to the incident queue for the next rotation. Someone will sit with you on reviews for a while. We should talk before you head out."
-		if int(state.get("stress", 0)) >= 70: ending += " You look exhausted. Please take tonight off."
+			ending = "I'm moving you to the incident queue for the next rotation. Helios will sit with you on reviews for a while. I asked for a person. There aren't any left on this floor."
+		if int(state.get("stress", 0)) >= 70: ending += " You look exhausted. Please take tonight off. That isn't a policy; I checked."
 		_append(history, "Morgan", ending, "notice", "", int(state.get("day", 1)), Catalog.shift_seconds(), 100)
 	return _chronological(history)

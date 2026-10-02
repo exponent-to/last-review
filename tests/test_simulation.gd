@@ -144,7 +144,7 @@ func _test_career() -> void:
 			_check(Simulation.dispatch(state, command) == frozen, "Invalid debrief actions must not replay daily pay.")
 		state = Simulation.dispatch(state, {"type": "next-day", "choice": "rest"})
 		_round_trip(state)
-	_check(state.phase == "complete" and state.request_index == Catalog.requests().size() and state.day == Catalog.campaign_days()[-1], "Career must finish safely after five shifts and evening choices.")
+	_check(state.phase == "complete" and state.request_index == Catalog.requests().size() and state.day == Catalog.campaign_days()[-1], "Career must finish safely after ten shifts and evening choices.")
 	_check(state.decisions.size() > Catalog.requests().size() and not state.revisions.is_empty() and state.shift_history[-1].evening_choice == "rest", "Change requests add revisions to the career; the final evening is recorded.")
 	for command: Dictionary in [{"type": "review", "verdict": "approve"}, {"type": "next-day", "choice": "socialize"}, {"type": "consult-ai"}]:
 		_check(Simulation.dispatch(state, command) == state, "Complete careers must not accept more rewards or decisions.")
@@ -172,7 +172,7 @@ func _test_saves() -> void:
 	_round_trip(selected)
 	for value: Variant in [null, [], true, 42, "save", {"version": 1}, {"version": 2}]:
 		_check(not Simulation.validate_save(value).ok, "Invalid types and workshop saves must be rejected.")
-	for version in [1, 2, 3, 4, 5, 6, 7, 8, 10]:
+	for version in range(1, Simulation.SAVE_VERSION) + [Simulation.SAVE_VERSION + 1]:
 		var unsupported := initial.duplicate(true)
 		unsupported.version = version
 		_check(not Simulation.validate_save(unsupported).ok, "Only the current save format is accepted.")
@@ -214,10 +214,11 @@ func _test_catalog() -> void:
 	for rule: Dictionary in Catalog.rules_for_day(1):
 		initial_ids.append(rule.id)
 	initial_ids.sort()
-	_check(initial_ids == ["P01", "P02"], "New reviewers must start with exactly two foundational policies.")
-	_check(Catalog.rules_for_day(2).size() == 4 and Catalog.rules_for_day(3).size() == 6, "Active standards must grow gradually across shifts.")
-	_check(Catalog.campaign_days() == [1, 2, 3, 4, 5], "Campaign days must be derived in authored order.")
-	_check(Catalog.requests_for_day(1).size() == 15 and Catalog.requests_for_day(5).size() == 15, "Each shift lines up fifteen authored PRs.")
+	_check(initial_ids == ["P01", "P02", "P03"], "New reviewers must start with exactly three foundational policies.")
+	_check(Catalog.rules_for_day(2).size() == 3 and Catalog.rules_for_day(3).size() == 6 and Catalog.rules_for_day(5).size() == 8, "Active standards must grow gradually across the first week.")
+	_check(Catalog.rules_for_day(10).size() <= 8 and not Catalog.rule_active("P05", 7) and Catalog.rule_active("P13", 9), "Week two retires and replaces standards instead of piling them up.")
+	_check(Catalog.campaign_days() == range(1, 11), "Campaign days must be derived in authored order: two weeks of five.")
+	_check(Catalog.requests_for_day(1).size() == 15 and Catalog.requests_for_day(10).size() == 15, "Each shift lines up fifteen authored PRs.")
 	var previous_day: int = 0
 	var ids: Array = []
 	for request: Dictionary in Catalog.requests():

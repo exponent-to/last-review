@@ -103,7 +103,7 @@ func _test_timeout_history() -> void:
 		if state.phase == "review":
 			_check(state.shift_seconds == 0 and _desk_id(state) == Catalog.requests_for_day(int(state.day))[0].id, "A new day resets the clock and puts its first PR on the desk.")
 		_round_trip(state)
-	_check(state.phase == "complete" and state.credits == 70 and state.chat_replies.is_empty(), "An entirely missed campaign must finish safely without imaginary interaction.")
+	_check(state.phase == "complete" and state.credits == 120 - 10 * Catalog.campaign_days().size() and state.chat_replies.is_empty(), "An entirely missed campaign must finish safely without imaginary interaction.")
 	_check(Simulation.advance(state, 300) == state, "Complete careers cannot run another shift.")
 
 func _test_save_replay() -> void:

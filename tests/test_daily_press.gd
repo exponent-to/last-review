@@ -37,7 +37,13 @@ func _test_editions() -> void:
 			for comment: Variant in article.comments:
 				_check(typeof(comment) == TYPE_STRING and not comment.is_empty(), "Story comments must be authored strings.")
 		var memo: Dictionary = DailyPress.memo(day)
-		_check(memo.keys().size() == 4 and memo.has("subject") and memo.has("body") and memo.has("mechanics") and memo.has("rules"), "Memo must retain its UI contract.")
+		_check(memo.keys().size() == 6 and memo.has_all(["subject", "body", "mechanics", "rules", "amended", "retired"]), "Memo must retain its UI contract.")
+		var changes: Dictionary = Catalog.rule_changes(day)
+		_check(memo.amended == changes.amended and memo.retired == changes.retired, "The memo announces exactly the standards amended and retired that morning.")
+		var reissued: bool = not (memo.rules.is_empty() and memo.amended.is_empty() and memo.retired.is_empty())
+		_check(reissued == (day == Catalog.block_start(day)), "Standards change on each two-day block's first morning, and the memo says so.")
+		for rule: Dictionary in memo.retired:
+			_check(not str(rule.retired).is_empty(), "Every retirement comes with its reason.")
 		_check(not memo.subject.is_empty() and not memo.body.is_empty() and memo.mechanics.size() >= 3, "Each memo must explain the day's context and mechanics.")
 		var expected_rules: Array = []
 		for rule: Dictionary in Catalog.rules_for_day(day):
@@ -58,7 +64,7 @@ func _test_gating() -> void:
 			for article: Dictionary in DailyPress.stories(other_day):
 				_check(DailyPress.story(day, article.id).is_empty(), "An edition may not resolve another day's headline, including future stories.")
 		_check(DailyPress.story(day, "invented-headline").is_empty(), "Unknown story IDs must not resolve.")
-	for day: int in [-1, 0, 6, 99]:
+	for day: int in [-1, 0, 11, 99]:
 		_check(DailyPress.stories(day).is_empty() and DailyPress.memo(day).is_empty() and DailyPress.story(day, "pilot-has-a-badge").is_empty(), "Noncampaign days must not expose an edition or future rules.")
 
 func _test_purity() -> void:

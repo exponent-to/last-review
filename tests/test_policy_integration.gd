@@ -27,7 +27,7 @@ func await_desk() -> bool:
 	state = Sim.advance(state, int(state.desk_at) - int(state.shift_seconds))
 	return true
 func run() -> void:
-	check(Catalog.campaign_days() == [1, 2, 3, 4, 5], "Campaign is exactly Monday through Friday.")
+	check(Catalog.campaign_days() == range(1, 11), "Campaign is two weeks, Monday through Friday twice.")
 	state = Sim.initial_state()
 	check(Sim.available_requests(state).size() == 1 and state.active_request_id == "PR-1042", "The first request is on the desk immediately.")
 	for wait in [19, 20, 280]:
@@ -72,8 +72,12 @@ func run() -> void:
 	check(removed_row < 0 or highlighter._get_line_syntax_highlighting(removed_row).size() == 1, "Removed lines are dimmed, never inked as live keywords.")
 	# Exercise every real packet through the simulation, daily press, chat, and UI.
 	state = Sim.initial_state()
-	for day in range(1, 6):
-		check(Catalog.rules_for_day(day).size() == [2,4,6,7,8][day-1], "Rulebook escalates each day.")
+	for day in Catalog.campaign_days():
+		check(Catalog.rules_for_day(day).size() == Policy.ACTIVE_COUNTS[day - 1], "Rulebook changes every second morning.")
+		ui.render_state(state)
+		var slip: Array = ui._slip_rows.keys().filter(func(id: String) -> bool: return ui._slip_rows[id].panel.visible)
+		check(slip == Policy.active_ids(day), "The citation slip lists exactly the standards in force, retired ones gone.")
+		check(ui._hud["day"].text == ui.day_label(day) and ui._hud["day"].text.begins_with("WEEK %d" % Policy.week(day)), "The top bar names the week and the weekday.")
 		check(Press.stories(day).size() == 3 and not Press.memo(day).body.is_empty(), "Every day has news and a morning memo.")
 		var first_of_day := true
 		while await_desk():
@@ -84,7 +88,7 @@ func run() -> void:
 			for index in range(packet.files.size()):
 				ui._select_file(index)
 				check("\n".join(ui._diff_rows.filter(func(row: Dictionary) -> bool: return row.kind != "-").map(func(row: Dictionary) -> String: return row.text)) == packet.files[index].source, "Every file renders its exact proposed source, with removed lines marked.")
-				if day >= 4: check(ui._code_legend.text.contains(str(packet.files[index].get("permit", "none"))), "Permit is visible per file.")
+				if day >= Policy.PERMIT_DAY: check(ui._code_legend.text.contains(str(packet.files[index].get("permit", "none"))), "Permit is visible per file.")
 			if day >= 3 and (first_of_day or int(packet.revision) > 1):
 				state = Sim.dispatch(state, {"type":"consult-ai"})
 				check(state.consulted, "Helios can advise after unlocking, revisions included.")
@@ -101,8 +105,8 @@ func run() -> void:
 	var originals_signed := 0
 	for decision: Dictionary in state.decisions:
 		if Catalog.packet(state, decision.pr_id).revision == 1: originals_signed += 1
-	check(state.phase == "complete" and state.day == 5 and originals_signed == 75 and state.decisions.size() > 75, "Friday ends the campaign with every PR and its revisions signed.")
-	check(Sim.dispatch(state, {"type":"next-day", "choice":"rest"}) == state, "No sixth day can be started.")
+	check(state.phase == "complete" and state.day == 10 and originals_signed == 150 and state.decisions.size() > 150, "The second Friday ends the campaign with every PR and its revisions signed.")
+	check(Sim.dispatch(state, {"type":"next-day", "choice":"rest"}) == state, "No eleventh day can be started.")
 	var finished := state.duplicate(true)
 	var careless := Sim.initial_state()
 	while not Sim.active_request(careless).is_empty():

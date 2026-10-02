@@ -149,11 +149,21 @@ func _news() -> void:
 ## The full active rulebook, as an intranet page.
 func _standards() -> void:
 	_text("Active review standards", 22)
-	_text("Every change must meet each standard below. Flag violations on the offending line in Review.", 13, MUTED)
+	_text("Every change must meet each standard below. Standards are reissued every second morning. Line standards need the offending line; file standards take WHOLE FILE or any line of that file; whole-PR standards take WHOLE FILE on any changed file.", 13, MUTED)
 	for rule: Dictionary in Press.Catalog.rules_for_day(_day):
 		_divider()
-		_text("%s  %s%s" % [str(rule.id), str(rule.title), "   NEW TODAY" if int(rule.introduced_day) == _day and _day > 1 else ""], 17)
+		var marker := "   NEW TODAY" if int(rule.introduced_day) == _day and _day > 1 else "   AMENDED TODAY" if int(rule.amended_day) == _day else ""
+		_text("%s  %s%s" % [str(rule.id), str(rule.title), marker], 17)
 		_text(str(rule.text), 14)
+	# What the latest reissue took away, so an old habit isn't mistaken for a rule.
+	var start := Press.Catalog.block_start(_day)
+	var retired: Array = Press.Catalog.rules().filter(func(rule: Dictionary) -> bool: return int(rule.get("retired_day", 0)) == start and start > 1)
+	if not retired.is_empty():
+		_divider()
+		_text("NO LONGER IN FORCE", 12, MUTED)
+		for rule: Dictionary in retired:
+			_text("%s  %s   RETIRED" % [str(rule.id), str(rule.title)], 15, MUTED)
+			_text(str(rule.retired), 13, MUTED)
 
 func _story(article: Dictionary) -> void:
 	_link("← Front page", "news", 13)
@@ -178,8 +188,23 @@ func _memo() -> void:
 	_text("AT YOUR DESK TODAY", 12, MUTED)
 	for mechanic: String in memo.mechanics: _text("• " + mechanic, 14)
 	_divider()
-	_text("STANDARDS EFFECTIVE TODAY", 12, MUTED)
-	for rule: Dictionary in memo.rules:
-		_text(str(rule.id) + "  " + str(rule.title), 16)
-		_text(str(rule.text), 14)
-	_text("Earlier standards remain in force. The Handbook has the complete active index.", 12, MUTED)
+	if memo.rules.is_empty() and memo.amended.is_empty() and memo.retired.is_empty():
+		_text("NO STANDARDS CHANGE TODAY", 12, MUTED)
+		_text("Yesterday's standards remain in force, word for word.", 14)
+	if not memo.rules.is_empty():
+		_text("STANDARDS EFFECTIVE TODAY", 12, MUTED)
+		for rule: Dictionary in memo.rules:
+			_text(str(rule.id) + "  " + str(rule.title), 16)
+			_text(str(rule.text), 14)
+	if not memo.amended.is_empty():
+		_text("AMENDED TODAY", 12, MUTED)
+		for rule: Dictionary in memo.amended:
+			_text(str(rule.id) + "  " + str(rule.title), 16)
+			_text(str(rule.change), 14)
+			_text(str(rule.text), 13, MUTED)
+	if not memo.retired.is_empty():
+		_text("RETIRED TODAY", 12, MUTED)
+		for rule: Dictionary in memo.retired:
+			_text(str(rule.id) + "  " + str(rule.title), 16)
+			_text(str(rule.retired), 14)
+	_text("Every other standard remains in force. INTRANET > STANDARDS has the complete active index.", 12, MUTED)
