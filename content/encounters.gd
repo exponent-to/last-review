@@ -20,6 +20,7 @@ const Policy = preload("res://content/policy_campaign.gd")
 const Banter = preload("res://content/banter.gd")
 const Lines = preload("res://content/encounter_lines.gd")
 const Bank = preload("res://content/pr_bank.gd")
+const Trees = preload("res://content/trees.gd")
 
 const AUTHORS: Array[String] = ["Maya", "Theo", "Inez"]
 const MOODS: Array[String] = ["warm", "neutral", "strained", "hostile"]
@@ -172,6 +173,8 @@ const DESK_FALLBACK := {"pitch": "open", "return": "revision", "flag": "flag", "
 ## mood templates instead, so a mood change is always audible. Missing fields fall
 ## back to the templates.
 const DESK_OVERRIDES := {"pitch": "pitch", "pushback": "pushback", "thanks": "relief", "relief": "relief"}
+## Desk moments that can happen more than once per visit.
+const REPEATABLE: Array[String] = ["flag", "unflag", "consult"]
 const DM_OVERRIDES := {"grudge": "grudge"}
 ## Beats that end the desk visit (the author leaves with a reaction).
 const VERDICTS: Array[String] = ["thanks", "suspicious", "relief", "revise_now", "revise_later", "abandon", "escalate", "insist_revise", "insist_escalate"]
@@ -247,7 +250,7 @@ static func categories(cited: Array) -> Array:
 	return result
 
 ## Weights for a pick, after leans for what was cited.
-static func weights(pick: String, author: String, mood: String, cited: Array = []) -> Dictionary:
+static func weights(pick: String, author: String, mood: String, cited: Array = [], title: String = "") -> Dictionary:
 	var table: Dictionary = PICKS.get(pick, {})
 	var person: Dictionary = table.get(author, table.get("Maya", {}))
 	var result: Dictionary = person.get(mood, person.get("neutral", {})).duplicate()
@@ -257,6 +260,11 @@ static func weights(pick: String, author: String, mood: String, cited: Array = [
 			for node: String in lean: result[node] = int(result.get(node, 0)) + int(lean[node])
 		if cited.size() >= PILE_ON:
 			for node: String in PILE_LEAN: result[node] = int(result.get(node, 0)) + int(PILE_LEAN[node])
+	# Each PR's own tree leans its branches: some people argue about this one.
+	if not title.is_empty():
+		var lean := Trees.lean(title)
+		for node: Variant in result.keys():
+			if lean.has(node): result[node] = int(result[node]) + int(lean[node])
 	for node: Variant in result.keys(): result[node] = maxi(0, int(result[node]))
 	return result
 
@@ -289,6 +297,17 @@ static func context(state: Dictionary, packet: Dictionary, verdict: String, cite
 	return {"pr_id": id, "author": author, "version": int(packet.get("revision", 1)), "verdict": verdict,
 		"cited": _sorted(cited), "mood": mood(state, author), "first": id == first, "pushed": pushed}
 
+static var _titles: Dictionary = {}
+
+## The title of a PR or of the original a revision came from; trees key on it.
+static func title_for(pr_id: String) -> String:
+	if _titles.is_empty():
+		for packet: Dictionary in Catalog.originals(): _titles[str(packet.id)] = str(packet.get("title", ""))
+	var origin := pr_id
+	var cut := pr_id.rfind("-v")
+	if cut > 0 and pr_id.substr(cut + 2).is_valid_int(): origin = pr_id.left(cut)
+	return str(_titles.get(origin, ""))
+
 ## Where a stamp leads. The career's very first PR always goes back in line, so
 ## orientation stays scripted; a third change request always escalates.
 static func verdict_node(context: Dictionary) -> String:
@@ -298,10 +317,10 @@ static func verdict_node(context: Dictionary) -> String:
 	var key := "%s|%s|%s|%s" % [context.pr_id, context.verdict, mood, ",".join(cited)]
 	if context.verdict == "approve":
 		if int(context.version) > 1: return "relief"
-		return roll_pick(weights("approve", author, mood), key + "|approve")
+		return roll_pick(weights("approve", author, mood, [], title_for(str(context.pr_id))), key + "|approve")
 	if int(context.version) >= Policy.MAX_REVISION: return "escalate"
 	if bool(context.get("first", false)): return "revise_later"
-	var options := weights("changes", author, mood, cited)
+	var options := weights("changes", author, mood, cited, title_for(str(context.pr_id)))
 	var again := bool(context.get("pushed", false))
 	if again: options.erase("pushback")
 	return roll_pick(options, key + ("|changes-again" if again else "|changes"))
@@ -310,7 +329,7 @@ static func verdict_node(context: Dictionary) -> String:
 static func insist_node(context: Dictionary) -> String:
 	if int(context.version) >= Policy.MAX_REVISION: return "insist_escalate"
 	var key := "%s|insist|%s|%s" % [context.pr_id, context.mood, ",".join(_sorted(context.get("cited", [])))]
-	return roll_pick(weights("insist", str(context.author), str(context.mood)), key)
+	return roll_pick(weights("insist", str(context.author), str(context.mood), [], title_for(str(context.pr_id))), key)
 
 ## Which citation the author disputes when they push back.
 static func disputed(cited: Array, pr_id: String) -> String:
@@ -419,6 +438,16 @@ static func templates(channel: String, node: String, author: String, mood: Strin
 ## Candidate bubble lines for a desk moment, already filled in.
 static func desk_lines(packet: Dictionary, node: String, mood: String, cited: Array = [], focus: String = "") -> Array:
 	var author := str(packet.get("author", ""))
+	# This PR's own tree speaks first. Moments that can repeat in one visit keep
+	# the author's templates behind it, so a second flag gets a fresh line.
+	var tree_line := Trees.line(str(packet.get("title", "")), "desk", node, mood)
+	if not tree_line.is_empty():
+		var own_first: Array = [fill(tree_line, cited, focus)]
+		if node in REPEATABLE:
+			for template: Variant in templates("desk", node, author, mood):
+				var filled := fill(str(template), cited, focus)
+				if filled not in own_first: own_first.append(filled)
+		return own_first
 	var own: String = str(overrides(packet).get(str(DESK_OVERRIDES.get(node, "")), "")) if mood == "neutral" else ""
 	if not own.is_empty(): return [fill(own, cited, focus)]
 	var result: Array = []
@@ -441,6 +470,8 @@ static func dm_text(beat: Dictionary, packet: Dictionary, node: String = "") -> 
 	var mood := str(beat.mood)
 	var id := str(beat.pr_id)
 	var cited: Array = beat.get("cited", [])
+	var tree_line := Trees.line(str(packet.get("title", "")), "dm", kind, mood)
+	if not tree_line.is_empty(): return fill(tree_line, cited, str(beat.get("disputed", "")))
 	if mood == "neutral":
 		match kind:
 			"thanks":

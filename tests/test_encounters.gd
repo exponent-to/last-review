@@ -268,8 +268,18 @@ func _test_line_hygiene() -> void:
 				_check(text.contains("{author}") and (node == "cap" or text.contains("{pr}")), "Morgan's notes name the author and the PR: " + text)
 
 func _test_overrides() -> void:
-	# A neutral author speaks the PR's own lines from the bank; other moods use the templates.
-	var packet: Dictionary = Catalog.request_at(0)
+	# A PR's own tree speaks first, for every mood.
+	var first: Dictionary = Catalog.request_at(0)
+	var Trees = load("res://content/trees.gd")
+	if not Trees.tree(str(first.title)).is_empty():
+		for mood: String in ["warm", "neutral", "strained", "hostile"]:
+			_check(Encounters.desk_lines(first, "pitch", mood) == [Trees.line(str(first.title), "desk", "pitch", mood)], "A PR with a tree pitches in its own words (%s)" % mood)
+		var flags: Array = Encounters.desk_lines(first, "flag", "neutral", ["P01"], "P01")
+		_check(flags.size() > 1 and flags[0] == Encounters.fill(Trees.line(str(first.title), "desk", "flag", "neutral"), ["P01"], "P01"), "A repeatable moment leads with the PR's line and keeps templates behind it")
+	# Without a tree, a neutral author speaks the PR's own bank lines; other moods use the templates.
+	var spare: Dictionary = load("res://content/pr_bank.gd").entries()[-1]
+	var packet: Dictionary = {"id": "PR-SPARE", "title": spare.title, "author": "Maya"}
+	_check(Trees.tree(str(spare.title)).is_empty(), "The fallback test uses a PR without a tree")
 	var own: Dictionary = Encounters.overrides(packet)
 	var entry: Dictionary = {}
 	for candidate: Dictionary in load("res://content/pr_bank.gd").entries():
