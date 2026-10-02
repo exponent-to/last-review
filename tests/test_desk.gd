@@ -4,6 +4,10 @@ const Simulation = preload("res://native/simulation.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Policy = preload("res://content/policy_campaign.gd")
 const Chat = preload("res://content/chat.gd")
+const Encounters = preload("res://content/encounters.gd")
+## Encounter branches that send the PR back to its author for a revision.
+const REVISING: Array = ["revise_now", "revise_later", "insist_revise"]
+const LATER: Array = ["revise_later", "insist_revise"]
 var checks := 0
 var failures := 0
 
@@ -43,18 +47,58 @@ func _stamp(state: Dictionary, cited: Array) -> Dictionary:
 	var next: Dictionary = state
 	for rule_id: String in cited:
 		next = Simulation.dispatch(next, Catalog.audit_citation(packet, rule_id))
-	return Simulation.dispatch(next, {"type": "review", "verdict": "request_changes" if not cited.is_empty() else "approve"})
+	next = Simulation.dispatch(next, {"type": "review", "verdict": "request_changes" if not cited.is_empty() else "approve"})
+	# An author who pushes back is answered by insisting, which keeps the review as cited.
+	if not Encounters.pending(next).is_empty():
+		next = Simulation.dispatch(next, {"type": "pushback", "choice": "insist"})
+	return next
 
 func _exact(state: Dictionary) -> Dictionary:
 	return _stamp(state, Catalog.packet(state, state.active_request_id).violations)
 
+## How the author answered the last stamp (revise now or later, abandon, escalate...).
+func _outcome(state: Dictionary) -> String:
+	return str(state.encounters[-1].node) if not state.encounters.is_empty() else ""
+
+## Every way to cite one or two of the day's standards, for trying branches in turn.
+func _citation_sets(day: int) -> Array:
+	var ids: Array = Catalog.rules_for_day(day).map(func(rule: Dictionary) -> String: return rule.id)
+	var sets: Array = []
+	for first in range(ids.size()):
+		sets.append([ids[first]])
+		for second in range(first + 1, ids.size()): sets.append([ids[first], ids[second]])
+	return sets
+
+## A change request whose author answers with one of `outcomes`. The branch depends
+## on what was cited (and mood), so try citation sets until one lands there.
+func _stamp_until(state: Dictionary, sets: Array, outcomes: Array) -> Dictionary:
+	for cited: Array in sets:
+		var next := _stamp(state, cited)
+		if _outcome(next) in outcomes: return next
+	return {}
+
+## Land PRs, approving everything else, until `target` is on the desk ({} if it never comes).
+func _until_desk(state: Dictionary, target: String) -> Dictionary:
+	var next := _land(state)
+	while _desk(next) != target:
+		if next.phase != "review" or _desk(next).is_empty(): return {}
+		next = _land(Simulation.dispatch(next, {"type": "review", "verdict": "approve"}))
+	return next
+
 ## Play days until the desk holds a packet matching `wanted`, stamping everything else exactly.
-func _find(wanted: Callable) -> Dictionary:
+## With `sets`, the match must also send the PR back for a revision under one of
+## those citation sets; the result is then {"before": state, "after": state, "cited": set}.
+func _find(wanted: Callable, sets: Callable = Callable()) -> Dictionary:
 	var state := Simulation.initial_state()
 	while state.phase != "complete":
 		state = _land(state)
 		if state.phase == "review" and not _desk(state).is_empty():
-			if wanted.call(Catalog.packet(state, state.active_request_id)): return state
+			var packet: Dictionary = Catalog.packet(state, state.active_request_id)
+			if wanted.call(packet):
+				if not sets.is_valid(): return state
+				for cited: Array in sets.call(packet, int(state.day)):
+					var after := _stamp(state, cited)
+					if _outcome(after) in REVISING: return {"before": state, "after": after, "cited": cited}
 			state = _exact(state)
 		elif state.phase == "review":
 			state = Simulation.advance(state, Catalog.shift_seconds())
@@ -106,8 +150,9 @@ func _test_revision_timing() -> void:
 	while tail.desk_line.size() > 1:
 		tail = _land(Simulation.dispatch(tail, {"type": "review", "verdict": "approve"}))
 	var last_but_one := _desk(tail)
-	tail = _exact(tail) if not Catalog.packet(tail, last_but_one).violations.is_empty() else _stamp(tail, ["P01"])
-	_check(tail.desk_line.size() == 2 and tail.desk_line[1] == last_but_one + "-v2", "With fewer PRs left, the revision rejoins at the end of what remains.")
+	tail = _stamp_until(tail, _citation_sets(1), LATER)
+	_check(not tail.is_empty() and tail.desk_line.size() == 2 and tail.desk_line[1] == last_but_one + "-v2", "With fewer PRs left, the revision rejoins at the end of what remains.")
+	if tail.is_empty(): return
 	tail = _land(Simulation.dispatch(_land(tail), {"type": "review", "verdict": "approve"}))
 	_check(_desk(tail) == last_but_one + "-v2", "The revision reaches the desk after the remaining PR.")
 	tail = Simulation.dispatch(tail, {"type": "review", "verdict": "approve"})
@@ -115,21 +160,35 @@ func _test_revision_timing() -> void:
 	var solo := Simulation.initial_state()
 	while not solo.desk_line.is_empty():
 		solo = _land(Simulation.dispatch(solo, {"type": "review", "verdict": "approve"}))
-	solo = _stamp(solo, ["P01"])
-	_check(solo.desk_line.size() == 1 and int(solo.desk_at) == int(solo.shift_seconds) + Simulation.DESK_BEAT, "With nothing left, the revision is next, one beat later.")
-	_round_trip(solo)
+	var before_solo := solo
+	solo = _stamp_until(before_solo, _citation_sets(1), LATER)
+	_check(not solo.is_empty() and solo.desk_line.size() == 1 and int(solo.desk_at) == int(solo.shift_seconds) + Simulation.DESK_BEAT, "With nothing left, the revision is next, one beat later.")
+	if not solo.is_empty(): _round_trip(solo)
+	# Revising at the desk puts v2 straight back in front of you, a few seconds later.
+	var now := _stamp_until(before_solo, _citation_sets(1), ["revise_now"])
+	if now.is_empty(): now = _stamp_until(Simulation.initial_state(), _citation_sets(1), ["revise_now"])
+	_check(not now.is_empty(), "Some change request is revised right at the desk.")
+	if now.is_empty(): return
+	var made: String = str(now.encounters[-1].revision_id)
+	_check(now.desk_line[0] == made and int(now.desk_at) == int(now.shift_seconds) + Encounters.REVISE_NOW_SECONDS, "Revise-now puts v2 at the front of the line, a short beat later.")
+	_check(Encounters.typing(now).get("revision_id", "") == made, "While v2 is coming, the author is typing at the desk.")
+	now = _land(now)
+	_check(_desk(now) == made and Encounters.typing(now).is_empty(), "Then v2 replaces the PR on the desk.")
+	_round_trip(now)
 
 func _test_revision_fixes() -> void:
-	# A packet with two real violations: cite one, leave the other.
-	var state := _find(func(packet: Dictionary) -> bool: return packet.violations.size() >= 2 and int(packet.revision) == 1)
-	_check(not state.is_empty(), "The campaign has a PR with two broken standards.")
-	if state.is_empty(): return
-	var parent: Dictionary = Catalog.packet(state, state.active_request_id)
-	var spurious := ""
-	for rule: Dictionary in Catalog.rules_for_day(int(state.day)):
-		if rule.id not in parent.violations: spurious = rule.id
-	var cited: Array = [parent.violations[0], spurious]
-	state = _stamp(state, cited)
+	# A packet with two real violations: cite one, leave the other, add a spurious one.
+	var one_real_one_spurious := func(packet: Dictionary, day: int) -> Array:
+		var sets: Array = []
+		for rule: Dictionary in Catalog.rules_for_day(day):
+			if rule.id not in packet.violations: sets.append([packet.violations[0], rule.id])
+		return sets
+	var found := _find(func(packet: Dictionary) -> bool: return packet.violations.size() >= 2 and int(packet.revision) == 1, one_real_one_spurious)
+	_check(not found.is_empty(), "The campaign has a PR with two broken standards that comes back revised.")
+	if found.is_empty(): return
+	var parent: Dictionary = Catalog.packet(found.before, found.before.active_request_id)
+	var spurious: String = str(found.cited[1])
+	var state: Dictionary = found.after
 	var entry: Dictionary = state.revisions[-1]
 	_check(entry.fixed == [parent.violations[0]], "Only the cited violation that really existed is fixed.")
 	_check(entry.cited.size() == 2 and spurious in entry.cited, "The revision remembers everything the player cited.")
@@ -140,9 +199,13 @@ func _test_revision_fixes() -> void:
 	_check(revision.violations == expected, "Uncited real violations stay; the cited one is gone; spurious citations fix nothing.")
 	_check(parent.violations[0] not in revision.violations, "The cited, real problem is fixed in v2.")
 	# Cite only a rule that wasn't broken: nothing changes but the author's note.
-	var clean := _find(func(packet: Dictionary) -> bool: return packet.violations.is_empty() and int(packet.revision) == 1)
-	var original: Dictionary = Catalog.packet(clean, clean.active_request_id)
-	clean = _stamp(clean, ["P01"])
+	var spurious_only := func(_packet: Dictionary, day: int) -> Array:
+		return Catalog.rules_for_day(day).map(func(rule: Dictionary) -> Array: return [rule.id])
+	var found_clean := _find(func(packet: Dictionary) -> bool: return packet.violations.is_empty() and int(packet.revision) == 1, spurious_only)
+	_check(not found_clean.is_empty(), "Some clean PR is sent back and revised.")
+	if found_clean.is_empty(): return
+	var original: Dictionary = Catalog.packet(found_clean.before, found_clean.before.active_request_id)
+	var clean: Dictionary = found_clean.after
 	_check(clean.revisions[-1].fixed.is_empty() and clean.revisions[-1].regression == "", "A spurious citation fixes nothing and breaks nothing.")
 	var unchanged: Dictionary = Catalog.packet(clean, clean.revisions[-1].id)
 	_check(unchanged.violations.is_empty(), "A clean PR stays clean after a spurious change request.")
@@ -162,10 +225,12 @@ func _test_regressions() -> void:
 		fixed_any += 1
 		if not first.is_empty(): regressed += 1
 	_check(regressed * 5 >= fixed_any and regressed * 2 <= fixed_any, "About one fixing revision in three breaks something new (%d of %d)." % [regressed, fixed_any])
-	var state := _find(func(packet: Dictionary) -> bool:
-		return int(packet.revision) == 1 and not packet.violations.is_empty() and not Policy.regression_rule(packet, Policy.revision_id(packet, 2), packet.violations, packet.violations).is_empty())
-	_check(not state.is_empty(), "Some PR regresses when fixed.")
-	if state.is_empty(): return
+	var found := _find(func(packet: Dictionary) -> bool:
+		return int(packet.revision) == 1 and not packet.violations.is_empty() and not Policy.regression_rule(packet, Policy.revision_id(packet, 2), packet.violations, packet.violations).is_empty(),
+		func(packet: Dictionary, _day: int) -> Array: return [packet.violations])
+	_check(not found.is_empty(), "Some PR regresses when fixed.")
+	if found.is_empty(): return
+	var state: Dictionary = found.before
 	var parent: Dictionary = Catalog.packet(state, state.active_request_id)
 	var replay_a := _exact(state)
 	var replay_b := _exact(state.duplicate(true))
@@ -178,18 +243,28 @@ func _test_regressions() -> void:
 func _test_escalation() -> void:
 	var state := Simulation.initial_state()
 	var origin: String = state.active_request_id
-	for version in [1, 2, 3]:
-		state = _land(state)
-		while _desk(state) != (origin if version == 1 else "%s-v%d" % [origin, version]):
-			state = _land(Simulation.dispatch(state, {"type": "review", "verdict": "approve"}))
-		state = _stamp(state, ["P01"])
+	# v1 always goes back in line (the career's first PR); v2 is sent back until the
+	# author revises rather than abandons; v3 always escalates.
+	state = _stamp(state, ["P01"])
+	_check(_outcome(state) == "revise_later", "The career's first PR always comes back through the line.")
+	state = _until_desk(state, origin + "-v2")
+	_check(not state.is_empty(), "v2 reaches the desk.")
+	if state.is_empty(): return
+	state = _stamp_until(state, _citation_sets(1), REVISING)
+	_check(not state.is_empty(), "Some citation on v2 gets a v3.")
+	if state.is_empty(): return
+	state = _until_desk(state, origin + "-v3")
+	_check(not state.is_empty(), "v3 reaches the desk.")
+	if state.is_empty(): return
+	state = _stamp(state, ["P01"])
+	_check(_outcome(state) == "escalate", "A third change request always escalates.")
 	_check(state.revisions.size() == 2 and state.revisions[-1].id == origin + "-v3", "A PR is revised at most twice: v2 and v3.")
 	_check(origin + "-v4" not in state.desk_line and state.revisions.filter(func(entry: Dictionary) -> bool: return entry.id.ends_with("-v4")).is_empty(), "Requesting changes on v3 makes no v4.")
 	_check(state.log.any(func(entry: Dictionary) -> bool: return str(entry.message).contains("escalated")), "The escalation is logged.")
 	var morgan := JSON.stringify(Chat.messages(state, "manager"))
 	_check(morgan.contains("Maya looped me in on " + origin) and morgan.contains("v4"), "Morgan messages about the escalation right away.")
 	var maya := Chat.messages(state, "Maya")
-	_check(maya.any(func(message: Dictionary) -> bool: return message.kind == "reaction" and message.text.contains("looping in Morgan")), "The author escalates in Slouch on the third change request.")
+	_check(maya.any(func(message: Dictionary) -> bool: return message.kind == "reaction" and message.text.contains("Morgan")), "The author escalates in Slouch on the third change request.")
 	_round_trip(state)
 	while state.phase == "review":
 		state = _land(state)
@@ -234,10 +309,9 @@ func _test_dialogue() -> void:
 	var maya := Chat.messages(state, "Maya")
 	var reaction: Dictionary = maya.filter(func(message: Dictionary) -> bool: return message.kind == "reaction")[-1]
 	_check(reaction.text.to_lower().contains("load-bearing comment"), "Right after the change request, the author reacts to what was cited.")
-	for _turn in range(2):
-		state = _land(state)
-		state = _exact(state)
 	state = _land(state)
+	while not _desk(state).is_empty() and _desk(state) != "PR-1042-v2":
+		state = _land(_exact(state))
 	_check(_desk(state) == "PR-1042-v2", "Maya's revision is on the desk.")
 	maya = Chat.messages(state, "Maya")
 	var arrival: Dictionary = maya.filter(func(message: Dictionary) -> bool: return message.get("pr_id", "") == "PR-1042-v2")[0]
@@ -246,7 +320,9 @@ func _test_dialogue() -> void:
 	_check(revision.description.contains("Revision 2 of PR-1042") and revision.description.contains("load-bearing comment"), "The PR form describes what changed in plain words.")
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	maya = Chat.messages(state, "Maya")
-	_check(maya.filter(func(message: Dictionary) -> bool: return message.kind == "reaction")[-1].text.begins_with("Finally"), "Approving a revision brings relief.")
+	var relief: Dictionary = state.encounters[-1]
+	_check(relief.node == "relief" and maya.filter(func(message: Dictionary) -> bool: return message.kind == "reaction")[-1].text == Encounters.dm_text(relief, revision), "Approving a revision brings relief.")
+	_check(relief.mood != "neutral" or maya.filter(func(message: Dictionary) -> bool: return message.kind == "reaction")[-1].text.begins_with("Finally"), "A neutral author's relief starts with Finally.")
 	# No audit leaks: the same citations produce the same words whether or not they were right.
 	var forbidden := RegEx.new()
 	forbidden.compile("\\bP0[1-9]\\b|violat|audit|%|\\[")

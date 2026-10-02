@@ -5,6 +5,7 @@ const Chat = preload("res://content/chat.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Interface = preload("res://native/interface.gd")
 const Office = preload("res://native/computer_frame.gd")
+const Encounters = preload("res://content/encounters.gd")
 var state: Dictionary
 var ui: Interface
 var failures: int = 0
@@ -101,9 +102,17 @@ func _run() -> void:
 	check(not ui._ai_note.text.contains(str(Catalog.request_at(0).ai_note)), "AI advice must be hidden before consultation")
 	check(not ui._consult.visible, "Consultation stays hidden until Wednesday")
 	var saw_revision := false
+	var pushbacks := 0
+	var saw_typing := false
 	while state.phase != "complete":
 		if Simulation.active_request(state).is_empty() and state.phase == "review":
-			check(ui._pr_id.text == "REVIEW / DESK CLEAR" and ui._approve.disabled and ui._app_counts.review == 0, "Between PRs the desk is clear and nothing is waiting unread")
+			# An author revising at the desk stays seated, typing, until v2 replaces the PR.
+			var typing: Dictionary = Encounters.typing(state)
+			var header: String = "REVIEW / DESK CLEAR" if typing.is_empty() else Catalog.display_id(str(typing.revision_id)) + " / BEING REVISED"
+			if not typing.is_empty():
+				saw_typing = true
+				check(ui._banter.visible and ui._banter.typing and ui._banter.speaker == str(typing.author), "A revise-now author stays at the desk, typing")
+			check(ui._pr_id.text == header and ui._approve.disabled and ui._app_counts.review == 0, "Between PRs the desk is clear and nothing is waiting unread")
 			var coming: bool = int(state.desk_at) >= 0 and int(state.desk_at) < Simulation.Catalog.shift_seconds()
 			state = Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds) if coming else Simulation.Catalog.shift_seconds())
 			ui._windows.review.minimize_window()
@@ -124,10 +133,29 @@ func _run() -> void:
 				ui._approve.pressed.emit()
 			else:
 				ui._reject.pressed.emit()
+			var disputed: Dictionary = Encounters.pending(state)
+			if not disputed.is_empty():
+				# The author pushes back: the stamps lock, the disputed citation is outlined,
+				# and INSIST / WITHDRAW wait under the bubble.
+				pushbacks += 1
+				check(ui._banter.asking and ui._banter.insist_button.is_visible_in_tree() and ui._banter.withdraw_button.is_visible_in_tree(), "Pushback shows INSIST and WITHDRAW")
+				check(ui._reject.disabled and ui._approve.disabled and ui._flag_buttons[str(disputed.disputed)].disabled, "Pushback holds the stamps and the slip until it is answered")
+				check(ui._pr_id.text.ends_with("PUSHED BACK") and ui._slip_rows[str(disputed.disputed)].where.text.contains("DISPUTED"), "The form and slip show the dispute")
+				if pushbacks % 3 == 0:
+					ui._banter.withdraw_button.pressed.emit()
+					check(state.active_request_id == str(packet.id) and str(disputed.disputed) not in state.selected_rules and Encounters.pending(state).is_empty(), "WITHDRAW drops the citation and reopens the review")
+					check(not ui._banter.asking and ui._banter.speaker == str(packet.author), "The author stays at the desk after WITHDRAW")
+					# Start the citations over; the next pass cites and stamps again.
+					ui._clear_citations()
+					continue
+				ui._banter.insist_button.pressed.emit()
+				check(Encounters.pending(state).is_empty() and state.decisions[-1].pr_id == str(packet.id), "INSIST sends the change request")
 			check(ui._feedback.text.contains(Catalog.display_id(str(packet.id))), "Audit must identify the previous PR")
 			check(not ui._feedback.text.contains("CORRECT") and not ui._feedback.text.contains("Required:"), "Sent confirmation must not grade a review or reveal its answers")
 			check(not ui._feedback.text.contains("Trust +") and not ui._feedback.text.contains("Trust -"), "Audit must omit numeric social/stat deltas")
-			check(str(ui._chat_seen.get(str(packet.author), "")) != previous_messages, "Completed review must update its author's Slouch messages")
+			# A revise-now author messages when v2 lands on the desk, a few seconds later.
+			var revising_now: bool = not state.encounters.is_empty() and state.encounters[-1].node == "revise_now"
+			check(revising_now or str(ui._chat_seen.get(str(packet.author), "")) != previous_messages, "Completed review must update its author's Slouch messages")
 			check(ui._chat_contact == "Theo", "Incoming coworker messages must never switch the player's selected conversation")
 			var has_reaction: bool = false
 			for message: Dictionary in Chat.messages(state, str(packet.author)):
@@ -150,6 +178,7 @@ func _run() -> void:
 			_check_active_rules(int(state.day))
 			ui._select_chat_contact("Theo")
 	check(state.phase == "complete" and saw_revision, "Authored campaign must finish, with revisions coming back to the desk")
+	check(pushbacks > 0 and saw_typing, "The campaign includes pushbacks and authors revising at the desk")
 	ui._select_chat_contact("manager")
 	check(ui._complete_button.visible and not ui._evening_buttons.visible, "Final manager conversation must offer a return to menu")
 	office.set_motion(false)

@@ -3,6 +3,7 @@ extends SceneTree
 const Simulation = preload("res://native/simulation.gd")
 const SaveStore = preload("res://native/save_store.gd")
 const Catalog = preload("res://content/catalog.gd")
+const Encounters = preload("res://content/encounters.gd")
 var checks: int = 0
 var failures: int = 0
 
@@ -34,7 +35,15 @@ func _resolve(state: Dictionary) -> Dictionary:
 	var request: Dictionary = Catalog.packet(current, current.active_request_id)
 	for rule_id: String in request.violations:
 		current = Simulation.dispatch(current, Catalog.audit_citation(request, rule_id))
-	return Simulation.dispatch(current, {"type": "review", "verdict": "approve" if request.violations.is_empty() else "request_changes"})
+	current = Simulation.dispatch(current, {"type": "review", "verdict": "approve" if request.violations.is_empty() else "request_changes"})
+	# An author who pushes back is answered by insisting, which keeps the exact review.
+	if not Encounters.pending(current).is_empty():
+		current = Simulation.dispatch(current, {"type": "pushback", "choice": "insist"})
+	return current
+
+## Third-round escalations: the only encounter that raises automation reliance.
+func _takeovers(state: Dictionary) -> int:
+	return state.encounters.filter(func(beat: Dictionary) -> bool: return beat.node == "escalate" and int(beat.version) >= 3).size()
 
 func _waiting(state: Dictionary) -> bool:
 	return not Simulation.active_request(state).is_empty() or (int(state.desk_at) >= 0 and int(state.desk_at) < Catalog.shift_seconds())
@@ -112,7 +121,6 @@ func _test_career() -> void:
 	var state: Dictionary = Simulation.initial_state()
 	var expected_credits: int = 120
 	var shifts: int = 0
-	var escalations: int = 0
 	for day: int in Catalog.campaign_days():
 		shifts += 1
 		var before: int = state.decisions.size()
@@ -121,11 +129,9 @@ func _test_career() -> void:
 				_check(Simulation.available_requests(state).is_empty(), "Between PRs the desk is empty; nothing can be picked.")
 				state = Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds))
 			_check(Simulation.available_requests(state).size() == 1, "Only one PR is ever available at a time.")
-			var on_desk: Dictionary = Catalog.packet(state, state.active_request_id)
 			state = _resolve(state)
 			_check(state.decisions.size() == before + 1, "Each valid submission signs exactly the PR on the desk.")
 			_check(state.decisions[-1].correct, "Exact citations and approvals stay correct on revisions too.")
-			if state.decisions[-1].verdict == "request_changes" and int(on_desk.revision) == 3: escalations += 1
 			before = state.decisions.size()
 			_round_trip(state)
 		var signed: int = 0
@@ -138,7 +144,7 @@ func _test_career() -> void:
 		_check(state.last_debrief.pay == 80 + 10 * signed and state.last_debrief.expenses == 90 and state.last_debrief.correct == signed and state.last_debrief.reviewed == signed and state.last_debrief.handed_off == 0, "Daily pay must reflect audit correctness, revisions included.")
 		expected_credits += 80 + 10 * signed - 90
 		_check(state.credits == expected_credits, "Daily economy must apply exactly once.")
-		_check(state.autonomy == 10 + 4 * shifts + escalations, "Management must increase automation authority each day, and Helios takes escalations.")
+		_check(state.autonomy == mini(100, 10 + 4 * shifts + _takeovers(state)), "Management must increase automation authority each day, and Helios takes third-round escalations.")
 		var frozen: Dictionary = state.duplicate(true)
 		for command: Dictionary in [{"type": "review", "verdict": "approve"}, {"type": "consult-ai"}, {"type": "next-day", "choice": "invalid"}]:
 			_check(Simulation.dispatch(state, command) == frozen, "Invalid debrief actions must not replay daily pay.")

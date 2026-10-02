@@ -22,3 +22,4 @@ sh scripts/run.sh --headless --script res://tests/test_tutorial_pointer.gd
 sh scripts/run.sh --headless --script res://tests/test_banter.gd
 sh scripts/run.sh --headless --script res://tests/test_portraits.gd
 sh scripts/run.sh --headless --script res://tests/test_pr_bank.gd
+sh scripts/run.sh --headless --script res://tests/test_encounters.gd
