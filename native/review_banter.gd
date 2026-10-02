@@ -1,5 +1,5 @@
 extends Control
-## The open PR's author sits beside the paper form and talks while you review.
+## The open PR's author sits in Review's top-left corner and talks while you review.
 ## It hears only what the reviewer visibly does: opening a PR, idling, flagging,
 ## withdrawing, stamping, and asking Helios. It never sees audit data, so a line
 ## can never hint whether a change is clean or whether a flag is right.
@@ -8,7 +8,10 @@ const Banter = preload("res://content/banter.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 const PORTRAITS := "res://native/portraits.gd"
 const PORTRAIT := 56
-const WIDTH := 212
+## Widest a speech bubble grows; it wraps beyond this.
+const WIDTH := 420
+## Space between the portrait and the bubble's tail.
+const GAP := 4.0
 const LINE_SECONDS := 4.6
 ## A goodbye is cut short when the next author is already waiting to talk.
 const HANDOFF_SECONDS := 2.8
@@ -55,7 +58,7 @@ var _name: Label
 
 func _init() -> void:
 	name = "ReviewBanter"
-	custom_minimum_size = Vector2(WIDTH, PORTRAIT + 8)
+	custom_minimum_size = Vector2(PORTRAIT + GAP + TAIL + MIN_BUBBLE, PORTRAIT + 16)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bubble = Control.new()
 	_bubble.name = "SpeechBubble"
@@ -70,8 +73,8 @@ func _init() -> void:
 	add_child(_seat)
 	_name = Label.new()
 	_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_name.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_name.add_theme_font_override("font", TerminalFont)
 	_name.add_theme_font_size_override("font_size", 11)
 	_name.add_theme_color_override("font_color", DIM)
@@ -237,26 +240,28 @@ func _refresh() -> void:
 
 
 func _layout() -> void:
+	# Portrait in the corner, name beneath it, bubble to the right with its
+	# tail pointing back at the face.
 	var side := float(PORTRAIT)
-	_seat.position = Vector2(size.x - side, size.y - side)
+	_seat.position = Vector2.ZERO
 	_seat.size = Vector2(side, side)
-	_name.position = Vector2(0, size.y - 18)
-	_name.size = Vector2(maxf(0.0, size.x - side - 8), 18)
+	_name.position = Vector2(-8, side + 1)
+	_name.size = Vector2(side + 16, 14)
 	if line.is_empty():
 		_bubble.size = Vector2.ZERO
 		return
-	# Shrink-wrap short lines; wrap long ones at the column width.
-	var widest := size.x - SHADOW - PAD.x * 2
+	var left := side + GAP
+	var widest := minf(WIDTH, size.x - left - TAIL - SHADOW) - PAD.x * 2
 	var natural := TerminalFont.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
-	_text_width = minf(ceilf(natural) + 1.0, widest)
+	_text_width = maxf(16.0, minf(ceilf(natural) + 1.0, widest))
 	var text := TerminalFont.get_multiline_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, _text_width, FONT_SIZE)
 	_body = Vector2(maxf(MIN_BUBBLE, ceilf(text.x) + PAD.x * 2), ceilf(text.y) + PAD.y * 2)
-	# The bubble sits above the portrait; its tail points down at the face.
-	var bottom := size.y - side - TAIL - 1.0
-	_rest_y = maxf(0.0, bottom - _body.y)
-	_bubble.position = Vector2(size.x - SHADOW - _body.x, _rest_y)
-	_bubble.size = _body + Vector2(SHADOW, TAIL + SHADOW)
-	_tail_tip = Vector2(size.x - side * 0.5 - 4.0, size.y - side - 1.0) - _bubble.position
+	_rest_y = 4.0
+	_bubble.position = Vector2(left, _rest_y)
+	_bubble.size = Vector2(TAIL, 0) + _body + Vector2(SHADOW, SHADOW)
+	_tail_tip = Vector2(0, minf(_body.y * 0.5, side * 0.45 - _rest_y))
+	var tall := maxf(side + 16.0, _rest_y + _bubble.size.y + 2.0)
+	if not is_equal_approx(custom_minimum_size.y, tall): custom_minimum_size.y = tall
 	_bubble.queue_redraw()
 
 
@@ -273,8 +278,8 @@ func _fade() -> void:
 
 func _draw_bubble() -> void:
 	if line.is_empty(): return
-	var body := Rect2(Vector2.ZERO, _body)
-	var tail := PackedVector2Array([Vector2(_tail_tip.x - 17.0, _body.y - 1.0), Vector2(_tail_tip.x - 5.0, _body.y - 1.0), _tail_tip])
+	var body := Rect2(Vector2(TAIL, 0), _body)
+	var tail := PackedVector2Array([Vector2(TAIL + 1.0, _tail_tip.y - 6.0), Vector2(TAIL + 1.0, _tail_tip.y + 6.0), _tail_tip])
 	var shade := Color(0, 0, 0, 0.55)
 	var offset := Vector2(SHADOW, SHADOW)
 	_bubble.draw_rect(Rect2(body.position + offset, body.size), shade)
@@ -283,4 +288,4 @@ func _draw_bubble() -> void:
 	_bubble.draw_colored_polygon(shadow_tail, shade)
 	_bubble.draw_rect(body, BUBBLE)
 	_bubble.draw_colored_polygon(tail, BUBBLE)
-	_bubble.draw_multiline_string(TerminalFont, Vector2(PAD.x, PAD.y + TerminalFont.get_ascent(FONT_SIZE)), line, HORIZONTAL_ALIGNMENT_LEFT, _text_width, FONT_SIZE, -1, INK)
+	_bubble.draw_multiline_string(TerminalFont, Vector2(TAIL + PAD.x, PAD.y + TerminalFont.get_ascent(FONT_SIZE)), line, HORIZONTAL_ALIGNMENT_LEFT, _text_width, FONT_SIZE, -1, INK)

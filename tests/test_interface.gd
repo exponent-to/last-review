@@ -77,22 +77,23 @@ func _run() -> void:
 		if ui._review_files[index].path == finding.path: ui._select_file(index)
 	ui._diff.set_caret_line(ui._row_for_line(int(finding.line)))
 	ui._point_at(-1)
-	check(ui._evidence.line == finding.line and ui._flag_box.visible and ui._evidence_label.text.contains("FLAGGING"), "Clicking a code line opens the flag box on that line")
-	check(ui._windows.review.find_children("*", "CheckBox", true, false).is_empty(), "Review has no rulebook checklist")
+	check(ui._evidence.line == finding.line and ui._evidence_label.text.contains("SELECTED"), "Clicking a code line selects it as evidence")
+	check(ui._flag_buttons.P01 is CheckBox and ui._windows.review.is_ancestor_of(ui._flag_buttons.P01), "The citation slip lives in Review's right sidebar")
 	ui._flag_buttons.P01.pressed.emit()
 	check(state.selected_rules == ["P01"] and state.citation_evidence.P01 == {"path": finding.path, "line": finding.line}, "Picking a standard cites the flagged line")
-	check(not ui._flag_box.visible and ui._evidence.is_empty(), "Citing closes the flag box")
-	check(ui._citation_list.get_child_count() == 1, "Review lists each citation with its location")
+	check(ui._evidence.is_empty() and ui._flag_buttons.P01.button_pressed and ui._slip_rows.P01.where.text.contains("LINE %d" % int(finding.line)), "The slip ticks the rule and shows where it was cited")
 	var other_line: int = 2 if int(finding.line) == 1 else 1
 	ui._diff.set_caret_line(ui._row_for_line(other_line))
 	ui._point_at(-1)
-	check(ui._flag_box.visible and not ui._flag_buttons.P01.button_pressed, "A rule cited elsewhere is not marked on this line")
+	check(not ui._evidence.is_empty() and ui._flag_buttons.P01.button_pressed, "Selecting another line keeps the existing citation ticked")
 	ui._flag_buttons.P01.pressed.emit()
 	check(state.selected_rules == ["P01"] and int(state.citation_evidence.P01.line) == other_line, "Re-flagging a rule moves its citation")
 	ui._diff.set_caret_line(ui._row_for_line(int(finding.line)))
 	ui._point_at(-1)
 	ui._flag_buttons.P01.pressed.emit()
 	check(int(state.citation_evidence.P01.line) == int(finding.line), "The citation can be moved back to the real evidence")
+	ui._flag_buttons.P02.pressed.emit()
+	check(not state.selected_rules.has("P02") and not ui._flag_buttons.P02.button_pressed, "Ticking with no line selected asks for the evidence first")
 	check(ui._approve.disabled and not ui._reject.disabled, "Citations must gate the correct decision controls")
 	ui._clear_citations()
 	check(state.selected_rules.is_empty(), "Clear citations must update simulation state")
@@ -164,15 +165,12 @@ func _command(command: Dictionary) -> void:
 
 func _check_active_rules(day: int) -> void:
 	var active: Array = Catalog.rules_for_day(day)
-	ui._evidence = {"path": "office/sample.py", "line": 1}
-	ui._open_flag_box()
 	var shown := 0
 	for rule: Dictionary in Catalog.rules():
 		var should_show: bool = int(rule.introduced_day) <= day
-		check(ui._flag_buttons[str(rule.id)].visible == should_show, "Flag choices must match each standard's introduction day")
+		check(ui._slip_rows[str(rule.id)].panel.visible == should_show, "Slip rows must match each standard's introduction day")
 		if should_show: shown += 1
-	check(shown == active.size(), "The flag box offers exactly the current day's standards")
-	ui._close_flag_box()
+	check(shown == active.size(), "The slip lists exactly the current day's standards")
 
 func _test_desktop() -> void:
 	var review = ui._windows["review"]
