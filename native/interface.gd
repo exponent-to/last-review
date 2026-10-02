@@ -138,6 +138,9 @@ var _pause_overlay: ColorRect
 var _resume_button: Button
 var _paused: bool = false
 var _tutorial_panel: PanelContainer
+var _tutorial_dragged := false
+var _tutorial_drag_offset := Vector2.ZERO
+var _tutorial_dragging := false
 var _tutorial_title: Label
 var _tutorial_body: Label
 var _tutorial_next: Button
@@ -205,7 +208,8 @@ func _layout_monitor() -> void:
 	_monitor_screen.position = screen.position
 	_monitor_screen.size = screen.size
 	if is_instance_valid(_tutorial_panel):
-		_tutorial_panel.position = Vector2(maxf(0, screen.size.x - 450), 48)
+		if _tutorial_dragged: _clamp_tutorial()
+		else: _tutorial_panel.position = Vector2(maxf(0, screen.size.x - 450), 48)
 
 
 func _build_os_menu(parent: Node) -> void:
@@ -1527,10 +1531,15 @@ func _build_tutorial_panel() -> void:
 	note.border_width_left = 5
 	_tutorial_panel.add_theme_stylebox_override("panel", note)
 	_tutorial_panel.z_index = 40
+	_tutorial_panel.mouse_default_cursor_shape = Control.CURSOR_MOVE
+	_tutorial_panel.tooltip_text = "Drag to move these instructions."
+	_tutorial_panel.gui_input.connect(_tutorial_drag_input)
 	_tutorial_panel.hide()
 	_monitor_screen.add_child(_tutorial_panel)
 	var box := _column(_tutorial_panel, 6)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
 	var heading := _row(box, 8)
+	heading.mouse_filter = Control.MOUSE_FILTER_PASS
 	_tutorial_title = _label(heading, "ORIENTATION", 12, RED)
 	_spacer(heading)
 	var fold := _button(heading, "−", func() -> void:
@@ -1561,7 +1570,7 @@ func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
 	if step_changed: _tutorial_body.show()
 	_tutorial_next.visible = _tutorial_body.visible and int(progress.stage) in [0, 7]
 	_tutorial_next.text = "START MONDAY" if int(progress.stage) == 7 else "START ORIENTATION"
-	_tutorial_panel.position = Vector2(maxf(0, _monitor_screen.size.x - 450), 48)
+	if not _tutorial_dragged: _tutorial_panel.position = Vector2(maxf(0, _monitor_screen.size.x - 450), 48)
 	_tutorial_panel.size.x = 430
 	_fit_tutorial.call_deferred()
 	_clock_label.text = "TRAINING"
@@ -1627,7 +1636,8 @@ func _sync_tutorial_pointer() -> void:
 						for row: Dictionary in _rule_rows:
 							if row.rule.id == id: target = row.check
 				else: target = _reject if _windows.review.visible and _windows.review._active else _tutorial_launcher("review")
-	if is_instance_valid(target) and target != _tutorial_next and _tutorial_panel.get_global_rect().intersects(target.get_global_rect()):
+	# Once the player places the panel, it stays where they put it.
+	if not _tutorial_dragged and is_instance_valid(target) and target != _tutorial_next and _tutorial_panel.get_global_rect().intersects(target.get_global_rect()):
 		for location: Vector2 in [Vector2(12, _monitor_screen.size.y - _tutorial_panel.size.y - 50), Vector2(_monitor_screen.size.x - _tutorial_panel.size.x - 12, _monitor_screen.size.y - _tutorial_panel.size.y - 50), Vector2(12, 48)]:
 			var candidate := Rect2(_monitor_screen.global_position + location, _tutorial_panel.size)
 			if not candidate.intersects(target.get_global_rect()):
@@ -1641,6 +1651,24 @@ func _practice_evidence(rule_id: String) -> Dictionary:
 	for finding: Dictionary in load("res://content/policy_campaign.gd").findings(files, 1):
 		if finding.rule_id == rule_id: return finding
 	return {}
+
+
+func _tutorial_drag_input(event: InputEvent) -> void:
+	# Drag anywhere on the panel that isn't a button.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_tutorial_dragging = event.pressed
+		_tutorial_drag_offset = event.position
+		_tutorial_panel.accept_event()
+	elif event is InputEventMouseMotion and _tutorial_dragging:
+		_tutorial_dragged = true
+		_tutorial_panel.position += event.position - _tutorial_drag_offset
+		_clamp_tutorial()
+		_tutorial_panel.accept_event()
+
+
+func _clamp_tutorial() -> void:
+	var limit := (_monitor_screen.size - _tutorial_panel.size).max(Vector2.ZERO)
+	_tutorial_panel.position = _tutorial_panel.position.clamp(Vector2.ZERO, limit)
 
 
 func _fit_tutorial() -> void:
