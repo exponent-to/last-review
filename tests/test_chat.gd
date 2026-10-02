@@ -31,7 +31,14 @@ func _check(condition: bool, message: String) -> void:
 func _state(day: int, seconds: int) -> Dictionary:
 	return {"day": day, "shift_seconds": seconds, "phase": "review", "autonomy": 10,
 		"active_request_id": "", "consulted_requests": [], "chat_replies": [],
+		"arrivals": [], "revisions": [], "desk_line": [],
 		"decisions": [], "coworkers": {"Maya": 50, "Theo": 50, "Inez": 50}}
+
+
+## A PR reaching the player's desk is what makes its author send it.
+func _arrive(state: Dictionary, request: Dictionary, seconds: int) -> void:
+	state.arrivals.append({"pr_id": request.id, "day": int(request.day), "shift_seconds": seconds})
+	state.active_request_id = request.id
 
 
 func _texts(history: Array) -> Array:
@@ -69,40 +76,44 @@ func _save_choice(state: Dictionary, request: Dictionary, reply_id: String) -> D
 
 func _test_delivery() -> void:
 	var first: Dictionary = Catalog.request_at(0)
-	var waiting := _state(int(first.day), -1)
+	var waiting := _state(int(first.day), 0)
 	for coworker: String in ["Maya", "Theo", "Inez"]:
 		var greetings := Chat.messages(waiting, coworker)
 		_check(greetings.size() == 1 and greetings[0].kind == "intro", "Each coworker starts with one introduction, without a second filler message.")
 	for contact: String in Chat.CONTACTS:
-		_check(_kind(Chat.messages(waiting, contact), "request").is_empty(), "Shift opening must not announce any undelivered PR.")
+		_check(_kind(Chat.messages(waiting, contact), "request").is_empty(), "Shift opening must not announce any PR that has not reached the desk.")
 		_check(Chat.reply_options(waiting, contact).is_empty(), "An undelivered PR cannot offer replies.")
-	for request: Dictionary in Catalog.requests():
-		var arrival := Catalog.arrival_seconds(str(request.id))
-		var state := _state(int(request.day), arrival - 1)
-		_check(authored.requests[request.id].request not in _texts(Chat.messages(state, str(request.author))), "PR prose must stay hidden until its arrival boundary.")
-		_check(_options_for(state, request).is_empty(), "PR choices must stay hidden until arrival.")
-		state.shift_seconds = arrival
-		var history := Chat.messages(state, str(request.author))
-		var linked := false
-		for message: Dictionary in history:
-			if message.get("pr_id") == request.id:
-				linked = message.kind == "request" and message.text == authored.requests[request.id].request
-		_check(linked, "An arriving coworker request must carry its real internal PR link.")
-		_check(authored.requests[request.id].hint not in _texts(history), "Arrival must not automatically reveal its trace hint.")
-		_check(_options_for(state, request).size() == 3, "Every arrived pending PR offers three authored choices.")
-		for future: Dictionary in Catalog.requests():
-			if int(future.day) > int(state.day) or (int(future.day) == int(state.day) and Catalog.arrival_seconds(str(future.id)) > arrival):
+	for day: int in Catalog.campaign_days():
+		var state := _state(day, 0)
+		var packets := Catalog.requests_for_day(day)
+		for index in range(packets.size()):
+			var request: Dictionary = packets[index]
+			state.shift_seconds = index * 20
+			_check(authored.requests[request.id].request not in _texts(Chat.messages(state, str(request.author))), "PR prose must stay hidden until the PR reaches the desk.")
+			_check(_options_for(state, request).is_empty(), "PR choices must stay hidden until arrival.")
+			_arrive(state, request, index * 20)
+			var history := Chat.messages(state, str(request.author))
+			var linked := false
+			for message: Dictionary in history:
+				if message.get("pr_id") == request.id:
+					linked = message.kind == "request" and message.text == authored.requests[request.id].request and int(message.sent_seconds) == index * 20
+			_check(linked, "A PR reaching the desk must carry its real internal PR link, sent when it arrived.")
+			_check(authored.requests[request.id].hint not in _texts(history), "Arrival must not automatically reveal its trace hint.")
+			_check(_options_for(state, request).size() == 3, "The pending PR on the desk offers three authored choices.")
+			for future: Dictionary in packets.slice(index + 1) + Catalog.requests_for_day(day + 1):
 				var future_history := Chat.messages(state, str(future.author))
-				_check(authored.requests[future.id].request not in _texts(future_history), "Future requests cannot leak through another contact's history.")
+				_check(authored.requests[future.id].request not in _texts(future_history), "PRs still in line cannot leak through any contact's history.")
 				for message: Dictionary in future_history:
-					_check(message.get("pr_id") != future.id, "Future PR IDs must not appear as clickable metadata.")
+					_check(message.get("pr_id") != future.id, "PRs still in line must not appear as clickable metadata.")
+			state.decisions.append({"pr_id": request.id, "verdict": "approve", "correct": true, "shift_seconds": index * 20 + 1})
 	_check(Chat.messages(waiting, "unknown").is_empty(), "Unknown contacts have no conversation.")
 	_check(Chat.reply_options(waiting, "unknown").is_empty() and Chat.reply_options(waiting, "company").is_empty(), "Unknown and announcement-only channels have no replies.")
 
 
 func _test_replies() -> void:
 	var request: Dictionary = Catalog.request_at(0)
-	var state := _state(int(request.day), Catalog.arrival_seconds(str(request.id)))
+	var state := _state(int(request.day), 0)
+	_arrive(state, request, 0)
 	var before := Chat.reply_options(state, str(request.author))
 	state.shift_seconds += 1
 	_check(Chat.reply_options(state, str(request.author)) == before, "Clock ticks between arrivals must not change reply identities or prose.")
@@ -134,7 +145,8 @@ func _test_replies() -> void:
 
 func _test_reactions() -> void:
 	var request: Dictionary = Catalog.request_at(0)
-	var state := _state(int(request.day), Catalog.arrival_seconds(str(request.id)))
+	var state := _state(int(request.day), 0)
+	_arrive(state, request, 0)
 	_save_choice(state, request, "clarify")
 	state.decisions.append({"pr_id": request.id, "verdict": "approve", "correct": false})
 	var reactions := _kind(Chat.messages(state, str(request.author)), "reaction")
@@ -143,7 +155,12 @@ func _test_reactions() -> void:
 	_check(_kind(Chat.messages(state, str(request.author)), "reaction") == reactions, "Private audit correctness must not alter coworker reaction prose.")
 	_check(_options_for(state, request).is_empty(), "A submitted PR no longer accepts pre-review reply choices.")
 	state.decisions[0].verdict = "request_changes"
-	_check(_kind(Chat.messages(state, str(request.author)), "reaction")[0].text == authored.requests[request.id].request_changes, "Sending changes back uses the authored rejection reaction.")
+	state.decisions[0].cited_rules = ["P01"]
+	var sent_back: String = _kind(Chat.messages(state, str(request.author)), "reaction")[0].text
+	_check(sent_back == Chat._lines().reaction(str(request.author), 1, "request_changes", ["P01"], str(request.id)), "Sending changes back uses the authored send-back reaction.")
+	_check(sent_back.to_lower().contains("load-bearing comment") and not sent_back.contains("P01"), "The send-back names what was cited in plain words, never the rule ID.")
+	state.decisions[0].correct = false
+	_check(_kind(Chat.messages(state, str(request.author)), "reaction")[0].text == sent_back, "A send-back reads the same whether or not the citation was right.")
 	state.day += 1
 	state.shift_seconds = 0
 	_check(authored.requests[request.id].hint in _texts(Chat.messages(state, str(request.author))), "Previously requested clarification survives into later shifts for submitted work.")
@@ -156,7 +173,8 @@ func _test_reactions() -> void:
 
 func _test_expired_history() -> void:
 	var request: Dictionary = Catalog.request_at(0)
-	var state := _state(int(request.day), Catalog.arrival_seconds(str(request.id)))
+	var state := _state(int(request.day), 0)
+	_arrive(state, request, 0)
 	var clarification := _save_choice(state, request, "clarify")
 	state.day += 1
 	state.shift_seconds = -1
@@ -170,7 +188,8 @@ func _test_expired_history() -> void:
 
 func _test_purity() -> void:
 	var request: Dictionary = Catalog.request_at(0)
-	var state := _state(int(request.day), Catalog.arrival_seconds(str(request.id)))
+	var state := _state(int(request.day), 0)
+	_arrive(state, request, 0)
 	var snapshot := state.duplicate(true)
 	var history := Chat.messages(state, str(request.author))
 	var options := Chat.reply_options(state, str(request.author))
@@ -193,24 +212,51 @@ func _test_purity() -> void:
 
 
 func _test_history_and_contract() -> void:
-	var state := _state(int(Catalog.campaign_days()[-1]), 360)
+	var state := _state(int(Catalog.campaign_days()[-1]), 300)
 	var known: Dictionary = {}
 	for request: Dictionary in Catalog.requests():
 		known[request.id] = request
+		_arrive(state, request, 0)
 		for reply_id: String in Chat.REPLY_IDS:
 			state.chat_replies.append({"day": request.day, "shift_seconds": 300, "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
-		state.decisions.append({"pr_id": request.id, "verdict": "approve", "correct": true})
+		var verdict := "approve" if request.violations.is_empty() or int(request.day) == 5 else "request_changes"
+		state.decisions.append({"pr_id": request.id, "verdict": verdict, "correct": true, "cited_rules": request.violations, "shift_seconds": 100})
+		if verdict == "approve": continue
+		# Earlier days also carry the full revision exchange, up to an escalation.
+		var parent: Dictionary = request
+		for version in [2, 3]:
+			var entry := {"id": "%s-v%d" % [request.id, version], "parent_id": parent.id, "origin_id": request.id, "version": version, "day": request.day, "cited": request.violations, "fixed": [], "regression": ""}
+			state.revisions.append(entry)
+			var revision: Dictionary = Catalog.packet(state, entry.id)
+			known[revision.id] = revision
+			state.arrivals.append({"pr_id": revision.id, "day": request.day, "shift_seconds": 100 + version})
+			state.decisions.append({"pr_id": revision.id, "verdict": "request_changes" if version == 3 or request.id.ends_with("1") else "approve", "correct": true, "cited_rules": request.violations, "shift_seconds": 101 + version})
+			if state.decisions[-1].verdict == "approve": break
+			parent = revision
 	var forbidden := RegEx.new()
-	forbidden.compile("Trust [+]|stress [+]|%|https?://")
+	forbidden.compile("Trust [+]|stress [+]|%|https?://|\\bP0[1-9]\\b|violat|audit")
 	for contact: String in Chat.CONTACTS:
 		var history := Chat.messages(state, contact)
 		_check(history.size() <= Chat.HISTORY_LIMIT + 15, "Large conversation histories must remain bounded.")
 		_check(history.is_empty() or history[0].kind != "response", "Truncation must not orphan a coworker response from the player's reply.")
 		for message: Dictionary in history:
 			_check(message.has_all(["author", "text", "kind", "id", "sent_day", "sent_seconds", "sent_order"]) and message.size() in [7, 8], "Messages retain author/text/kind and optional internal request or response metadata.")
-			_check(forbidden.search(message.text) == null, "Chat prose must not reveal scores, queue totals, audit rule IDs, or external URLs.")
+			_check(forbidden.search(message.text) == null, "Chat prose must not reveal scores, queue totals, audit rule IDs, or external URLs: " + message.text)
 			if message.has("pr_id"):
 				_check(known.has(message.pr_id) and known[message.pr_id].author == contact, "Every link must identify an authored request from this coworker.")
+	# Every authored line the player can see in Slouch is real copy, not a placeholder.
+	var shown: Array = []
+	for contact: String in Chat.CONTACTS:
+		for message: Dictionary in Chat.messages(state, contact): shown.append(str(message.text))
+	for person: Dictionary in authored.contacts.values():
+		for key: String in ["intro", "warm", "distant"]: shown.append(str(person[key]))
+		for reply: Dictionary in person.replies.values(): shown.append_array([str(reply.text), str(reply.response)])
+	for packet: Dictionary in authored.requests.values():
+		for key: String in ["request", "question", "hint", "concern", "approve", "incident"]: shown.append(str(packet[key]))
+	for text: String in shown:
+		_check(not text.contains("[") and not text.contains("placeholder"), "Slouch text must not contain placeholder brackets: " + text)
+	var manager := JSON.stringify(Chat.messages(state, "manager"))
+	_check(manager.contains("after three rounds") and manager.contains("v4"), "Morgan hears about every PR that escalates after its third version.")
 	state.phase = "complete"
 	_check(_kind(Chat.messages(state, "company"), "notice")[-1].text.contains("assignment has closed"), "Completion keeps a qualitative company notice.")
 
@@ -224,6 +270,8 @@ func _test_chronology() -> void:
 	var first: Dictionary = packets[0]
 	var second: Dictionary = packets[1]
 	var state := _state(1, 100)
+	_arrive(state, first, 0)
+	_arrive(state, second, 20)
 	_save_choice(state, second, "clarify")
 	state.shift_seconds = 110
 	_save_choice(state, first, "clarify")

@@ -4,7 +4,7 @@ Godot 4.7.2 owns the native desktop window, Control menus, input, and texture re
 
 ## Boundaries
 
-Policy campaign → Catalog → current PR and active rules → native workstation.
+Policy campaign → Catalog → the one PR on the desk and active rules → native workstation.
 
 Native control → command dictionary → immutable simulation transition → render existing controls.
 
@@ -20,7 +20,7 @@ New Game selects a save slot, plays the interactive offer cold open, then enters
 
 ## Content and gameplay
 
-`content/policy_campaign.gd` defines five days, fifteen packets per day, and nine visual policies introduced in groups of 3/2/2/1/1. Source text, keyword ink, and per-file permits determine expected citations through the same lexical evidence used by the editor. The first delivery is immediate, then every twenty seconds. Source is never executed. Thursday introduces exact per-file INK-EXCEPTION permits.
+`content/policy_campaign.gd` defines five days, fifteen packets per day, and nine visual policies introduced in groups of 3/2/2/1/1. Source text, keyword ink, and per-file permits determine expected citations through the same lexical evidence used by the editor. Each packet records a private recipe (bank entry, companion files, every fault with its file and wording, permits) so a revision can be regenerated from it minus the faults the author fixed. Source is never executed. Thursday introduces exact per-file INK-EXCEPTION permits.
 
 `content/pr_bank.gd` holds the authored bank of realistic, clean pull requests (path, humorous title, coworker phrase, source). The campaign pairs them with generated companion files (tests, config, legacy shims) and applies one of several believable faults per rule. Packets never foreshadow later standards: the PIGEON sign-off appears only from Wednesday, and tabs, exclamation marks, quoted "urgent", and permits arrive with their own rules. A test enforces this.
 
@@ -28,7 +28,7 @@ The first loop separates technical trust from relationships. Approval can make a
 
 ## Persistence
 
-State version 5 stores a bounded timed action journal including decisions, consultations, chat replies, shift closure, and evening choices. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
+State version 8 stores a bounded timed action journal including decisions, consultations, chat replies, shift closure, and evening choices. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
 
 The filesystem adapter writes a temporary file, rotates the previous save to a backup, and atomically renames the new file. Load failures preserve the active session. Saves remain in the original Last Review application-data directory so the title change preserves existing progress. There is no automatic load, autosave, or cloud storage.
 
@@ -48,7 +48,7 @@ Native macOS export is configured with the official universal template and local
 
 ## Session entry and practice
 
-`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. Orientation goes directly from Slouch to the PR link. Only the current orientation format is supported.
+`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. Orientation goes directly from Slouch to the PR link; the practice PR is already on the desk. Only the current orientation format is supported.
 
 `save_store.gd` accepts current-format careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.
 

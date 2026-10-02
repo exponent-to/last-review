@@ -1,20 +1,96 @@
 extends RefCounted
-## PR requests stay authored; other coworker dialogue is placeholder copy.
+## Coworker dialogue for Slouch: introductions, moods, PR requests and reactions, and
+## the revision exchange (send-backs, relief, escalation). Maya is tired and dry,
+## Theo is overconfident, Inez is passive-aggressive and lives by the process.
+## Lines never reveal rule IDs, scores, or whether a PR is actually broken: reactions
+## follow the verdict and what the player cited, never the audit.
 const Catalog = preload("res://content/catalog.gd")
+const Policy = preload("res://content/policy_campaign.gd")
+const MAX_REVISION: int = Policy.MAX_REVISION
 static var _cache: Dictionary = {}
+
+const PEOPLE: Dictionary = {
+ "Maya": {
+  "intro": "Hi. Maya. I'll be sending you PRs. I'm sorry in advance, and also in arrears.",
+  "warm": "You're one of the good ones. Don't tell anyone or they'll give you more work.",
+  "distant": "I'm not mad. I'm just tired, and lately you're the shape of the reason.",
+  "acknowledge": "Thanks. Take your time. Not too much time.",
+ },
+ "Theo": {
+  "intro": "Theo here. I write code fast and I write it right, mostly the first one. You're going to love reviewing me.",
+  "warm": "Honestly? Best reviewer I've had. I told Morgan. I also told Helios, which was weird.",
+  "distant": "No hard feelings about the reviews. I've started copying Helios on my PRs, for transparency.",
+  "acknowledge": "Great. It'll take you thirty seconds. Twenty if you skip the boring files.",
+ },
+ "Inez": {
+  "intro": "Hello. Inez, platform. I've shared a doc on how I prefer to receive feedback. It's forty pages; the summary is nine.",
+  "warm": "I've moved you to the reliable column of my spreadsheet. The only other name in it is mine.",
+  "distant": "I've booked fifteen minutes to discuss our working relationship. The agenda has one bullet. It's your name.",
+  "acknowledge": "Thank you for confirming. I've marked the ticket acknowledged, pending.",
+ },
+}
+## Per-PR lines, picked by the author's turn so consecutive PRs never repeat.
+const APPROVED: Dictionary = {
+ "Maya": ["Thanks. I'll tell my plant.", "Approved. I'm going to sit very still and enjoy this.", "Oh good. One less thing. Only several thousand to go.", "Thank you. I'm too tired to be sarcastic about it, which is how you know I mean it.", "Merged. I can feel a nap approaching from very far away."],
+ "Theo": ["Knew it. Clean as a whistle, and I wrote the whistle.", "Approved on the first try. Write that down. Actually, I'll write it down.", "Nice. That's going in my self-review under leadership.", "Obviously. I barely even ran it.", "Thanks. Told you it was a one-line change. Spiritually."],
+ "Inez": ["Thank you. I've noted the approval in the approval log, and the log in the log log.", "Approved. I'll update the ticket, the tracker, and the spreadsheet that tracks the tracker.", "Received with thanks. Per process, I will now celebrate for the allotted thirty seconds.", "Thank you for following the review procedure. Not everyone does. I keep a list.", "Noted. This approval will be quoted in my quarterly reflection document."],
+}
+const HINTS: Dictionary = {
+ "Maya": ["Start at the top. It's where I started, and look at me now.", "Every file. If I say just the first one, you'll only read the first one.", "The green lines are new. The red lines are things I'm grieving.", "The files, in order. I'd help more, but I'm on my fourth meeting about meetings."],
+ "Theo": ["Anywhere. It's all good. I checked. Briefly.", "Start wherever. It's a one-line change spread across several lines.", "The diff. All of it is great, so there's no wrong place to start.", "Honestly, you could skim it. I would, and I wrote it."],
+ "Inez": ["Per the procedure: every changed file, top to bottom, against today's standards. I've attached the procedure. Again.", "The description first, then each file in order. I wrote the description so you wouldn't have to ask.", "The standards page, then the files. That's the order in the training. I wrote the training.", "Each file, once, carefully. As discussed. In the meeting you were not invited to."],
+}
+const CONCERNS: Dictionary = {
+ "Maya": ["I checked it twice. Once while awake.", "I read it. Whether I read it read it is between me and the coffee.", "Helios checked it, so now I have to check Helios. So: sort of."],
+ "Theo": ["Checked it? I wrote it. Same thing.", "Helios said it looks great. I said it looks great. That's two opinions.", "I ran it in my head. My head passed."],
+ "Inez": ["I followed the checklist. I also wrote the checklist, so it's very thorough.", "I checked it against the standards as they were when I started. They've changed twice since.", "Yes. I have a signed form saying I checked it. I'm the one who signed it."],
+}
+## {topics}/{Topics} are the player's citations in plain words, never rule IDs.
+const SENT_BACK: Dictionary = {
+ "Maya": {
+  1: ["{Topics}? Fine. v2 incoming.", "Noted: {topics}. I'll fix it after I lie on the floor for a minute.", "Sent back for {topics}. Bold. I respect it. I'm fixing it.", "{Topics}. Sure. I'll add it to the pile I'm also too tired to look at.", "Okay. {Topics}. Give me a minute and a reason to live."],
+  2: ["{Topics}. Again. Okay. Okay. v3.", "Again? {Topics} this time. I'm getting the farm brochures out."]},
+ "Theo": {
+  1: ["Oh, {topics}, totally. Great catch. I'll fix it and improve some things nobody asked about.", "On it. {Topics}: soon to be the best-fixed thing in this building.", "Love the feedback on {topics}. Fixing it right now, at top speed, which is how I do everything.", "{Topics}? Easy. Back in five. Four, if I don't run the tests.", "Ha, {topics}. I was testing you. You passed. Fixing it."],
+  2: ["Round two. {Topics}. I'm treating this as a growth opportunity, which is what I say when I'm upset.", "Sure, {topics}. Totally. v3 will be perfect. I can feel it. I can't feel it."]},
+ "Inez": {
+  1: ["Received: {topics}. A revision will follow at the earliest moment convenient for no one.", "Understood. I will address {topics} and cc my own disappointment.", "Acknowledged. {Topics} will be corrected. Please hold.", "Thank you for the feedback on {topics}. I've logged it, and how it made me feel.", "Noted: {topics}. I'll open a ticket to track the ticket for this."],
+  2: ["Received, again: {topics}. I have updated my estimate of today's remaining hope.", "Noted: {topics}. This will be the third version. I am writing that down."]},
+}
+const ESCALATE: Dictionary = {
+ "Maya": "Three rounds. I'm looping in Morgan.",
+ "Theo": "Okay. I'm looping in Morgan. Not as a threat. As a cry for help.",
+ "Inez": "I'm looping in Morgan, per the escalation policy nobody has read but me.",
+}
+const RELIEF: Dictionary = {
+ "Maya": {2: "Finally.", 3: "Finally. Three versions. I aged."},
+ "Theo": {2: "Finally. I'm printing this approval for the fridge.", 3: "Finally. Third time's the charm, and I am the charm."},
+ "Inez": {2: "Finally. Thank you. Closing the ticket before anyone reopens it.", 3: "Finally. Version three is on the record, as is how long it took."},
+}
+
+static func _turn_line(options: Array, turn: int) -> String:
+ return str(options[turn % options.size()])
+
 static func authored() -> Dictionary:
  if not _cache.is_empty(): return _cache
  var people := {}
  for person: String in ["Maya", "Theo", "Inez"]:
-  people[person] = {"intro": "[Coworker introduction placeholder]", "warm": "[Friendly coworker message placeholder]", "distant": "[Frustrated coworker message placeholder]", "neutral": "", "replies": {
-   "acknowledge": {"text": "On it.", "response": "[Acknowledgement placeholder]"},
-   "clarify": {"text": "What should I look at first?", "response": "[PR context placeholder]"},
-   "concern": {"text": "Did you check this one yourself?", "response": "[PR background placeholder]"}}}
+  var lines: Dictionary = PEOPLE[person]
+  people[person] = {"intro": lines.intro, "warm": lines.warm, "distant": lines.distant, "neutral": "", "replies": {
+   "acknowledge": {"text": "On it.", "response": lines.acknowledge},
+   "clarify": {"text": "What should I look at first?", "response": HINTS[person][0]},
+   "concern": {"text": "Did you check this one yourself?", "response": CONCERNS[person][0]}}}
  var packets := {}
  var incidents := ["Compliance bounced a release you signed. The complaint is about the text, not whether it runs. Please take another look tomorrow.", "An approved file reached the policy desk. They've attached a screenshot with something circled. I'm forwarding it before they schedule a meeting.", "The checker found a policy issue in something we shipped. Helios has volunteered to supervise our reviews. I'd rather you caught these."]
  var index := 0
+ var turns := {"Maya": 0, "Theo": 0, "Inez": 0}
  for packet: Dictionary in Catalog.requests():
-  packets[packet.id] = {"request": str(packet.message), "question": "What should I look at first?", "hint": "[PR context placeholder]", "concern": "[PR background placeholder]", "approve": "[Approval reaction placeholder]", "request_changes": "[Change request reaction placeholder]", "incident": incidents[index % incidents.size()]}
+  var author := str(packet.author)
+  var turn := int(turns.get(author, 0))
+  turns[author] = turn + 1
+  packets[packet.id] = {"request": str(packet.message), "question": "What should I look at first?", "turn": turn,
+   "hint": _turn_line(HINTS[author], turn), "concern": _turn_line(CONCERNS[author], turn),
+   "approve": _turn_line(APPROVED[author], turn), "incident": incidents[index % incidents.size()]}
   if packet.id == "PR-1042":
    packets[packet.id].request += " Keep an eye on the comment wording in the test file."
   index += 1
@@ -22,8 +98,28 @@ static func authored() -> Dictionary:
   {"day": 1, "author": "Morgan", "text": "You are not here to understand the code. You are here to sign it. Helios will supply more work than you can finish; choose what carries your name carefully."},
   {"day": 2, "author": "Operations", "text": "Records Office notice: quiet filenames, sixty-column lines. Changes now arrive in sets. An unread file is an unsigned file."},
   {"day": 3, "author": "Helios", "text": "I can now offer review recommendations. PIGEON will refuse any file without its sign-off, and comments are now scanned for sentiment. Your human judgment remains useful to my training."}],
-  "manager": {"intro": "Morning. Read the memo, then start the clock when you're ready.", "friction": "A coworker says we sent back a compliant change. They attached the handbook. We should avoid making policy stricter than it already is.", "handoff": "Helios picked up the remaining queue. Don't stay late chasing it; it can produce requests faster than either of us can read.", "held": "The policy desk hasn't sent anything back tonight. Thanks for being specific with the team.", "quiet": "Nothing from the policy desk tonight. Go home before somebody invents another standard.", "closing": "That's enough for today. Head home, grab dinner, or study tomorrow's paperwork."}}
+  "manager": {"intro": "Morning. Read the memo, then start the clock when you're ready.", "friction": "A coworker says we sent back a compliant change. They attached the handbook. We should avoid making policy stricter than it already is.", "handoff": "Helios picked up the remaining queue. Don't stay late chasing it; it can produce requests faster than either of us can read.", "held": "The policy desk hasn't sent anything back tonight. Thanks for being specific with the team.", "quiet": "Nothing from the policy desk tonight. Go home before somebody invents another standard.", "closing": "That's enough for today. Head home, grab dinner, or study tomorrow's paperwork.",
+   "escalation": "{author} looped me in on {pr} after three rounds. I've handed it to Helios. Nobody needs to see a v4."}}
  _cache.company.append({"day": 4, "author": "Operations", "text": "Exception Desk notice: INK-EXCEPTION is the only valid pink-ink permit, for one file only. Tabs remain prohibited on every file. Misspelled permits will be treated as forgeries."})
  _cache.company.append({"day": 5, "author": "Morgan", "text": "Last day of this assignment. Only management declares urgency, so no urgent in quoted strings. Keep checking the actual files; we will talk about your future after closing."})
 
  return _cache
+
+## The author's reply to a verdict on version `version` of a PR. Depends only on the
+## verdict, what was cited, and the PR's identity, never on whether it was correct.
+static func reaction(author: String, version: int, verdict: String, cited: Array, pr_id: String) -> String:
+ if verdict == "approve":
+  return str(RELIEF.get(author, RELIEF.Maya).get(clampi(version, 2, MAX_REVISION), "Finally."))
+ if version >= MAX_REVISION:
+  return str(ESCALATE.get(author, ESCALATE.Maya))
+ var options: Array = SENT_BACK.get(author, SENT_BACK.Maya)[clampi(version, 1, MAX_REVISION - 1)]
+ # Originals take turns through the pool so an author never repeats back to back.
+ var origin := pr_id.left(pr_id.rfind("-v")) if pr_id.rfind("-v") > 0 else pr_id
+ var turn: int = int(authored().requests.get(origin, {}).get("turn", Policy.roll(pr_id + "|sent-back")))
+ var line: String = _turn_line(options, turn)
+ var topics: String = Policy.cited_words(cited, 0)
+ return line.replace("{Topics}", topics.left(1).to_upper() + topics.substr(1)).replace("{topics}", topics)
+
+## Morgan's message when a PR comes back a third time and leaves the human desk.
+static func escalation(author: String, origin_id: String) -> String:
+ return str(authored().manager.escalation).replace("{author}", author).replace("{pr}", origin_id)

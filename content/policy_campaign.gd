@@ -12,6 +12,7 @@ const PIGEON_STAMP: String = "# approved by a pigeon"
 const FILE_SCOPED: Array = ["P02", "P03", "P04", "P09"]
 const Bank = preload("res://content/pr_bank.gd")
 static var _packets: Array = []
+static var _bank: Array = []
 
 static func rules() -> Array:
 	return [
@@ -280,9 +281,10 @@ static func _clean(lines: Array, day: int) -> Array:
 		result.append(PIGEON_STAMP)
 	return result
 
-static func _apply_fault(file: Dictionary, rule_id: String, day: int) -> void:
+## `variant` picks the fault's wording; recipes record it so a rebuilt file reads the same.
+static func _apply_fault(file: Dictionary, rule_id: String, day: int, variant: int = -1) -> void:
 	var lines: Array = Array(str(file.source).split("\n", true))
-	var variant: int = str(file.path).length()
+	if variant < 0: variant = str(file.path).length()
 	var at: int = mini(1, lines.size())
 	# Inserted lines must read naturally anywhere: they never describe code that
 	# isn't in the file.
@@ -321,72 +323,307 @@ static func _apply_fault(file: Dictionary, rule_id: String, day: int) -> void:
 	file.source = "\n".join(lines)
 	_refresh_diff(file)
 
+static func _bank_entries() -> Array:
+	if _bank.is_empty(): _bank = Bank.entries()
+	return _bank
+
+## A packet's private generation recipe: the bank entry, which companion files exist,
+## every fault in the order it was applied (with its wording), author notes, and
+## permits. `_build` turns a recipe back into files, so revisions can be regenerated.
+static func _build(recipe: Dictionary) -> Array:
+	var entry: Dictionary = _bank_entries()[int(recipe.entry)]
+	var day: int = int(recipe.day)
+	var path: String = str(entry.path)
+	var files: Array = []
+	for kind: String in recipe.files:
+		if kind == "primary":
+			var before: Variant = _clean(entry.before, day) if entry.has("before") else null
+			files.append(_file(path, _clean(entry.lines, day), "blue", before))
+		else:
+			files.append(_file(_companion_path(kind, path), _clean(_companion(kind, entry), day)))
+	for fault: Dictionary in recipe.faults:
+		_apply_fault(files[int(fault.file)], str(fault.rule), day, int(fault.variant))
+	for note: Dictionary in recipe.notes:
+		_insert_note(files[int(note.file)], str(note.text))
+	for permit: Dictionary in recipe.permits:
+		files[int(permit.file)].permit = str(permit.permit)
+	return files
+
+static func _fault(files: Array, recipe: Dictionary, index: int, rule_id: String) -> void:
+	var variant: int = str(files[index].path).length()
+	recipe.faults.append({"file": index, "rule": rule_id, "variant": variant})
+	_apply_fault(files[index], rule_id, int(recipe.day), variant)
+
+static func _permit(files: Array, recipe: Dictionary, index: int, stamp: String) -> void:
+	recipe.permits.append({"file": index, "permit": stamp})
+	files[index].permit = stamp
+
+static func _insert_note(file: Dictionary, text: String) -> void:
+	var lines: Array = Array(str(file.source).split("\n", true))
+	lines.insert(mini(1, lines.size()), text)
+	file.source = "\n".join(lines)
+	_refresh_diff(file)
+
+static func _summary(files: Array) -> String:
+	var summary: Array[String] = []
+	for file: Dictionary in files:
+		summary.append("%s %s" % [{"added": "adds", "modified": "modifies", "renamed": "renames"}[file.status], file.path])
+	return ", ".join(summary)
+
+## Every packet, original or revision, has the same shape so grading and UI just work.
+static func _packet(fields: Dictionary, files: Array) -> Dictionary:
+	var day: int = int(fields.day)
+	var combined: Array[String] = []
+	for file: Dictionary in files:
+		combined.append(str(file.diff))
+	var packet: Dictionary = fields.duplicate(true)
+	packet.file = files[0].path
+	packet.files = files
+	packet.diff = "\n\n".join(combined)
+	packet.violations = evaluate(files, day)
+	packet.findings = findings(files, day)
+	packet.explanation = _explanation(files, day)
+	return packet
+
+static func _helios(violations: Array, wrong: bool) -> String:
+	var correct_verdict: String = "approve" if violations.is_empty() else "request_changes"
+	if not wrong:
+		return correct_verdict
+	return "request_changes" if correct_verdict == "approve" else "approve"
+
 static func requests() -> Array:
 	if not _packets.is_empty():
 		return _packets.duplicate(true)
-	var bank: Array = Bank.entries()
+	var bank: Array = _bank_entries()
 	for day in range(1, 6):
 		for index in range(DAY_COUNTS[day - 1]):
-			var entry: Dictionary = bank[((day - 1) * DAY_COUNTS[day - 1] + index) % bank.size()]
+			var recipe: Dictionary = {"entry": ((day - 1) * DAY_COUNTS[day - 1] + index) % bank.size(), "day": day,
+				"files": ["primary"], "faults": [], "notes": [], "permits": []}
+			var entry: Dictionary = bank[int(recipe.entry)]
 			var path: String = str(entry.path)
-			var before: Variant = _clean(entry.before, day) if entry.has("before") else null
-			var files: Array = [_file(path, _clean(entry.lines, day), "blue", before)]
-			var is_clean: bool = index % 3 == 1
 			if (day == 1 and index == 0) or (day >= 2 and index % 2 == 0):
-				files.append(_file(_companion_path("test", path), _clean(_companion("test", entry), day)))
+				recipe.files.append("test")
 			if day >= 3 and index % 13 == 0:
-				files.append(_file(_companion_path("legacy", path), _clean(_companion("legacy", entry), day)))
+				recipe.files.append("legacy")
+			var files: Array = _build(recipe)
+			var is_clean: bool = index % 3 == 1
 			if not is_clean:
 				var primary: String = "P%02d" % (1 + ((index / 3 + (index % 3) * 2) % ACTIVE_COUNTS[day - 1]))
 				if day == 1 and index == 0:
 					primary = "P01"
-				_apply_fault(files[-1], primary, day)
+				_fault(files, recipe, files.size() - 1, primary)
 				if day >= 2 and index > 0 and index % 6 == 0:
 					var secondary: String = "P%02d" % (1 + ((int(primary.substr(1)) + 2) % ACTIVE_COUNTS[day - 1]))
 					if secondary == primary:
 						secondary = "P01" if primary != "P01" else "P03"
 					# Different files prevent edits to one flaw from concealing another.
 					if files.size() == 1:
+						recipe.files.append("config")
 						files.append(_file(_companion_path("config", path), _clean(_companion("config", entry), day)))
-					_apply_fault(files[0], secondary, day)
+					_fault(files, recipe, 0, secondary)
 			if day >= 4:
 				if index in [1, 4, 7]:
-					_apply_fault(files[0], "P03", day)
-					files[0].permit = "INK-EXCEPTION"
+					_fault(files, recipe, 0, "P03")
+					_permit(files, recipe, 0, "INK-EXCEPTION")
 				elif index in [0, 8]:
-					_apply_fault(files[-1], "P03", day)
-					files[-1].permit = "INK-EXCEPTION"
+					_fault(files, recipe, files.size() - 1, "P03")
+					_permit(files, recipe, files.size() - 1, "INK-EXCEPTION")
 				elif index == 2:
-					_apply_fault(files[0], "P03", day)
-					files[0].permit = "INK-EXCEPTION"
-					_apply_fault(files[-1], "P03", day)
-					files[-1].permit = "INK-EXEPTION"
+					_fault(files, recipe, 0, "P03")
+					_permit(files, recipe, 0, "INK-EXCEPTION")
+					_fault(files, recipe, files.size() - 1, "P03")
+					_permit(files, recipe, files.size() - 1, "INK-EXEPTION")
 				elif index == 5:
-					_apply_fault(files[-1], "P03", day)
-					files[-1].permit = "ink-exception"
-			var violations: Array = evaluate(files, day)
-			var correct_verdict: String = "approve" if violations.is_empty() else "request_changes"
-			var verdict: String = correct_verdict
-			if index % 5 == 0:
-				verdict = "request_changes" if correct_verdict == "approve" else "approve"
-			var combined: Array[String] = []
-			var summary: Array[String] = []
-			for file: Dictionary in files:
-				combined.append(str(file.diff))
-				summary.append("%s %s" % [{"added": "adds", "modified": "modifies", "renamed": "renames"}[file.status], file.path])
+					_fault(files, recipe, files.size() - 1, "P03")
+					_permit(files, recipe, files.size() - 1, "ink-exception")
 			var request_id: String = "PR-%d" % (1000 + day * 1000 + index + 1)
 			if day == 1 and index == 0:
 				request_id = "PR-1042"
-			_packets.append({
+			var verdict: String = _helios(evaluate(files, day), index % 5 == 0)
+			_packets.append(_packet({
 				"id": request_id, "title": str(entry.title), "author": AUTHORS[(index + day - 1) % AUTHORS.size()], "day": day,
-				"arrival_seconds": index * 20,
-				"file": files[0].path, "files": files, "diff": "\n\n".join(combined),
-				"description": "%s.\n\nThis change %s. Reviewer: check every changed file against today's active standards; you do not need to understand what the code does." % [str(entry.title), ", ".join(summary)],
+				"revision": 1, "parent_id": "", "origin_id": request_id,
+				"description": "%s.\n\nThis change %s. Reviewer: check every changed file against today's active standards; you do not need to understand what the code does." % [str(entry.title), _summary(files)],
 				"message": _ping(index, str(entry.phrase)),
-				"violations": violations, "findings": findings(files, day), "explanation": _explanation(files, day),
-				"ai_verdict": verdict, "ai_note": _ai_note(index, verdict),
-			})
+				"ai_verdict": verdict, "ai_note": _ai_note(index, verdict), "recipe": recipe,
+			}, files))
 	return _packets.duplicate(true)
+
+# --- Revisions -----------------------------------------------------------------
+# Requesting changes sends a PR back to its author, who returns v2 (then v3).
+# The author fixes only what the reviewer cited that was really broken; about one
+# revision in three fixes that but breaks something else. Text is phrased only from
+# what the reviewer cited and never says whether anything is still wrong.
+
+const MAX_REVISION: int = 3
+## P02 regenerates a whole file, which would erase other evidence; never a regression.
+const REGRESSION_EXEMPT: Array = ["P02"]
+## Plain words for a citation: [noun, what the author claims to have done].
+const CITED_WORDS: Dictionary = {
+	"P01": ["the load-bearing comment", "removed the comment you were so attached to"],
+	"P02": ["the missing lowercase a", "fed the scanner a lowercase a"],
+	"P03": ["the keyword ink", "repainted the keywords a calmer blue"],
+	"P04": ["the shouting filename", "taught the filename to use its indoor voice"],
+	"P05": ["the long line", "folded the long line until it fit the printout"],
+	"P06": ["the pigeon sign-off", "re-signed it for the pigeon"],
+	"P07": ["the exclamation mark", "removed all the enthusiasm from the comments"],
+	"P08": ["the tab", "replaced the tab with honest spaces"],
+	"P09": ["the urgent label", "downgraded the urgency to a mild concern"],
+}
+## The author's note on the PR form and in Slouch. {Fixes}/{fixes} come from CITED_WORDS.
+const REVISION_MESSAGES: Dictionary = {
+	"Maya": {
+		2: ["v2. {Fixes}.", "v2. {Fixes}. Try to contain your excitement. I can't contain anything, I'm too tired.", "v2 is up. {Fixes}, and touched nothing else, as a treat."],
+		3: ["v3. {Fixes}. Again. If this comes back, I'm moving to a farm.", "v3. {Fixes}, for the second time, with feeling.", "Here's v3. {Fixes}. I would like my afternoon back."]},
+	"Theo": {
+		2: ["Fixed it. {Fixes}. Also refactored three unrelated things, you're welcome.", "v2, fresh out of the oven. {Fixes}, and wrote a haiku about it. Not in the code. Probably.", "v2. {Fixes}. It was already perfect; now it's perfect with a version number."],
+		3: ["v3. {Fixes}. I refactored nothing this time. I've grown.", "v3. {Fixes}. Still saying you're welcome, just quieter.", "v3. {Fixes}. Honestly, my best work yet. Like the last two."]},
+	"Inez": {
+		2: ["v2 attached. Per your review, I have {fixes}.", "Revision two. I have {fixes}, as requested, and documented my feelings separately.", "v2. I have {fixes}. Please advise if any further joy should be removed."],
+		3: ["v3 attached. I have {fixes}, again. Please confirm receipt of my patience.", "Revision three. I have {fixes}, for what I am told is the final time.", "v3. I have {fixes}. I have also updated my résumé, for unrelated reasons."]},
+}
+## A harmless comment acknowledging the review, left in every revision. None contain a
+## lowercase a, so a note can never satisfy the scanner standard by accident.
+const REVISION_NOTES: Dictionary = {
+	"Maya": {2: ["# per review", "# fixed. you're welcome."], 3: ["# v3. no comment.", "# v3: fixed, fixed, fixed"]},
+	"Theo": {2: ["# fixed per review (it's even better now)", "# per review, plus some bonus improvements"], 3: ["# v3: no more notes, I beg you", "# v3: I rewrote nothing. I grew."]},
+	"Inez": {2: ["# revised per review, ticket noted", "# per review, see my notes"], 3: ["# third revision, per review", "# revision three. per review. noted."]},
+}
+static var _revisions: Dictionary = {}
+
+## Deterministic dice from an ID and a purpose. Different purposes never correlate.
+static func roll(key: String) -> int:
+	return key.sha256_text().substr(0, 7).hex_to_int()
+
+static func _pick(options: Array, key: String) -> Variant:
+	return options[roll(key) % options.size()]
+
+static func _sorted(rules: Array) -> Array:
+	var result: Array = rules.duplicate()
+	result.sort()
+	return result
+
+## The reviewer's citations in plain words. form 0 = nouns, form 1 = the author's claims.
+static func cited_words(cited: Array, form: int) -> String:
+	var words: Array = []
+	for rule_id: Variant in _sorted(cited):
+		if CITED_WORDS.has(rule_id): words.append(CITED_WORDS[rule_id][form])
+	if words.is_empty(): return "your notes" if form == 0 else "addressed your notes"
+	if words.size() == 1: return str(words[0])
+	return ", ".join(words.slice(0, -1)) + (", and " if words.size() > 2 else " and ") + str(words[-1])
+
+static func revision_id(parent: Dictionary, version: int) -> String:
+	return "%s-v%d" % [str(parent.get("origin_id", parent.id)), version]
+
+static func revision_message(author: String, version: int, cited: Array, id: String) -> String:
+	var lines: Dictionary = REVISION_MESSAGES.get(author, REVISION_MESSAGES.Maya)
+	var template: String = _pick(lines[clampi(version, 2, MAX_REVISION)], id + "|message")
+	var fixes: String = cited_words(cited, 1)
+	return template.replace("{Fixes}", fixes.left(1).to_upper() + fixes.substr(1)).replace("{fixes}", fixes)
+
+static func _remaining(parent: Dictionary, fixed: Array) -> Array:
+	return parent.violations.filter(func(rule_id: Variant) -> bool: return rule_id not in fixed)
+
+## The parent's recipe minus the faults the author fixed. A fault that a later fault
+## had already erased (a regenerated file) stays gone instead of resurfacing.
+static func _revised_recipe(parent: Dictionary, fixed: Array) -> Dictionary:
+	var recipe: Dictionary = parent.recipe.duplicate(true)
+	var expected: Array = _remaining(parent, fixed)
+	recipe.faults = recipe.faults.filter(func(fault: Dictionary) -> bool: return fault.rule not in fixed)
+	for _pass in range(4):
+		var extra: Array = evaluate(_build(recipe), int(parent.day)).filter(func(rule_id: String) -> bool: return rule_id not in expected)
+		if extra.is_empty(): break
+		recipe.faults = recipe.faults.filter(func(fault: Dictionary) -> bool: return fault.rule not in extra)
+	return recipe
+
+## Files the author touches: the one with the first fixed fault, then the rest in order.
+static func _edit_order(recipe: Dictionary, fixed: Array) -> Array:
+	var first: int = 0
+	for fault: Dictionary in recipe.faults:
+		if fault.rule in fixed:
+			first = int(fault.file)
+			break
+	var order: Array = [first]
+	for index in range(recipe.files.size()):
+		if index != first: order.append(index)
+	return order
+
+static func _with(recipe: Dictionary, key: String, item: Dictionary) -> Dictionary:
+	var trial: Dictionary = recipe.duplicate(true)
+	trial[key].append(item)
+	return trial
+
+## Place a regression in the first file where it adds exactly that one new violation.
+static func _regress(recipe: Dictionary, rule_id: String, id: String, expected: Array, order: Array) -> Dictionary:
+	var want: Array = _sorted(expected + [rule_id])
+	for index: int in order:
+		var trial: Dictionary = _with(recipe, "faults", {"file": index, "rule": rule_id, "variant": roll(id + "|wording") % 3})
+		if evaluate(_build(trial), int(recipe.day)) == want: return trial
+	return {}
+
+## No RNG: the revision ID decides. About one revision in three fixes what was cited
+## but breaks a standard active that day that was neither broken nor cited before.
+static func regression_rule(parent: Dictionary, id: String, fixed: Array, cited: Array = []) -> String:
+	if fixed.is_empty() or roll(id + "|regression") % 3 != 0: return ""
+	var key: String = JSON.stringify(["regression", id, parent.recipe, parent.violations, _sorted(fixed), _sorted(cited)])
+	if not _revisions.has(key): _revisions[key] = _choose_regression(parent, id, fixed, cited)
+	return _revisions[key]
+
+static func _choose_regression(parent: Dictionary, id: String, fixed: Array, cited: Array) -> String:
+	var day: int = int(parent.day)
+	var candidates: Array = []
+	for rule: Dictionary in rules():
+		if int(rule.introduced_day) <= day and rule.id not in REGRESSION_EXEMPT and rule.id not in parent.violations and rule.id not in cited:
+			candidates.append(rule.id)
+	if candidates.is_empty(): return ""
+	var recipe: Dictionary = _revised_recipe(parent, fixed)
+	var order: Array = _edit_order(parent.recipe, fixed)
+	var start: int = roll(id + "|rule") % candidates.size()
+	for offset in range(candidates.size()):
+		var rule_id: String = candidates[(start + offset) % candidates.size()]
+		if not _regress(recipe, rule_id, id, _remaining(parent, fixed), order).is_empty(): return rule_id
+	return ""
+
+## Regenerate the parent's files from its recipe, minus `fixed` faults, plus any
+## `regression`, plus the author's note. Same packet shape as an original.
+static func revision(parent: Dictionary, version: int, fixed: Array, regression: String, cited: Array = []) -> Dictionary:
+	return _revision_ref(parent, version, fixed, regression, cited).duplicate(true)
+
+## Cached and shared: callers must not mutate the result.
+static func _revision_ref(parent: Dictionary, version: int, fixed: Array, regression: String, cited: Array = []) -> Dictionary:
+	var key: String = JSON.stringify([parent.id, parent.recipe, parent.violations, version, _sorted(fixed), regression, _sorted(cited)])
+	if _revisions.has(key): return _revisions[key]
+	var day: int = int(parent.day)
+	var id: String = revision_id(parent, version)
+	var origin: String = str(parent.get("origin_id", parent.id))
+	var author: String = str(parent.author)
+	var expected: Array = _remaining(parent, fixed)
+	var order: Array = _edit_order(parent.recipe, fixed)
+	var recipe: Dictionary = _revised_recipe(parent, fixed)
+	if not regression.is_empty():
+		var regressed: Dictionary = _regress(recipe, regression, id, expected, order)
+		if not regressed.is_empty():
+			recipe = regressed
+			expected = _sorted(expected + [regression])
+	# Every revision carries a note, so a note never hints at whether a citation was real.
+	var notes: Dictionary = REVISION_NOTES.get(author, REVISION_NOTES.Maya)
+	var note: String = _pick(notes[clampi(version, 2, MAX_REVISION)], id + "|note")
+	for index: int in order:
+		var trial: Dictionary = _with(recipe, "notes", {"file": index, "text": note})
+		if evaluate(_build(trial), day) == expected:
+			recipe = trial
+			break
+	var files: Array = _build(recipe)
+	var verdict: String = _helios(evaluate(files, day), roll(id + "|helios") % 5 == 0)
+	var packet: Dictionary = _packet({
+		"id": id, "title": str(parent.title), "author": author, "day": day,
+		"revision": version, "parent_id": str(parent.id), "origin_id": origin,
+		"description": "%s (v%d).\n\nRevision %d of %s. %s says it addresses your notes on %s. This change %s. Reviewer: check every changed file against today's active standards; you do not need to understand what the code does." % [str(parent.title), version, version, origin, author, cited_words(cited, 0), _summary(files)],
+		"message": revision_message(author, version, cited, id),
+		"ai_verdict": verdict, "ai_note": _ai_note(roll(id + "|advice"), verdict), "recipe": recipe,
+	}, files)
+	_revisions[key] = packet
+	return packet
 
 static func _ping(index: int, object_name: String) -> String:
 	var openings: Array = ["Quick eyes on %s? Helios already said it looks great, which is why I'm asking you.", "Can you review %s before standup? Standup is in four minutes.", "%s is up. Morgan wants it merged before anyone reads it.", "Small one: %s. Please don't ask why.", "Sending %s. It passed CI, which is the least reassuring thing I can say.", "Could you look at %s? I've been told it's strategic.", "%s, as requested by a meeting I wasn't invited to.", "Please review %s. I would like to go back to my actual job."]

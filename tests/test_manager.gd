@@ -13,7 +13,6 @@ func _initialize() -> void:
 	var before := Simulation.advance(Simulation.initial_state(), 280)
 	check(Chat.messages(before, "manager").size() == 1, "Manager does not know release outcomes before closing.")
 	var mixed := before.duplicate(true)
-	mixed = Simulation.dispatch(mixed, {"type": "select-request", "pr_id": "PR-1042"})
 	mixed = Simulation.dispatch(mixed, {"type": "review", "verdict": "approve"})
 	check(Chat.messages(mixed, "manager").size() == 1, "An incorrect review receives no instant manager grade.")
 	mixed = Simulation.advance(mixed, 360)
@@ -24,12 +23,13 @@ func _initialize() -> void:
 		check(not prose.contains(banned), "Manager must not expose " + banned)
 	messages[0].text = "tampered"
 	check(Chat.messages(mixed, "manager")[0].text != "tampered", "Manager messages must be immutable.")
-	var clean := before.duplicate(true)
-	for packet: Dictionary in Catalog.requests_for_day(1):
-		clean = Simulation.dispatch(clean, {"type": "select-request", "pr_id": packet.id})
+	var clean := Simulation.initial_state()
+	while not Simulation.active_request(clean).is_empty():
+		var packet: Dictionary = Catalog.packet(clean, clean.active_request_id)
 		for rule_id: String in packet.violations:
 			clean = Simulation.dispatch(clean, Simulation.Catalog.audit_citation(packet, rule_id))
 		clean = Simulation.dispatch(clean, {"type": "review", "verdict": "approve" if packet.violations.is_empty() else "request_changes"})
+		if int(clean.desk_at) >= 0: clean = Simulation.advance(clean, int(clean.desk_at) - int(clean.shift_seconds))
 	clean = Simulation.advance(clean, 360)
 	check(not JSON.stringify(Chat.messages(clean, "manager")).contains("Compliance bounced a release"), "Prevented bugs must not be reported as shipped.")
 	for packet: Dictionary in Catalog.requests():

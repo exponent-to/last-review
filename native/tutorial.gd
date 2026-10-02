@@ -38,7 +38,7 @@ static func retry_practice_state(state: Dictionary) -> Dictionary:
 	var next := initial_practice_state()
 	for reply: Dictionary in state.chat_replies:
 		next = Simulation.dispatch(next, {"type": "chat-reply", "contact": reply.contact, "pr_id": reply.pr_id, "reply_id": reply.reply_id})
-	next = Simulation.dispatch(next, {"type": "select-request", "pr_id": str(Catalog.request_at(0).id)})
+	# The practice PR is already back on the desk; restore only optional consultation.
 	if state.consulted_requests.has(Catalog.request_at(0).id):
 		next = Simulation.dispatch(next, {"type": "consult-ai"})
 	return next
@@ -46,13 +46,13 @@ static func retry_practice_state(state: Dictionary) -> Dictionary:
 static func prompt(progress: Dictionary) -> Dictionary:
 	var steps := [
 		["ORIENTATION", "You don't need to know how to code. Check the letters, colors, and paperwork. This practice is untimed. Follow the arrows."],
-		["OPEN SLOUCH", "Maya has sent your practice PR. Open SLOUCH to read it."],
+		["OPEN SLOUCH", "Maya's practice PR is already on your desk. Open SLOUCH to read her note about it."],
 		["OPEN THE PR", "Select Maya's conversation and click OPEN PR-1042."],
-		["OPEN THE PR", "Click OPEN PR-1042 in Maya's message."],
+		["OPEN THE PR", "Click OPEN PR-1042 in Maya's message. It opens the PR on your desk in REVIEW."],
 		["LOOK AT BOTH FILES", "Use the file dropdown. Read the comments in each file. A comment is any text after #. You are checking appearances, not what the program does."],
 		["READ THE STANDARDS", "Three policies apply today. You'll get more each morning. Open INTRANET and choose STANDARDS to read them."],
 		["CITE THE PHRASE", "Policy P01 bans load-bearing in comments. In Review, open the file with that comment and click its line. Pick P01 in the box that opens, then stamp CHANGES REQUESTED. The other two policies pass."],
-		["READY", "That's the job. Work arrives constantly; you aren't expected to clear it all. Use NEXT PR in Review to grab another arrived change. Pause whenever you need. Start Monday when ready."]
+		["READY", "That's the job. Your desk holds one PR at a time; stamp it and the next one lands a moment later. Maya will revise what you sent back, and it will come around again behind a couple of other PRs. You aren't expected to clear the line. Pause whenever you need. Start Monday when ready."]
 	]
 	var entry: Array = steps[int(progress.stage)]
 	return {"title": entry[0], "body": entry[1]}

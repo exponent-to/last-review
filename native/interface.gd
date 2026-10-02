@@ -156,9 +156,6 @@ var _tutorial_active := false
 var _tutorial_pointer: Control
 var _tutorial_pr_link: Button
 var _home_button: Button
-var _arrival_picker: OptionButton
-var _next_pr: Button
-var _arrival_ids: Array[String] = []
 var _code_legend: Label
 var _tutorial_details: Dictionary = {}
 var _paper: PanelContainer
@@ -608,16 +605,7 @@ func _new_window(id: String, title: String) -> DesktopWindow:
 
 
 func _build_review_content(code: VBoxContainer) -> void:
-	var incoming := _row(code, 6)
-	_arrival_picker = OptionButton.new()
-	_arrival_picker.fit_to_longest_item = false
-	_arrival_picker.clip_text = true
-	_arrival_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_arrival_picker.item_selected.connect(func(index: int) -> void:
-		if index > 0 and index <= _arrival_ids.size(): _open_pr_link(_arrival_ids[index - 1]))
-	incoming.add_child(_arrival_picker)
-	_next_pr = _button(incoming, "NEXT PR →", _open_next_pr)
-	_next_pr.add_theme_font_size_override("font_size", 12)
+	# One PR at a time lands on the desk by itself; there is nothing to pick.
 	# The author packet is a paper form on the desk, not another terminal pane.
 	_paper = PanelContainer.new()
 	var paper_style := _style(PAPER, PAPER_LINE, 1, 14, 10)
@@ -726,9 +714,13 @@ func _set_review_files(request: Dictionary) -> void:
 	_file_picker.disabled = _review_files.is_empty()
 	_diffstat_label.text = "" if _review_files.is_empty() else _diffstat_text(Policy.diffstat(_review_files))
 	if _review_files.is_empty():
+		# Between PRs the desk is clear: no stale gutter marks or line tint.
 		_diff_rows = []
 		_diff.text = ""
+		_diff.set_line_gutter_text(0, _line_gutter, "")
+		_diff.set_line_gutter_text(0, _mark_gutter, "")
 		_code_legend.hide()
+		_paint_evidence()
 		return
 	var selected: int = clampi(int(_selected_files.get(_last_pr, 0)), 0, _review_files.size() - 1)
 	_file_picker.select(selected)
@@ -1395,7 +1387,7 @@ func _draw_chat(contact_changed: bool = false) -> void:
 		_paragraph(body, str(message.get("text", "")), 14, TEXT)
 		if message.has("pr_id"):
 			var pr_id: String = str(message.pr_id)
-			var link := _button(body, "OPEN " + pr_id + "  →", _open_pr_link.bind(pr_id))
+			var link := _button(body, "OPEN " + Catalog.display_id(pr_id) + "  →", _open_pr_link.bind(pr_id))
 			if pr_id == str(Catalog.request_at(0).id): _tutorial_pr_link = link
 			link.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			link.add_theme_font_size_override("font_size", 12)
@@ -1405,13 +1397,16 @@ func _draw_chat(contact_changed: bool = false) -> void:
 	_set_chat_scroll.call_deferred(follow_latest, previous_position, key)
 
 
+## Links open only the PR on the desk; there is no picking work out of the line.
 func _open_pr_link(pr_id: String) -> void:
-	for request: Dictionary in Simulation.available_requests(_state):
-		if str(request.id) == pr_id:
-			_emit_command({"type": "select-request", "pr_id": pr_id})
-			_open_app("review")
-			return
-	notify("This review is closed. Its conversation remains in SLOUCH.")
+	var on_desk: bool = _state.get("phase") == "review" and str(_state.get("active_request_id", "")) == pr_id
+	if on_desk and not Simulation.active_request(_state).is_empty():
+		_open_app("review")
+		return
+	if _state.get("phase") == "review" and pr_id in _state.get("desk_line", []):
+		notify("%s isn't at your desk yet." % Catalog.display_id(pr_id))
+		return
+	notify("%s is closed. Its conversation remains in SLOUCH." % Catalog.display_id(pr_id))
 
 
 func _set_chat_scroll(follow_latest: bool, previous_position: int, draw_key: String) -> void:
@@ -1437,7 +1432,7 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author message and code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE) and pick the standard it breaks. Full standards: INTRANET > STANDARDS.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author message and code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE) and pick the standard it breaks. Full standards: INTRANET > STANDARDS.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; its author's Slouch link opens it. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
 
 
 func set_save_slot(slot: int) -> void:
@@ -1458,7 +1453,6 @@ func _clear_citations() -> void:
 func render_state(state: Dictionary) -> void:
 	_state = state.duplicate(true)
 	render_clock(state)
-	_sync_arrival_picker()
 	var day: int = int(state.get("day", 1))
 	var phase: String = str(state.get("phase", "review"))
 	var selected: Array = state.get("selected_rules", [])
@@ -1469,7 +1463,7 @@ func render_state(state: Dictionary) -> void:
 	_ai_note.visible = _consult.visible
 	var day_names: Array[String] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
 	_hud["day"].text = day_names[(day - 1) % day_names.size()]
-	_hud["status"].text = ("HUMAN SIGN-OFF REQUESTED" if can_review else "INCOMING WORK / SLOUCH") if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED"
+	_hud["status"].text = ("HUMAN SIGN-OFF REQUESTED" if can_review else "DESK CLEAR") if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED"
 	if day != _last_day:
 		_last_day = day
 		var briefing: String = Catalog.briefing(day)
@@ -1499,15 +1493,15 @@ func render_state(state: Dictionary) -> void:
 		var request_id: String = str(request.get("id", ""))
 		if request.is_empty():
 			_last_pr = ""
-			_pr_id.text = "REVIEW / NO PR OPEN"
-			_pr_title.text = "Pick up an arrived PR"
-			_pr_context.text = "Use NEXT PR, the dropdown, or a Slouch link. Check the visible file against today’s policies."
+			_pr_id.text = "REVIEW / DESK CLEAR"
+			_pr_title.text = "Your desk is clear"
+			_pr_context.text = "Work lands here by itself, one PR at a time. Check every file against today’s policies."
 			_file_label.text = ""
 			if not _review_files.is_empty() or not _diff.text.is_empty():
 				_set_review_files({})
 		if not request_id.is_empty() and request_id != _last_pr:
 			_last_pr = request_id
-			_pr_id.text = "%s / AWAITING REVIEW" % request_id
+			_pr_id.text = "%s / AWAITING REVIEW" % Catalog.display_id(request_id)
 			_pr_title.text = str(request.get("title", ""))
 			_pr_context.text = "%s: %s\n\n%s" % [str(request.get("author", "")), str(request.get("message", "")), str(request.get("description", ""))]
 			_set_review_files(request)
@@ -1526,7 +1520,7 @@ func render_state(state: Dictionary) -> void:
 			# The author hears the verdict only, never whether it was right.
 			_banter.farewell(str(feedback.get("author", "")), str(feedback.get("verdict", "")), str(feedback.get("pr_id", "")))
 		_last_feedback_key = feedback_key
-	_feedback.text = "No review sent yet." if feedback.is_empty() else "%s · %s sent to %s." % [str(feedback.get("pr_id", "")), "Approval" if feedback.get("verdict") == "approve" else "Change request", str(feedback.get("author", ""))]
+	_feedback.text = "No review sent yet." if feedback.is_empty() else "%s · %s sent to %s." % [Catalog.display_id(str(feedback.get("pr_id", ""))), "Approval" if feedback.get("verdict") == "approve" else "Change request", str(feedback.get("author", ""))]
 	_render_phase(state)
 	_render_chat()
 	_sync_app_events()
@@ -1562,7 +1556,12 @@ func _mark_app_read(app: String) -> void:
 		_chat_unread[_chat_contact] = 0
 		_notifications.clear_app(app, _chat_contact)
 		_update_chat_badges()
-	elif app != "review":
+	elif app == "review":
+		# Looking at Review reads the PR on the desk.
+		_unread_requests.clear()
+		_app_counts.review = 0
+		_notifications.clear_app(app)
+	else:
 		_app_counts[app] = 0
 		_notifications.clear_app(app)
 	_update_app_badges()
@@ -1595,16 +1594,16 @@ func _sync_app_events() -> void:
 		if not _app_is_reading("browser"):
 			_app_counts.browser += 1
 			_ambient_push("browser", "A new daily memo is on the intranet.", "memo")
-	var pending: Dictionary = {}
-	for request: Dictionary in Simulation.available_requests(_state):
-		var id := str(request.id)
-		pending[id] = true
-		if not _known_requests.has(id):
-			_known_requests[id] = true
-			_unread_requests[id] = true
-			_ambient_push("review", "%s from %s: %s" % [id, request.author, request.title], id)
+	# The desk holds one PR; its badge reads 1 until the player looks at Review.
+	var desk: Dictionary = Simulation.active_request(_state)
+	var desk_id := str(desk.get("id", ""))
+	if not desk_id.is_empty() and not _known_requests.has(desk_id):
+		_known_requests[desk_id] = true
+		if not _app_is_reading("review"):
+			_unread_requests[desk_id] = true
+			_ambient_push("review", "%s from %s: %s" % [Catalog.display_id(desk_id), desk.author, desk.title], desk_id, str(desk.author))
 	for id: String in _unread_requests.keys():
-		if not pending.has(id) or str(_state.get("active_request_id", "")) == id:
+		if id != desk_id:
 			_unread_requests.erase(id)
 			_notifications.clear_app("review", id)
 	_app_counts.review = _unread_requests.size()
@@ -1692,29 +1691,6 @@ func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
 	_clock_label.text = "TRAINING"
 	_hud["day"].text = "ORIENTATION"
 	_footer.text = "CLOCK STOPPED"
-
-
-func _sync_arrival_picker() -> void:
-	if not is_instance_valid(_arrival_picker): return
-	var packets := Simulation.available_requests(_state)
-	var ids: Array[String] = []
-	for packet: Dictionary in packets: ids.append(str(packet.id))
-	if ids != _arrival_ids or _arrival_picker.item_count == 0:
-		_arrival_ids = ids
-		_arrival_picker.clear()
-		_arrival_picker.add_item("Arrived PRs" if not ids.is_empty() else "Waiting for work…")
-		for packet: Dictionary in packets:
-			_arrival_picker.add_item(str(packet.id) + " · " + str(packet.author) + " · " + str(packet.title))
-	_arrival_picker.select(ids.find(str(_state.get("active_request_id", ""))) + 1)
-	_arrival_picker.disabled = ids.is_empty()
-	_next_pr.disabled = ids.is_empty() or (ids.size() == 1 and ids[0] == str(_state.get("active_request_id", "")))
-
-
-func _open_next_pr() -> void:
-	for id: String in _arrival_ids:
-		if id != str(_state.get("active_request_id", "")):
-			_open_pr_link(id)
-			return
 
 
 func _tutorial_launcher(app: String) -> Control:

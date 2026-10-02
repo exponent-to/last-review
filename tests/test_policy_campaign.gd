@@ -10,6 +10,7 @@ func _initialize() -> void:
 	_test_keyword_spans()
 	_test_permits()
 	_test_purity()
+	_test_revisions()
 	print("Policy campaign checks: %d passed, %d failed." % [checks - failures, failures])
 	quit(1 if failures else 0)
 
@@ -50,7 +51,9 @@ func _test_campaign() -> void:
 		_check(shift.size() == 15, "Every shift must follow the revised pacing.")
 		for index in range(shift.size()):
 			var packet: Dictionary = shift[index]
-			_check(packet.arrival_seconds == index * 20 and packet.arrival_seconds < 300, "Requests must arrive every twenty seconds before the five-minute deadline.")
+			_check(not packet.has("arrival_seconds"), "There is no fixed arrival schedule; the desk sets the pace.")
+			_check(int(packet.revision) == 1 and str(packet.parent_id).is_empty() and packet.origin_id == packet.id, "Originals are revision 1 of themselves.")
+			_check(Policy._build(packet.recipe) == packet.files, "Every packet's private recipe rebuilds its exact files.")
 			_check(packet.id not in seen_ids and packet.title not in seen_titles, "Authored requests need distinct identities and titles.")
 			seen_ids.append(packet.id)
 			seen_titles.append(packet.title)
@@ -156,6 +159,60 @@ func _test_purity() -> void:
 	var rules: Array = Policy.rules()
 	rules[0].text = "changed"
 	_check(Policy.rules()[0].text != "changed", "Rule objects must be independent copies.")
+
+## Revisions regenerate from the parent's recipe: cited real faults go, uncited ones
+## stay, about a third of fixes break one new standard, and the text never leaks.
+func _test_revisions() -> void:
+	var leaks := RegEx.new()
+	leaks.compile("\\bP0[1-9]\\b|violat|audit|%")
+	var revisions := 0
+	var regressions := 0
+	var notes_placed := 0
+	for parent: Dictionary in Policy.requests():
+		var real: Array = parent.violations
+		var spurious: Array = []
+		for rule: Dictionary in Policy.rules():
+			if int(rule.introduced_day) <= int(parent.day) and rule.id not in real: spurious.append(rule.id)
+		var trials: Array = [real.duplicate(), spurious.slice(0, 1)]
+		for rule_id: String in real: trials.append([rule_id] + spurious.slice(0, 1))
+		for cited: Array in trials:
+			if cited.is_empty(): continue
+			var fixed: Array = cited.filter(func(rule_id: String) -> bool: return rule_id in real)
+			var id: String = Policy.revision_id(parent, 2)
+			var regression: String = Policy.regression_rule(parent, id, fixed, cited)
+			var revision: Dictionary = Policy.revision(parent, 2, fixed, regression, cited)
+			revisions += 1
+			var expected: Array = real.filter(func(rule_id: String) -> bool: return rule_id not in fixed)
+			if not regression.is_empty():
+				regressions += 1
+				expected.append(regression)
+				_check(regression not in real and regression not in cited and regression not in Policy.REGRESSION_EXEMPT, "A regression breaks a standard that was neither broken nor cited.")
+				_check(int(Policy.rules().filter(func(rule: Dictionary) -> bool: return rule.id == regression)[0].introduced_day) <= int(parent.day), "Regressions only use standards active that day.")
+			expected.sort()
+			_check(revision.violations == expected, "%s fixes exactly the cited real violations (%s), keeps the rest, plus any regression." % [id, ",".join(cited)])
+			_check(revision.violations == Policy.evaluate(revision.files, int(parent.day)) and revision.findings == Policy.findings(revision.files, int(parent.day)), "Revision audits come from its visible files.")
+			_check(fixed.is_empty() == regression.is_empty() or not fixed.is_empty(), "Nothing fixed means nothing newly broken.")
+			for key: String in ["id", "title", "author", "day", "file", "files", "diff", "message", "description", "violations", "findings", "explanation", "ai_verdict", "ai_note", "revision", "parent_id", "origin_id", "recipe"]:
+				_check(revision.has(key), "Revision packets keep the packet shape: " + key)
+			_check(revision.id == parent.id + "-v2" and revision.revision == 2 and revision.parent_id == parent.id and revision.title == parent.title and revision.author == parent.author, "A revision keeps its parent's identity with a version suffix.")
+			for file: Dictionary in revision.files:
+				var rows: Array = Policy.line_diff(file.base, file.source)
+				_check("\n".join(rows.filter(func(row: Dictionary) -> bool: return row.kind != "-").map(func(row: Dictionary) -> String: return row.text)) == file.source, "Revision diffs reproduce the proposed source.")
+			if revision.recipe.notes.size() == 1:
+				notes_placed += 1
+				var note: String = revision.recipe.notes[0].text
+				_check(not note.contains("a") and not note.contains("!") and note.length() <= 60 and note.begins_with("#"), "Author notes can never satisfy or break a standard by themselves.")
+			for text: String in [revision.message, revision.description]:
+				_check(leaks.search(text) == null and not text.contains("["), "Revision text never names a rule, or says whether anything is still broken: " + text)
+			# The same citations read the same whatever the audit found.
+			var counterfactual: Dictionary = Policy.revision(parent, 2, [], "", cited)
+			_check(counterfactual.message == revision.message and counterfactual.description.replace(Policy._summary(counterfactual.files), "") == revision.description.replace(Policy._summary(revision.files), ""), "Revision prose depends only on what was cited.")
+			var again: Dictionary = Policy.revision(parent, 2, fixed, Policy.regression_rule(parent, id, fixed, cited), cited)
+			_check(again == revision, "Revisions are deterministic.")
+		var v3: Dictionary = Policy.revision(Policy.revision(parent, 2, [], "", real), 3, real, "", real)
+		_check(v3.id == parent.id + "-v3" and v3.parent_id == parent.id + "-v2" and v3.origin_id == parent.id and v3.violations.is_empty() == true, "A v3 builds on v2's recipe under the original ID.")
+	_check(regressions * 5 >= revisions and regressions * 2 <= revisions, "About one revision in three that fixes something breaks something else (%d of %d)." % [regressions, revisions])
+	_check(notes_placed * 10 >= revisions * 9, "Nearly every revision carries the author's note.")
 
 func _test_permits() -> void:
 	var pink: Dictionary = _file("# a

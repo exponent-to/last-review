@@ -43,22 +43,24 @@ func _run() -> void:
 	app.interface._browse("memo")
 	await _shot("05-memo")
 	app.interface._finish_morning()
-	app.state = Main.Simulation.advance(app.state, 70)
+	var Simulation = Main.Simulation
+	var Catalog = Main.Simulation.Catalog
+	# The day's first PR is already on the desk; let a little of the shift pass.
+	app.state = Simulation.advance(app.state, 25)
 	app._render()
 	app.interface._open_app("chat")
+	app.interface._select_chat_contact("Maya")
 	await _shot("06-slouch")
-	app.interface._open_next_pr()
+	app.interface._open_pr_link(str(app.state.active_request_id))
 	await _shot("07-review")
 	app.interface._open_app("browser")
 	app.interface._browse("standards")
 	await _shot("08-standards")
 	app.interface._open_app("review")
 	var ui = app.interface
-	var request: Dictionary = {}
-	for packet: Dictionary in Main.Simulation.Catalog.requests():
-		if packet.id == app.state.active_request_id: request = packet
+	var request: Dictionary = Catalog.packet(app.state, str(app.state.active_request_id))
 	if not request.is_empty() and not request.violations.is_empty():
-		var cite: Dictionary = Main.Simulation.Catalog.audit_citation(request, request.violations[0])
+		var cite: Dictionary = Catalog.audit_citation(request, request.violations[0])
 		for index in range(ui._review_files.size()):
 			if ui._review_files[index].path == cite.path: ui._select_file(index)
 		for i in range(3): await process_frame
@@ -69,7 +71,28 @@ func _run() -> void:
 	await _shot("09-review-cited")
 	app._on_command({"type": "review", "verdict": "request_changes"})
 	for i in range(8): await process_frame
-	await _shot("10-stamped")
+	await _shot("10-stamped-desk-clear")
+	# The next two PRs land by themselves; then Maya's revision comes back.
+	for turn in range(2):
+		app.state = Simulation.advance(app.state, Simulation.DESK_BEAT)
+		app._render()
+		var packet: Dictionary = Catalog.packet(app.state, str(app.state.active_request_id))
+		for rule_id: String in packet.violations:
+			app._on_command(Catalog.audit_citation(packet, rule_id))
+		app._on_command({"type": "review", "verdict": "approve" if packet.violations.is_empty() else "request_changes"})
+		for i in range(4): await process_frame
+	app.state = Simulation.advance(app.state, Simulation.DESK_BEAT)
+	app._render()
+	ui._open_pr_link(str(app.state.active_request_id))
+	ui._packet_scroll.scroll_vertical = 0
+	await _shot("11-revision-review")
+	ui._open_app("chat")
+	ui._select_chat_contact(str(Catalog.packet(app.state, str(app.state.active_request_id)).get("author", "Maya")))
+	await _shot("12-slouch-revision")
+	app._on_command({"type": "review", "verdict": "approve"})
+	for i in range(4): await process_frame
+	ui._select_chat_contact(str(ui._chat_contact))
+	await _shot("13-slouch-relief")
 	app._toggle_pause()
-	await _shot("11-paused")
+	await _shot("14-paused")
 	quit()
