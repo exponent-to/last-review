@@ -28,7 +28,7 @@ The first loop separates technical trust from relationships. Approval can make a
 
 ## Persistence
 
-State version 10 stores a bounded timed action journal including decisions, consultations, chat replies, shift closure, and evening choices. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
+State version 11 stores a bounded timed action journal including decisions, consultations, pushback answers, chat replies, shift closure, and evening choices, plus the encounter beats that replaying it rebuilds. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
 
 The filesystem adapter writes a temporary file, rotates the previous save to a backup, and atomically renames the new file. Load failures preserve the active session. Saves remain in the original Last Review application-data directory so the title change preserves existing progress. There is no automatic load, autosave, or cloud storage.
 

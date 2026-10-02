@@ -3,6 +3,7 @@ extends SceneTree
 ## With a day (2-10), only that later day's screens are captured; without one,
 ## the opening screens are captured first, then week two's Thursday.
 const Main = preload("res://native/main.gd")
+const Encounters = preload("res://content/encounters.gd")
 var out := "user://captures"
 var later_day := 9
 var only_later := false
@@ -142,7 +143,92 @@ func _run() -> void:
 	for i in range(4): await process_frame
 	ui._select_chat_contact(str(ui._chat_contact))
 	await _shot("13-slouch-relief")
+	# Encounters: an author pushes back on a citation, then another revises at the desk.
+	var pushed := _find_branch("pushback")
+	if not pushed.is_empty():
+		ui = await _stamp_fresh(app, pushed)
+		await _beat(ui, 0.6)
+		await _shot("15-pushback")
+		ui._banter.withdraw_button.pressed.emit()
+		await _beat(ui, 0.6)
+		await _shot("16-withdrawn")
+	var now := _find_branch("revise_now")
+	if not now.is_empty():
+		ui = await _stamp_fresh(app, now)
+		await _beat(ui, 0.6)
+		await _shot("17-revise-now")
+		await _beat(ui, 2.6)
+		await _beat(ui, 0.5)
+		await _shot("18-typing")
+		app.state = Simulation.advance(app.state, Encounters.REVISE_NOW_SECONDS)
+		app._render()
+		await _beat(ui, 0.6)
+		await _shot("19-revised-v2")
+		ui._open_app("chat")
+		ui._select_chat_contact(str(Catalog.packet(app.state, str(app.state.active_request_id)).get("author", "Maya")))
+		await _shot("19b-slouch-encounter")
 	app._toggle_pause()
 	await _shot("14-paused")
 	await _later(app)
 	quit()
+
+
+func _settle(frames: int) -> void:
+	for i in range(frames): await process_frame
+
+
+## Let the desk's speech bubble play for `seconds` of game time, as real time would.
+func _beat(ui, seconds: float) -> void:
+	ui._process(seconds)
+	await _settle(4)
+
+
+## A fresh desk at `found.before`, with the PR opened, cited, and stamped through the app.
+func _stamp_fresh(app, found: Dictionary):
+	app.state = found.before
+	app._build_interface()
+	var ui = app.interface
+	await _settle(4)
+	ui._open_pr_link(str(app.state.active_request_id))
+	await _settle(4)
+	var packet: Dictionary = Main.Simulation.Catalog.packet(app.state, str(app.state.active_request_id))
+	for rule_id: String in found.cited:
+		var cite: Dictionary = Main.Simulation.Catalog.audit_citation(packet, rule_id)
+		for index in range(ui._review_files.size()):
+			if ui._review_files[index].path == cite.path: ui._select_file(index)
+		app._on_command(cite)
+	ui._reject.pressed.emit()
+	# Let the rubber stamp finish its real-time tween before the next shot.
+	await create_timer(1.5).timeout
+	return ui
+
+
+## Exact reviews through the career until some citation set on the desk PR leads to `node`.
+func _find_branch(node: String) -> Dictionary:
+	var Simulation = Main.Simulation
+	var Catalog = Main.Simulation.Catalog
+	var at: Dictionary = Simulation.initial_state()
+	var guard := 0
+	while at.phase != "complete" and guard < 2000:
+		guard += 1
+		if at.phase == "debrief":
+			at = Simulation.dispatch(at, {"type": "next-day", "choice": "rest"})
+			continue
+		if Simulation.active_request(at).is_empty():
+			var coming: bool = int(at.desk_at) >= 0 and int(at.desk_at) < Catalog.shift_seconds()
+			at = Simulation.advance(at, int(at.desk_at) - int(at.shift_seconds) if coming else Catalog.shift_seconds())
+			continue
+		if not Encounters.pending(at).is_empty():
+			at = Simulation.dispatch(at, {"type": "pushback", "choice": "insist"})
+			continue
+		var packet: Dictionary = Catalog.packet(at, at.active_request_id)
+		var ids: Array = Catalog.rules_for_day(int(at.day)).map(func(rule: Dictionary) -> String: return rule.id)
+		if int(at.decisions.size()) > 2:
+			for rule_id: String in ids:
+				var trial: Dictionary = Simulation.dispatch(Simulation.dispatch(at, Catalog.audit_citation(packet, rule_id)), {"type": "review", "verdict": "request_changes"})
+				if not trial.encounters.is_empty() and trial.encounters.size() > at.encounters.size() and trial.encounters[-1].node == node:
+					return {"before": at, "cited": [rule_id]}
+		for rule_id: String in packet.violations:
+			at = Simulation.dispatch(at, Catalog.audit_citation(packet, rule_id))
+		at = Simulation.dispatch(at, {"type": "review", "verdict": "approve" if packet.violations.is_empty() else "request_changes"})
+	return {}

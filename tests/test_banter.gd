@@ -6,6 +6,7 @@ const Simulation = preload("res://native/simulation.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Interface = preload("res://native/interface.gd")
 const Tutorial = preload("res://native/tutorial.gd")
+const Encounters = preload("res://content/encounters.gd")
 var state: Dictionary
 var ui: Interface
 var checks := 0
@@ -148,7 +149,8 @@ func _test_review_desk() -> void:
 	var packet: Dictionary = Catalog.request_at(0)
 	var author := str(packet.author)
 	ui._open_pr_link(str(packet.id))
-	check(ui._banter.visible and ui._banter.speaker == author and ui._banter.kind == "open" and ui._banter.line in Banter.lines(author, "open"), "Opening a PR shows a bubble from its author")
+	var pitch: Array = Encounters.desk_lines(packet, "pitch", Encounters.mood(state, author))
+	check(ui._banter.visible and ui._banter.speaker == author and ui._banter.kind == "open" and ui._banter.line in pitch, "Opening a PR shows a bubble from its author")
 	for frame in range(8):
 		await process_frame
 	check(ui._banter._bubble.modulate.a > 0.0, "The bubble fades in")

@@ -18,6 +18,11 @@ static func _lines():
 	return load("res://content/policy_chat.gd")
 
 
+## How each desk visit went (content/encounters.gd): reactions, grudges, Morgan's notes.
+static func _encounters():
+	return load("res://content/encounters.gd")
+
+
 static func _append(history: Array, author: String, text: String, kind: String, pr_id: String = "", day: int = 1, seconds: float = 0.0, sequence: int = -100) -> void:
 	if text.is_empty():
 		return
@@ -159,6 +164,14 @@ static func _request_history(history: Array, state: Dictionary, contact: String,
 		_append(history, contact, str(option.response), "response", "", day, seconds, sequence + 1)
 		history[-1].id = contact + "|" + pr_id + "|" + reply_id + "|response"
 		history[-1]["reply_key"] = contact + "|" + pr_id + "|" + reply_id
+	# A recorded encounter says how the visit ended: thanks, suspicion, relief, a
+	# revision, a withdrawn citation, an abandoned PR and its grudge, or Morgan.
+	# Some messages wait (a revise-now note until v2 lands, a grudge for a moment).
+	if not _encounters().beats(state, pr_id).is_empty():
+		for beat: Dictionary in _encounters().slouch(state, request):
+			_append(history, contact, str(beat.text), str(beat.kind), "", int(beat.day), float(beat.seconds), int(beat.order))
+			history[-1].id = contact + "|" + pr_id + "|" + ("reaction" if beat.kind == "reaction" else str(beat.node))
+		return
 	var decision := _decision_for(state, pr_id)
 	if not decision.is_empty():
 		# Reactions follow the chosen verdict and citations; audit correctness is never consulted.
@@ -196,8 +209,7 @@ static func messages(state: Dictionary, contact: String) -> Array:
 	else:
 		var person: Dictionary = authored.get("contacts", {}).get(contact, {})
 		_append(history, contact, str(person.get("intro", "")), "intro")
-		var relationship := int(state.get("coworkers", {}).get(contact, 50))
-		var tone := "warm" if relationship >= 65 else ("distant" if relationship <= 35 else "neutral")
+		var tone: String = _encounters().standing(state, contact)
 		if tone != "neutral":
 			_append(history, contact, str(person.get(tone, "")), "ambient", "", 1, 0, -90)
 		for arrival: Dictionary in state.get("arrivals", []):
@@ -211,8 +223,14 @@ static func _manager_messages(state: Dictionary) -> Array:
 	var history: Array = []
 	var copy: Dictionary = _authored().get("manager", {})
 	_append(history, "Morgan / Engineering Manager", str(copy.get("intro", "")), "intro")
-	# A PR sent back three times escalates to Morgan as soon as it happens.
-	for decision: Dictionary in state.get("decisions", []):
+	# Escalations and abandoned PRs reach Morgan as soon as they happen.
+	var encountered: bool = not state.get("encounters", []).is_empty()
+	if encountered:
+		for note: Dictionary in _encounters().morgan(state):
+			_append(history, "Morgan", str(note.text), "notice", "", int(note.day), float(note.seconds), int(note.order))
+	# Records without encounters: a PR sent back three times escalates.
+	var legacy: Array = [] if encountered else state.get("decisions", [])
+	for decision: Dictionary in legacy:
 		if decision.get("verdict") != "request_changes": continue
 		var escalated := Catalog.packet(state, str(decision.get("pr_id", "")), false)
 		if int(escalated.get("revision", 1)) < _lines().MAX_REVISION: continue

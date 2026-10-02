@@ -2,11 +2,14 @@ extends RefCounted
 ## Deterministic timed review rules. Catalog answers are used only to audit submitted decisions.
 ## One PR sits on the desk at a time. Stamping it brings the next in line a beat later;
 ## a change request sends it back to its author, whose revision rejoins the line.
+## How the author responds (revise now, later, push back, abandon, escalate) is an
+## encounter branch from content/encounters.gd: mood and visible actions only.
 
 const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
 const Policy = preload("res://content/policy_campaign.gd")
-const SAVE_VERSION: int = 10
+const Encounters = preload("res://content/encounters.gd")
+const SAVE_VERSION: int = 11
 const SHIFT_SECONDS: int = 300
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
@@ -27,7 +30,7 @@ static func initial_state() -> Dictionary:
 		"selected_rules": [], "citation_evidence": {}, "consulted": false, "decisions": [],
 		"shift_seconds": 0, "active_request_id": "", "consulted_requests": [],
 		"desk_line": [], "desk_at": -1, "arrivals": [], "revisions": [],
-		"actions": [], "shift_history": [], "chat_replies": [],
+		"actions": [], "shift_history": [], "chat_replies": [], "encounters": [],
 		"log": [{"day": first_day, "message": "Your review shift begins. Work lands on your desk one PR at a time."}],
 		"last_feedback": {}, "last_debrief": {},
 	}
@@ -167,7 +170,25 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 	var active: Dictionary = _desk(next)
 	if active.is_empty():
 		return next
+	# While the author pushes back, the review waits on INSIST or WITHDRAW.
+	# Stamping changes again is insisting; citations are frozen until then.
+	var disputed: Dictionary = Encounters.pending(next)
+	if not disputed.is_empty():
+		if kind == "review" and command.get("verdict") == "request_changes":
+			kind = "pushback"
+			command = {"type": "pushback", "choice": "insist"}
+			event.type = kind
+		elif kind in ["review", "toggle-rule"]:
+			return next
 	match kind:
+		"pushback":
+			var choice: Variant = command.get("choice")
+			if disputed.is_empty() or choice not in ["insist", "withdraw"]:
+				return next
+			event.pr_id = active.id
+			event.choice = choice
+			next.actions.append(event)
+			_answer_pushback(next, disputed, choice)
 		"toggle-rule":
 			var rule_id: Variant = command.get("rule_id")
 			if not _active_rule(rule_id, int(next.day)):
@@ -203,8 +224,31 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 			event.cited_rules = next.selected_rules.duplicate()
 			event.evidence = next.citation_evidence.duplicate(true)
 			next.actions.append(event)
-			_review(next, verdict)
+			# The author's response branches on mood and what was cited, never the audit.
+			var context: Dictionary = Encounters.context(next, active, verdict, next.selected_rules)
+			var node: String = Encounters.verdict_node(context)
+			if node == "pushback":
+				next.encounters.append(Encounters.beat(next, context, node, {"disputed": Encounters.disputed(context.cited, active.id)}))
+				_record(next, "%s is pushing back on your change request." % active.author)
+			else:
+				_review(next, verdict, context, node)
 	return next
+
+## INSIST keeps the change request (the author revises grudgingly or escalates);
+## WITHDRAW retracts the disputed citation and the PR stays open for review.
+## The pushback's own mood snapshot carries through, so the answer can't leak the audit.
+static func _answer_pushback(state: Dictionary, disputed: Dictionary, choice: String) -> void:
+	var context: Dictionary = Encounters.context_of(disputed)
+	var rule_id: String = str(disputed.get("disputed", ""))
+	if choice == "insist":
+		_review(state, "request_changes", context, Encounters.insist_node(context), {"disputed": rule_id})
+		return
+	state.selected_rules.erase(rule_id)
+	state.citation_evidence.erase(rule_id)
+	var author: String = str(disputed.author)
+	state.coworkers[author] = clampi(int(state.coworkers[author]) + Encounters.relationship_change("withdrawn"), 0, 100)
+	state.encounters.append(Encounters.beat(state, context, "withdrawn", {"disputed": rule_id}))
+	_record(state, "You withdrew a citation. %s's PR is open for review again." % author)
 
 static func _evidence_location(request: Dictionary, command: Dictionary) -> Variant:
 	var path: Variant = command.get("path")
@@ -220,7 +264,9 @@ static func _cite(state: Dictionary, rule_id: String, evidence: Variant) -> Dict
 	var location: Dictionary = evidence if typeof(evidence) == TYPE_DICTIONARY else {}
 	return dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "path": location.get("path"), "line": location.get("line")})
 
-static func _review(state: Dictionary, verdict: String) -> void:
+## Grade and close the PR on the desk. `node` is the encounter branch already
+## chosen from mood and visible actions; it decides what happens to the desk line.
+static func _review(state: Dictionary, verdict: String, context: Dictionary, node: String, extra: Dictionary = {}) -> void:
 	var request: Dictionary = Catalog.packet(state, state.active_request_id, false)
 	var expected: Array = request.violations
 	var correct: bool = expected.is_empty() if verdict == "approve" else _same_rules(state.selected_rules, expected)
@@ -229,7 +275,7 @@ static func _review(state: Dictionary, verdict: String) -> void:
 			var location: Dictionary = state.citation_evidence.get(rule_id, {})
 			if not Policy.evidence_accepted(request.findings, rule_id, str(location.get("path", "")), int(location.get("line", -1))):
 				correct = false
-	var relationship_change: int = (4 if correct else 6) if verdict == "approve" else (-2 if correct else -7)
+	var relationship_change: int = ((4 if correct else 6) if verdict == "approve" else (-2 if correct else -7)) + Encounters.relationship_change(node)
 	var trust_change: int = (3 if correct else -12) if verdict == "approve" else (5 if correct else -7)
 	var stress_change: int = 3 + (0 if correct else (8 if verdict == "approve" else 6))
 	var previous_relationship: int = int(state.coworkers[request.author])
@@ -254,23 +300,38 @@ static func _review(state: Dictionary, verdict: String) -> void:
 		"trust_delta": int(state.trust) - previous_trust,
 	}
 	_record(state, "%s: %s. %s" % [request.id, "audit passed" if correct else "audit failed", response])
-	if verdict == "request_changes":
-		if int(request.revision) < Policy.MAX_REVISION:
-			_send_back(state, request)
-		else:
-			# No v4: the author escalates and Helios takes the PR off the human desk.
-			state.autonomy = clampi(int(state.autonomy) + 1, 0, 100)
-			_record(state, "%s escalated %s after three rounds. Helios has taken it over." % [request.author, request.origin_id])
+	var outcome: Dictionary = extra.duplicate()
+	match node:
+		"revise_now":
+			# The author stays at the desk; v2 replaces the PR a few seconds later.
+			outcome.revision_id = _send_back(state, request, true)
+			_record(state, "%s is revising %s at your desk." % [request.author, request.origin_id])
+		"revise_later", "insist_revise":
+			outcome.revision_id = _send_back(state, request)
+		"abandon":
+			# Counts as reviewed; the author has Helios merge it instead of revising.
+			# It costs relationship, not automation reliance, so careful reviewing
+			# still shapes how much authority Helios ends up with.
+			_record(state, "%s closed %s and had Helios merge it." % [request.author, request.origin_id])
+		"escalate", "insist_escalate":
+			# No v4 (or no v2 at all): Morgan hands the PR to Helios. Only the
+			# third round raises automation reliance, as it always has.
+			var capped: bool = int(request.revision) >= Policy.MAX_REVISION
+			if capped: state.autonomy = clampi(int(state.autonomy) + 1, 0, 100)
+			_record(state, "%s escalated %s%s. Helios has taken it over." % [request.author, request.origin_id, " after three rounds" if capped else " to Morgan"])
+	state.encounters.append(Encounters.beat(state, context, node, outcome))
 	state.active_request_id = ""
 	state.selected_rules = []
 	state.citation_evidence = {}
 	state.consulted = false
-	state.desk_at = -1 if state.desk_line.is_empty() else int(state.shift_seconds) + DESK_BEAT
+	var beat: int = Encounters.REVISE_NOW_SECONDS if node == "revise_now" else DESK_BEAT
+	state.desk_at = -1 if state.desk_line.is_empty() else int(state.shift_seconds) + beat
 	_update_request_index(state)
 
 ## The author revises what was cited. Only cited rules that really were broken get
-## fixed; the revision rejoins the line behind the next few PRs.
-static func _send_back(state: Dictionary, request: Dictionary) -> void:
+## fixed; the revision rejoins the line behind the next few PRs, or goes straight
+## back on the desk when the author revises it right there (`now`).
+static func _send_back(state: Dictionary, request: Dictionary, now: bool = false) -> String:
 	var version: int = int(request.revision) + 1
 	var revision_id: String = Policy.revision_id(request, version)
 	var cited: Array = state.selected_rules.duplicate()
@@ -280,7 +341,8 @@ static func _send_back(state: Dictionary, request: Dictionary) -> void:
 		"id": revision_id, "parent_id": request.id, "origin_id": request.origin_id, "version": version, "day": state.day,
 		"cited": cited, "fixed": fixed, "regression": Policy.regression_rule(request, revision_id, fixed, cited),
 	})
-	state.desk_line.insert(mini(REVISION_GAP, state.desk_line.size()), revision_id)
+	state.desk_line.insert(0 if now else mini(REVISION_GAP, state.desk_line.size()), revision_id)
+	return revision_id
 
 static func _debrief(state: Dictionary) -> void:
 	state.phase = "debrief"
@@ -407,8 +469,9 @@ static func validate_save(value: Variant) -> Dictionary:
 		return _invalid("invalid phase or consultation flag.")
 	if not _rule_list(value.get("selected_rules"), int(value.day)):
 		return _invalid("selected rules must be unique active rule IDs.")
-	# Each authored PR can be reviewed and consulted up to three times (v1-v3), plus replies.
-	if typeof(value.get("actions")) != TYPE_ARRAY or value.actions.size() > campaign_size * 12 + days.size() * 2:
+	# Each authored PR has up to three versions; each can be consulted, stamped twice
+	# (once more after a withdrawn pushback), and answered once, plus replies.
+	if typeof(value.get("actions")) != TYPE_ARRAY or value.actions.size() > campaign_size * 16 + days.size() * 2:
 		return _invalid("invalid or oversized action history.")
 	var replay: Dictionary = initial_state()
 	for index in range(value.actions.size()):
@@ -416,7 +479,7 @@ static func validate_save(value: Variant) -> Dictionary:
 		if typeof(event) != TYPE_DICTIONARY or not _integer(event.get("day"), int(replay.day), int(replay.day)) or not _integer(event.get("shift_seconds"), int(replay.shift_seconds), Catalog.shift_seconds()):
 			return _invalid("action %d has an invalid day or timestamp." % index)
 		var kind: Variant = event.get("type")
-		if kind not in ["timeout", "next-day", "consult-ai", "review", "chat-reply"]:
+		if kind not in ["timeout", "next-day", "consult-ai", "review", "pushback", "chat-reply"]:
 			return _invalid("unknown action in history.")
 		if kind == "timeout":
 			if replay.phase != "review" or int(event.shift_seconds) != Catalog.shift_seconds():
@@ -427,7 +490,7 @@ static func validate_save(value: Variant) -> Dictionary:
 				return _invalid("a work action occurs at or after the closing bell.")
 			replay = advance(replay, int(event.shift_seconds) - int(replay.shift_seconds))
 			var command: Dictionary = event.duplicate(true)
-			if kind in ["consult-ai", "review"]:
+			if kind in ["consult-ai", "review", "pushback"]:
 				if typeof(event.get("pr_id")) != TYPE_STRING:
 					return _invalid("action is missing its request identity.")
 				if replay.active_request_id != event.pr_id:
@@ -451,10 +514,12 @@ static func validate_save(value: Variant) -> Dictionary:
 	replay = advance(replay, int(value.shift_seconds) - int(replay.shift_seconds))
 	if typeof(value.get("citation_evidence")) != TYPE_DICTIONARY:
 		return _invalid("citations are missing their evidence.")
-	replay.selected_rules = []
-	replay.citation_evidence = {}
-	for rule_id: String in value.selected_rules:
-		replay = _cite(replay, rule_id, value.citation_evidence.get(rule_id))
+	# A pending pushback freezes the citations the replayed stamp left behind.
+	if Encounters.pending(replay).is_empty():
+		replay.selected_rules = []
+		replay.citation_evidence = {}
+		for rule_id: String in value.selected_rules:
+			replay = _cite(replay, rule_id, value.citation_evidence.get(rule_id))
 	if not _matches(replay, value):
 		return _invalid("state does not match its timed actions, arrivals, or earned resources.")
 	return {"ok": true, "state": replay, "error": ""}

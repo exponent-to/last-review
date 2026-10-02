@@ -25,7 +25,25 @@ Requesting changes sends the PR back to its author, who returns a revision: `PR-
 - **Note:** every revision carries a harmless author comment acknowledging the review (none contain `!` or a long line, and placement is verified), so a note never hints whether a citation was real.
 - **Cap:** a change request on v3 escalates. No v4 is made; Helios takes the PR (automation reliance +1) and Morgan messages about it.
 
+Whether a change request produces a revision at all, and where it goes, is the author's encounter branch (below): revise later (the gap above), revise now (the revision goes to the front of the line and lands `Encounters.REVISE_NOW_SECONDS = 6` seconds later), push back, abandon, or escalate.
+
 `policy_campaign.gd` gives every packet a private `recipe` (bank entry, companion files, each fault with its file and wording, notes, permits). `Policy.revision(parent, version, fixed, regression, cited)` regenerates the files from the parent's recipe minus the fixed faults, plus any regression and the note, and returns a packet with the same shape as an original (`id, title, author, day, file, files, diff, message, description, violations, findings, explanation, ai_verdict, ai_note`, plus `revision`, `parent_id`, `origin_id`). Originals have `revision` 1 and an empty `parent_id`. `Catalog.packet(state, id)` finds originals and revisions alike, and grading, chat, debrief, and the interface all go through it. A revision's `message` and `description` are phrased from what the player cited, in plain words without rule IDs, and are identical whether or not anything was actually fixed or broken.
+
+## Encounters
+
+`content/encounters.gd` is a data-driven flow chart of how a PR's author responds: `NODES`, `EDGES`, and per-author, per-mood branch weights in `PICKS`. `content/encounter_lines.gd` holds the words (desk bubble and Slouch, per author, node, and mood) and Morgan's notes. `sh scripts/run.sh --headless --script res://tools/encounter_flowchart.gd -- <out.html>` exports the charts, every line, and a sample day to one self-contained HTML page.
+
+- **Mood** is `warm`, `neutral`, `strained`, or `hostile`, from the coworker relationship score plus the tone of the author's last three beats (`TONE`: approvals and withdrawn citations warm; change requests, abandons, escalations, and insisting cool). Bands: warm 62+, neutral 42–61, strained 30–41, hostile below 30.
+- **Branches** are rolled with `Policy.roll` keyed on the PR, verdict, mood, and cited rules, so the journal replays them. Weights lean by the categories of what was cited, and citing three or more standards at once makes abandoning likelier. Nothing in the encounter reads audit data: a right and a wrong citation take the same branch and get the same words.
+- **Approve:** thanks or a suspicious "wait, you approved that?" by mood (v1), or relief (v2/v3).
+- **Request changes:** revise now, revise later, push back (at most once per desk visit), abandon, or escalate. The career's first PR always revises later, so orientation stays scripted; v3 always escalates.
+- **Push back:** the PR stays on the desk unsigned and its citations freeze. The `pushback` command answers: `insist` signs the change request as cited and the author revises grudgingly (back in line) or escalates; `withdraw` retracts the disputed citation and the review reopens. Stamping CHANGES REQUESTED again counts as insisting. At the bell a disputed PR is handed off unsigned.
+- **Abandon** counts as reviewed and makes no revision; Helios merges it. **Escalate** makes no revision either; Morgan hands the PR to Helios. Only the third-round escalation raises automation reliance (+1), as before, so careful reviewing still shapes the ending.
+- **Relationship** changes on top of the review's own: abandon −3, insist −2, withdraw +2.
+
+`state.encounters` records one beat per moment, `{pr_id, author, day, version, mood, node, cited, shift_seconds, seq}`, plus `disputed` (pushback, insist, withdrawn) and `revision_id` (revisions). The mood on a beat is taken before that stamp's own relationship change, and a revision's opening line keeps the mood of the beat that made it, so nothing the author says about a verdict can reflect whether it was right. Slouch's standing warm/distant line for an author follows the mood of their latest beat for the same reason. `Encounters.pending(state)` is the pushback waiting on the desk; `Encounters.typing(state)` is an author revising at the desk.
+
+PR bank entries carry per-PR `pitch`, `pushback`, `relief`, and `grudge` lines; a neutral author speaks them (relief on any approval, grudge after an abandon or escalation), while other moods use the templates so a change of mood is always audible.
 
 ## Commands
 
@@ -34,6 +52,7 @@ Requesting changes sends the PR back to its author, who returns a revision: `PR-
 | `toggle-rule` | `rule_id`: active rule, plus `path`/`line` evidence when citing | review, PR on the desk |
 | `consult-ai` | Once per PR (each revision is its own PR) | review, PR on the desk; day 3 onward |
 | `review` | `verdict`: `approve` or `request_changes` | review, PR on the desk |
+| `pushback` | `choice`: `insist` or `withdraw` | review, while the desk PR's author is pushing back |
 | `chat-reply` | `contact`, `pr_id`, `reply_id` from `Chat.reply_options` | review |
 | `next-day` | `choice`: `rest`, `socialize`, or `study` | debrief |
 
@@ -51,9 +70,9 @@ Pay is the existing base of 80 plus ten for each correct, actually submitted rev
 
 ## Saved state and replay
 
-Current state (version 10) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores.
+Current state (version 11) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores.
 
-The semantic action journal records consultations, reviews with their citations, accepted replies, deadline closure, and evening choices. Each event records its day and shift time. Clock ticks, temporary selection, and citation toggles are not individually persisted. This keeps the journal naturally bounded by available work and reply options rather than time spent reading.
+The semantic action journal records consultations, reviews with their citations, pushback answers, accepted replies, deadline closure, and evening choices. Each event records its day and shift time. Clock ticks, temporary selection, and citation toggles are not individually persisted. This keeps the journal naturally bounded by available work and reply options rather than time spent reading.
 
 `validate_save(value)` returns `{ok, state, error}`. It replays the journal against the desk, content, and available reply options, so the line, every landing time, and every revision's fixes and regression are rebuilt, then reconstructs the current citations. A review or consultation must target the PR that was on the desk at that moment. It rejects premature actions, backward timestamps, duplicate consultations or replies, repeated pay, altered audit results, fabricated decisions, and inconsistent resources or phases. JSON integral floats are accepted and normalized; unknown or changed canonical fields are rejected. `serialize_save(state)` returns validated JSON or an empty string.
 
@@ -65,4 +84,4 @@ Validation only accepts the current format and always uses the same catalog. Uns
 
 `content/chat.gd` derives conversation messages and authored reply options from `state.arrivals`, actual decisions (verdict and cited rules only), and accepted replies; revision packets come from `Catalog.packet`. Dialogue lives in `content/policy_chat.gd`. It must not import Simulation, avoiding a circular dependency. UI unread state and conversation focus remain outside the simulation.
 
-Run `godot --headless --path . --script res://tests/test_simulation.gd` for rule, economy, catalog, and campaign checks. Run `res://tests/test_shift_clock.gd` the same way for clock mapping, desk landings, all-missed shifts, partial handoffs, consultation persistence, chat replies, mixed action histories, and corrupted timed saves. `res://tests/test_desk.gd` covers the one-PR desk, revision timing, exact fixes, deterministic regressions, the v3 escalation cap, save replay with revisions, and audit-free revision dialogue. All scripts exit nonzero on failed checks and require no testing plugin.
+Run `godot --headless --path . --script res://tests/test_simulation.gd` for rule, economy, catalog, and campaign checks. Run `res://tests/test_shift_clock.gd` the same way for clock mapping, desk landings, all-missed shifts, partial handoffs, consultation persistence, chat replies, mixed action histories, and corrupted timed saves. `res://tests/test_desk.gd` covers the one-PR desk, revision timing, exact fixes, deterministic regressions, the v3 escalation cap, save replay with revisions, and audit-free revision dialogue. `res://tests/test_encounters.gd` covers the encounter graph (every node reachable, in the chart and in play), lines for every author, node, and mood, mood evolving across a day, determinism and save replay, counterfactual no-hint checks (the same mood and action in two audit worlds give the same branch and words), INSIST/WITHDRAW, revise-now and abandon effects on the desk, and the pushback buttons' placement. All scripts exit nonzero on failed checks and require no testing plugin.

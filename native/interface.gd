@@ -19,6 +19,7 @@ const Chat = preload("res://content/chat.gd")
 const TutorialPointer = preload("res://native/tutorial_pointer.gd")
 const DailyReader = preload("res://native/daily_reader.gd")
 const ReviewBanter = preload("res://native/review_banter.gd")
+const Encounters = preload("res://content/encounters.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Portraits = preload("res://native/portraits.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
@@ -175,6 +176,8 @@ var _tutorial_details: Dictionary = {}
 var _paper: PanelContainer
 var _banter: ReviewBanter
 var _last_feedback_key := "-"
+## Encounter beats already played at the desk; -1 until the first render.
+var _beats_seen := -1
 var _evidence: Dictionary = {}
 var _diff_rows: Array = []
 var _line_gutter := -1
@@ -630,6 +633,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 	# The PR's author sits in the top-left corner and talks while you review.
 	_banter = ReviewBanter.new()
 	_banter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_banter.answered.connect(_answer_pushback)
 	code.add_child(_banter)
 	# The PR itself is a one-line paper slip: title and number, no description.
 	_paper = PanelContainer.new()
@@ -1098,11 +1102,11 @@ func _flag_rule(rule_id: String) -> void:
 		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
 		if cited.get(rule_id, {}) == location:
 			_clear_evidence()
-			if rule_id not in _state.get("selected_rules", []): _banter.react("withdraw")
+			if rule_id not in _state.get("selected_rules", []): _banter.react("withdraw", _desk_lines("unflag", [rule_id], rule_id))
 			return
 	_emit_command({"type": "toggle-rule", "rule_id": rule_id, "path": location.path, "line": int(location.line)})
 	_clear_evidence()
-	if rule_id in _state.get("selected_rules", []): _banter.react("flag")
+	if rule_id in _state.get("selected_rules", []): _banter.react("flag", _desk_lines("flag", [rule_id], rule_id))
 
 
 func _render_slip(state: Dictionary, can_review: bool) -> void:
@@ -1116,6 +1120,8 @@ func _render_slip(state: Dictionary, can_review: bool) -> void:
 			var id := str(rule.id)
 			_slip_rows[id].summary.text = _rule_summary(rule, day)
 			_flag_buttons[id].tooltip_text = "%s  %s\n\n%s\n\n%s" % [id, str(rule.title), str(rule.text), str(EVIDENCE_HINTS[load("res://content/policy_campaign.gd").scope(id)])]
+	# The citation an author is pushing back on is outlined in amber until answered.
+	var disputed: String = str(Encounters.pending(state).get("disputed", ""))
 	for id: String in _slip_rows:
 		var row: Dictionary = _slip_rows[id]
 		var check: CheckBox = _flag_buttons[id]
@@ -1124,20 +1130,53 @@ func _render_slip(state: Dictionary, can_review: bool) -> void:
 		check.set_pressed_no_signal(not location.is_empty())
 		check.disabled = not can_review
 		row.where.visible = not location.is_empty()
-		row.where.text = "" if location.is_empty() else "→ " + _location_text(location)
+		row.where.text = "" if location.is_empty() else "→ " + _location_text(location) + ("  · DISPUTED" if id == disputed else "")
 		row.where.tooltip_text = row.where.text
+		row.where.add_theme_color_override("font_color", AMBER if id == disputed else RED)
 		row.summary.add_theme_color_override("font_color", TEXT if check.button_pressed else DIM)
-		row.panel.add_theme_stylebox_override("panel", _style(Color("1e0d10") if check.button_pressed else INSET, RED if check.button_pressed else BORDER, 1, 6, 4))
+		var edge: Color = AMBER if id == disputed else (RED if check.button_pressed else BORDER)
+		row.panel.add_theme_stylebox_override("panel", _style(Color("1e0d10") if check.button_pressed else INSET, edge, 1, 6, 4))
 
 
 func _withdraw_citation(rule_id: String) -> void:
 	_emit_command({"type": "toggle-rule", "rule_id": rule_id})
-	if rule_id not in _state.get("selected_rules", []): _banter.react("withdraw")
+	if rule_id not in _state.get("selected_rules", []): _banter.react("withdraw", _desk_lines("unflag", [rule_id], rule_id))
 
 
 func _ask_helios() -> void:
 	_emit_command({"type": "consult-ai"})
-	if bool(_state.get("consulted", false)): _banter.react("consult")
+	if bool(_state.get("consulted", false)): _banter.react("consult", _desk_lines("consult"))
+
+
+## INSIST or WITHDRAW, from the buttons under the author's pushback.
+func _answer_pushback(choice: String) -> void:
+	_emit_command({"type": "pushback", "choice": choice})
+
+
+## The open PR's author's lines for a desk moment, in their current mood.
+func _desk_lines(node: String, cited: Array = [], focus: String = "") -> Array:
+	var request: Dictionary = Simulation.active_request(_state)
+	if request.is_empty(): return []
+	return Encounters.desk_lines(request, node, Encounters.mood(_state, str(request.get("author", ""))), cited, focus)
+
+
+## Identity only (author and title), never audit data, for an encounter's words.
+func _encounter_packet(pr_id: String, author: String) -> Dictionary:
+	return {"id": pr_id, "author": author, "title": str(Catalog.packet(_state, pr_id, false).get("title", ""))}
+
+
+## Play one encounter beat at the desk: a pushback with its buttons, a withdrawn
+## citation, typing for a revise-now, or the author's goodbye.
+func _play_beat(beat: Dictionary) -> void:
+	var node := str(beat.get("node", ""))
+	var author := str(beat.get("author", ""))
+	var id := str(beat.get("pr_id", ""))
+	var options: Array = Encounters.desk_lines(_encounter_packet(id, author), node, str(beat.get("mood", "neutral")), beat.get("cited", []), str(beat.get("disputed", "")))
+	match node:
+		"pushback": _banter.ask(author, id, options)
+		"withdrawn": _banter.settle(author, options)
+		"revise_now": _banter.start_typing(author, id, options)
+		_: _banter.farewell(author, "approve" if node in Encounters.APPROVALS else "request_changes", id, options, node)
 
 
 func _location_text(location: Dictionary) -> String:
@@ -1433,7 +1472,7 @@ func _clear_citations() -> void:
 	var selected: Array = _state.get("selected_rules", []).duplicate()
 	for rule_id: String in selected:
 		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
-	if not selected.is_empty() and _state.get("selected_rules", []).is_empty(): _banter.react("withdraw")
+	if not selected.is_empty() and _state.get("selected_rules", []).is_empty(): _banter.react("withdraw", _desk_lines("unflag", selected))
 
 
 func render_state(state: Dictionary) -> void:
@@ -1444,7 +1483,11 @@ func render_state(state: Dictionary) -> void:
 	var selected: Array = state.get("selected_rules", [])
 	var consulted: bool = bool(state.get("consulted", false))
 	var active_request: Dictionary = Simulation.active_request(state)
-	var can_review: bool = phase == "review" and not active_request.is_empty()
+	# An author pushing back holds the review until INSIST or WITHDRAW; an author
+	# revising at the desk keeps their seat until v2 replaces the PR.
+	var pending: Dictionary = Encounters.pending(state)
+	var typing: Dictionary = Encounters.typing(state)
+	var can_review: bool = phase == "review" and not active_request.is_empty() and pending.is_empty()
 	_consult.visible = day >= 3
 	_ai_note.visible = _consult.visible
 	_hud["day"].text = day_label(day)
@@ -1481,6 +1524,9 @@ func render_state(state: Dictionary) -> void:
 			_pr_title.text = "Your desk is clear"
 			_pr_context.text = "Work lands here by itself, one PR at a time. Check every file against today’s policies."
 			_file_label.text = ""
+			if not typing.is_empty():
+				_pr_id.text = "%s / BEING REVISED" % Catalog.display_id(str(typing.revision_id))
+				_pr_title.text = "%s is revising it at your desk" % str(typing.author)
 			if not _review_files.is_empty() or not _diff.text.is_empty():
 				_set_review_files({})
 		if not request_id.is_empty() and request_id != _last_pr:
@@ -1491,20 +1537,32 @@ func render_state(state: Dictionary) -> void:
 			_set_review_files(request)
 			_clear_evidence()
 			_packet_scroll.scroll_vertical = 0
-			_banter.open_pr(request_id, str(request.get("author", "")), int(request.get("revision", 1)))
+			var arrival: Dictionary = Encounters.arrival(state, request)
+			_banter.open_pr(request_id, str(request.get("author", "")), int(request.get("revision", 1)), Encounters.desk_lines(request, str(arrival.node), str(arrival.mood), arrival.cited), str(arrival.node))
+		if not request_id.is_empty():
+			_pr_id.text = "%s / %s" % [Catalog.display_id(request_id), "PUSHED BACK" if not pending.is_empty() else "AWAITING REVIEW"]
 		_ai_note.text = "Helios can take a look. Its advice may be wrong, and using it gives the assistant more influence."
 		if consulted:
 			_ai_note.text = "AI: %s\n%s" % [str(request.get("ai_verdict", "")).replace("_", " ").to_upper(), str(request.get("ai_note", ""))]
-	if active_request.is_empty(): _banter.close_pr()
+	if active_request.is_empty() and typing.is_empty(): _banter.close_pr()
 	var feedback: Dictionary = state.get("last_feedback", {})
 	var feedback_key := "" if feedback.is_empty() else str(feedback.get("pr_id", "")) + str(feedback.get("verdict", ""))
 	if feedback_key != _last_feedback_key:
 		if _last_feedback_key != "-" and not feedback_key.is_empty():
 			_play_stamp(str(feedback.get("verdict", "")))
-			# The author hears the verdict only, never whether it was right.
-			_banter.farewell(str(feedback.get("author", "")), str(feedback.get("verdict", "")), str(feedback.get("pr_id", "")))
 		_last_feedback_key = feedback_key
+	# The author answers through the encounter: mood and what you did, never whether
+	# you were right. History already on record when the desk first renders stays quiet.
+	var encounters: Array = state.get("encounters", [])
+	if _beats_seen < 0 or encounters.size() < _beats_seen: _beats_seen = encounters.size()
+	for index in range(_beats_seen, encounters.size()): _play_beat(encounters[index])
+	_beats_seen = encounters.size()
+	if not pending.is_empty() and not _banter.asking: _play_beat(pending)
+	if not typing.is_empty() and not _banter.typing:
+		_banter.start_typing(str(typing.author), str(typing.pr_id), Encounters.desk_lines(_encounter_packet(str(typing.pr_id), str(typing.author)), "revise_now", str(typing.mood), typing.cited))
 	_feedback.text = "No review sent yet." if feedback.is_empty() else "%s · %s sent to %s." % [Catalog.display_id(str(feedback.get("pr_id", ""))), "Approval" if feedback.get("verdict") == "approve" else "Change request", str(feedback.get("author", ""))]
+	if not pending.is_empty():
+		_feedback.text = "%s · %s is pushing back on %s. INSIST or WITHDRAW." % [Catalog.display_id(str(pending.pr_id)), str(pending.author), Encounters.noun(str(pending.get("disputed", "")))]
 	_render_phase(state)
 	_render_chat()
 	_sync_app_events()

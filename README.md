@@ -47,7 +47,7 @@ Week two's standards read like real review policy. P09 caps a PR at 30 changed l
 1. Read the PR's author message, review packet, and proposed source files. The packet and source scroll independently.
 2. Search standards by ID, title, or text; optionally filter by category.
 3. Approve compliant work with no citations. To request changes, click or select the offending line in Review (or WHOLE FILE for file standards such as filename, ink, quoted labels, and disclosure; whole-PR standards such as the diff budget, file cap, and tests accept WHOLE FILE on any changed file) then tick the standard it breaks on the citation slip in the right sidebar. Every violated rule must be cited once, at a real location, with no unrelated rules. Stamp CHANGES REQUESTED to send it. Full rule text lives on INTRANET > STANDARDS.
-4. Watch Slouch for coworker reactions. At closing, Morgan messages you about incidents, delayed work, and the company’s direction; there is no correctness report.
+4. Watch Slouch for coworker reactions. How an author responds depends on how they feel about you and what you cited: they may thank you or wonder why you approved it, revise right at your desk ("give me a sec"), send a revision back through the line, push back on a citation (INSIST or WITHDRAW), abandon the PR to Helios, or loop in Morgan. At closing, Morgan messages you about incidents, delayed work, and the company’s direction; there is no correctness report.
 5. At closing, open Morgan’s conversation and choose rest, dinner, or study before the next shift. Pay and living expenses settle in the simulation; the remaining queue is not disclosed.
 
 From the first Wednesday, Helios can advise you, but its scripted recommendations may be wrong. Check the visible letters, comments, keyword colors, filenames, stamps, file list, and diffstat yourself; no programming knowledge is required. Consultation eases stress while increasing its authority. New policies arrive between shifts. The office loses human occupants as more machine terminals come online; in week two whole floors are consolidated into Helios. Morgan extends your assignment on the first Friday, and the final message on the second Friday reflects trust, stress, and AI authority.
@@ -60,7 +60,7 @@ Open **SLOUCH**, the company's chat app, to read coworker DMs and company messag
 
 ## Saves
 
-There are three local save slots, each with its own previous-save backup. New Game opens a slot picker and immediately saves orientation; replacing an occupied slot requires confirmation. Load Game resumes the chosen slot paused. Progress is saved through System or Save and Main Menu. All slots use the same two-week campaign, rules, and five-minute clock. Only the current save format (version 10) is supported; an incompatible or damaged save requires a new game or recovery from its valid backup. There are no campaign variants or compatibility modes. Storage remains in the existing application-data location, normally `~/Library/Application Support/Godot/app_userdata/Last Review/` on macOS, so current-format saves stay available.
+There are three local save slots, each with its own previous-save backup. New Game opens a slot picker and immediately saves orientation; replacing an occupied slot requires confirmation. Load Game resumes the chosen slot paused. Progress is saved through System or Save and Main Menu. All slots use the same two-week campaign, rules, and five-minute clock. Only the current save format (version 11) is supported; an incompatible or damaged save requires a new game or recovery from its valid backup. There are no campaign variants or compatibility modes. Storage remains in the existing application-data location, normally `~/Library/Application Support/Godot/app_userdata/Last Review/` on macOS, so current-format saves stay available.
 
 The bounded decision history is replayed when validating a save. Changes to scenario answers, economics, or canonical feedback require a save migration/version bump. See [simulation documentation](docs/simulation.md).
 
@@ -75,6 +75,7 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 
 - `content/` — rules, daily briefings, and `pr_bank.gd`, the bank of realistic pull requests. `policy_campaign.gd` records each packet's private recipe and regenerates revisions from it.
 - `content/chat.gd`, `content/policy_chat.gd` — authored coworker messages derived from the career's decisions.
+- `content/encounters.gd`, `content/encounter_lines.gd` — the encounter flow chart (mood, branches, lines). `tools/encounter_flowchart.gd` exports it to HTML.
 - `native/simulation.gd` — deterministic timed shifts, the one-PR desk and its line, revisions, decisions, and life-sim consequences.
 - `native/interface.gd` — review desk, rule search, people, evenings, and system controls.
 - `native/desktop_window.gd` — draggable, focusable, minimizable native desktop windows.
