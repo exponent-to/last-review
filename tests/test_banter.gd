@@ -157,17 +157,15 @@ func _test_review_desk() -> void:
 	var cite: Dictionary = Catalog.audit_citation(packet, "P01")
 	_point_at(str(cite.path), int(cite.line))
 	await process_frame
-	check(ui._flag_box.visible and not _bubble_rect().intersects(ui._flag_box.get_global_rect()), "The bubble never covers the flag box")
+	check(not _bubble_rect().intersects(ui._flag_buttons.P01.get_global_rect()), "The bubble never covers the citation slip")
 	ui._flag_buttons.P01.pressed.emit()
 	check(ui._banter.kind == "flag" and ui._banter.line != greeting and ui._banter.line in Banter.lines(author, "flag"), "Flagging a line changes the bubble to a defensive reaction")
 	var first_flag: String = ui._banter.line
 	_point_at(str(cite.path), 1 if int(cite.line) != 1 else 2)
 	ui._flag_buttons.P02.pressed.emit()
 	check(ui._banter.kind == "flag" and ui._banter.line != first_flag and ui._banter.line in Banter.lines(author, "flag"), "Each flag gets a fresh reaction")
-	var remove: Button = null
-	for button: Node in ui._citation_list.find_children("*", "Button", true, false):
-		if button.text == "×": remove = button
-	remove.pressed.emit()
+	# With nothing selected, ticking a cited rule again withdraws it.
+	ui._flag_buttons.P02.pressed.emit()
 	check(ui._banter.kind == "withdraw" and ui._banter.line in Banter.lines(author, "withdraw"), "Withdrawing a citation gets relief or smugness")
 	ui._clear_citations()
 	check(state.selected_rules.is_empty() and ui._banter.kind == "withdraw", "CLEAR withdraws too")

@@ -167,10 +167,8 @@ var _line_gutter := -1
 var _mark_gutter := -1
 var _diffstat_label: RichTextLabel
 var _evidence_label: Label
-var _flag_box: PanelContainer
-var _flag_title: Label
+var _slip_rows: Dictionary = {}
 var _flag_buttons: Dictionary = {}
-var _citation_list: VBoxContainer
 var _standards_link: Button
 var _chat_channel_label: Label
 var _whole_file: Button
@@ -194,7 +192,6 @@ func _ready() -> void:
 	_build_desktop(frame)
 	_build_dock(frame)
 	_build_tutorial_panel()
-	_build_flag_box()
 	_notifications = Notifications.new()
 	_monitor_screen.add_child(_notifications)
 	_notifications.activated.connect(_open_notification)
@@ -606,37 +603,32 @@ func _new_window(id: String, title: String) -> DesktopWindow:
 
 func _build_review_content(code: VBoxContainer) -> void:
 	# One PR at a time lands on the desk by itself; there is nothing to pick.
-	# The author packet is a paper form on the desk, not another terminal pane.
+	# The PR's author sits in the top-left corner and talks while you review.
+	_banter = ReviewBanter.new()
+	_banter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	code.add_child(_banter)
+	# The PR itself is a one-line paper slip: title and number, no description.
 	_paper = PanelContainer.new()
-	var paper_style := _style(PAPER, PAPER_LINE, 1, 14, 10)
+	var paper_style := _style(PAPER, PAPER_LINE, 1, 12, 6)
 	paper_style.border_width_left = 4
-	paper_style.border_color = PAPER_LINE
 	paper_style.shadow_color = Color(0, 0, 0, 0.55)
 	paper_style.shadow_size = 0
 	paper_style.shadow_offset = Vector2(3, 3)
 	_paper.add_theme_stylebox_override("panel", paper_style)
-	# The PR's author sits beside the form and talks while you review.
-	var desk := _row(code, 10)
-	_paper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	desk.add_child(_paper)
-	_banter = ReviewBanter.new()
-	desk.add_child(_banter)
-	var form: VBoxContainer = _column(_paper, 4)
-	var title_row: HBoxContainer = _row(form)
-	_spacer(title_row)
+	code.add_child(_paper)
+	var title_row: HBoxContainer = _row(_paper, 10)
+	_pr_title = _label(title_row, "", 15, PAPER_INK)
+	_pr_title.clip_text = true
+	_pr_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_pr_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pr_title.custom_minimum_size.x = 80
 	_pr_id = _label(title_row, "PULL REQUEST", 11, STAMP_RED)
-	var rule := ColorRect.new()
-	rule.color = PAPER_LINE
-	rule.custom_minimum_size.y = 1
-	form.add_child(rule)
-	_pr_title = _paragraph(form, "", 17, PAPER_INK)
-	var packet_scroll: ScrollContainer = ScrollContainer.new()
-	_packet_scroll = packet_scroll
-	packet_scroll.custom_minimum_size.y = 70
-	packet_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	packet_scroll.follow_focus = true
-	form.add_child(packet_scroll)
-	_pr_context = _paragraph(packet_scroll, "", 13, PAPER_MUTED)
+	# The author's pitch now lives in the speech bubble and in Slouch.
+	_packet_scroll = ScrollContainer.new()
+	_packet_scroll.hide()
+	code.add_child(_packet_scroll)
+	_pr_context = Label.new()
+	_packet_scroll.add_child(_pr_context)
 	_diffstat_label = RichTextLabel.new()
 	_diffstat_label.bbcode_enabled = true
 	_diffstat_label.fit_content = true
@@ -751,7 +743,6 @@ func _select_file(index: int) -> void:
 		_diff.set_line_gutter_text(row_index, _mark_gutter, {"+": "+", "-": "−", " ": ""}[row.kind])
 		_diff.set_line_gutter_item_color(row_index, _mark_gutter, GREEN if row.kind == "+" else RED)
 	_evidence = {}
-	if is_instance_valid(_flag_box): _flag_box.hide()
 	_diff.draw_tabs = true
 	_update_code_legend()
 	_paint_evidence()
@@ -918,7 +909,7 @@ func _browse(path: String, record: bool = true) -> void:
 		return
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, click the offending line (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then pick the standard it breaks in the box that opens on that line. Full standards are on the intranet.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, click the offending line (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then tick the standard it breaks on the citation slip. Full standards are on the intranet.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
 		_:
 			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nNEWS carries the morning headlines. DAILY MEMO carries today's instructions from management. PROCEDURE describes the review process.\n\nExternal access restricted by company policy."
 
@@ -972,12 +963,33 @@ func _build_decision(parent: Node) -> void:
 	_clear_button.custom_minimum_size.y = 24
 	_clear_button.add_theme_font_size_override("font_size", 10)
 	_clear_button.tooltip_text = "Withdraw every citation on this PR."
-	# Citations are made on the code itself; full rule text lives on the intranet.
+	# The citation slip: select the offending line, then tick the standard it
+	# breaks. Full rule text lives on INTRANET > STANDARDS.
+	_selected_label = _paragraph(holder, "", 11, DIM)
 	var column: VBoxContainer = _scroll_column(holder)
-	column.add_theme_constant_override("separation", 6)
-	_selected_label = _paragraph(column, "NONE YET", 12, DIM)
-	_citation_list = _column(column, 4)
-	_paragraph(column, "Click a line to flag it. Full standards: INTRANET > STANDARDS.", 11, DIM)
+	column.add_theme_constant_override("separation", 4)
+	for rule: Dictionary in Catalog.rules():
+		var id: String = str(rule.id)
+		var slip := PanelContainer.new()
+		slip.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 6, 4))
+		column.add_child(slip)
+		var line := _row(slip, 6)
+		var check := CheckBox.new()
+		check.text = id
+		check.add_theme_font_size_override("font_size", 12)
+		check.tooltip_text = "%s  %s\n\n%s" % [id, str(rule.title), str(rule.text)]
+		check.pressed.connect(_flag_rule.bind(id))
+		line.add_child(check)
+		var words := _column(line, 1)
+		var summary := _paragraph(words, str(RULE_SUMMARIES.get(id, rule.title)), 11, DIM)
+		summary.mouse_filter = Control.MOUSE_FILTER_PASS
+		var where := _label(words, "", 10, RED)
+		where.clip_text = true
+		where.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		where.custom_minimum_size.x = 60
+		where.hide()
+		_flag_buttons[id] = check
+		_slip_rows[id] = {"panel": slip, "summary": summary, "where": where, "rule": rule}
 	_consult = _button(column, "ASK HELIOS", _ask_helios)
 	_consult.add_theme_color_override("font_color", AMBER)
 	_consult.tooltip_text = "Ask Helios for a recommendation. It can lighten your workload, but invites the assistant further into the process. Advice can be wrong."
@@ -1008,7 +1020,6 @@ func _point_at(line: int) -> void:
 	_evidence = {"path": path, "line": picked}
 	tutorial_event.emit({"type": "point-evidence", "path": path, "line": picked})
 	_paint_evidence()
-	_open_flag_box()
 
 
 func _row_for_line(line: int) -> int:
@@ -1030,117 +1041,47 @@ func _diffstat_text(stat: Dictionary) -> String:
 	return "%d file%s   [color=#6fdc8c]+%d[/color] [color=#e5384a]−%d[/color]   [color=#6fdc8c]%s[/color][color=#e5384a]%s[/color]" % [stat.files, "" if stat.files == 1 else "s", stat.added, stat.removed, "+".repeat(plus), "−".repeat(10 - plus if total > 0 else 0)]
 
 
-func _build_flag_box() -> void:
-	# A code-review comment box that opens on the flagged line.
-	_flag_box = PanelContainer.new()
-	var frame := _style(Color("0d0d0f"), AMBER, 1, 10, 8)
-	frame.border_width_left = 4
-	frame.shadow_color = Color(0, 0, 0, 0.6)
-	frame.shadow_size = 8
-	_flag_box.add_theme_stylebox_override("panel", frame)
-	_flag_box.z_index = 60
-	_flag_box.hide()
-	_monitor_screen.add_child(_flag_box)
-	var box := _column(_flag_box, 6)
-	var heading := _row(box, 8)
-	_flag_title = _label(heading, "", 12, AMBER)
-	_spacer(heading)
-	var close := _button(heading, "×", _close_flag_box)
-	close.flat = true
-	close.custom_minimum_size = Vector2(24, 22)
-	close.tooltip_text = "Close without citing (Esc)"
-	var choices := HFlowContainer.new()
-	choices.add_theme_constant_override("h_separation", 6)
-	choices.add_theme_constant_override("v_separation", 6)
-	box.add_child(choices)
-	for rule: Dictionary in Catalog.rules():
-		var id: String = str(rule.id)
-		var choice := Button.new()
-		choice.text = id
-		choice.toggle_mode = true
-		choice.custom_minimum_size = Vector2(54, 30)
-		choice.add_theme_font_size_override("font_size", 13)
-		choice.tooltip_text = "%s  %s\n%s" % [id, str(rule.title), str(RULE_SUMMARIES.get(id, ""))]
-		choice.add_theme_stylebox_override("pressed", _style(Color("2a0d12"), RED, 1, 9, 7))
-		choice.add_theme_color_override("font_pressed_color", RED)
-		choice.pressed.connect(_flag_rule.bind(id))
-		choices.add_child(choice)
-		_flag_buttons[id] = choice
-	_paragraph(box, "Pick the standard this breaks. Hover an ID for its summary.", 11, DIM)
-
-
-func _open_flag_box() -> void:
-	if _evidence.is_empty(): return
-	var day: int = int(_state.get("day", 1))
-	var cited: Dictionary = _state.get("citation_evidence", {})
-	_flag_title.text = "FLAG %s AS BREAKING:" % _location_text(_evidence).to_upper()
-	for rule: Dictionary in Catalog.rules():
-		var button: Button = _flag_buttons[str(rule.id)]
-		button.visible = int(rule.introduced_day) <= day
-		button.set_pressed_no_signal(cited.get(str(rule.id), {}) == _evidence)
-	_flag_box.size = Vector2(minf(420, _monitor_screen.size.x - 24), 0)
-	_flag_box.show()
-	_place_flag_box.call_deferred()
-
-
-func _place_flag_box() -> void:
-	if not is_instance_valid(_flag_box) or not _flag_box.visible or _evidence.is_empty(): return
-	_flag_box.size.y = _flag_box.get_combined_minimum_size().y
-	var anchor: Vector2
-	if int(_evidence.line) > 0:
-		var rect: Rect2i = _diff.get_rect_at_line_column(maxi(0, _row_for_line(int(_evidence.line))), 0)
-		anchor = _diff.global_position + Vector2(rect.position.x, rect.end.y + 4) if rect.position.y >= 0 else _diff.global_position + Vector2(24, 8)
-	else:
-		anchor = _whole_file.global_position + Vector2(_whole_file.size.x - _flag_box.size.x, _whole_file.size.y + 4)
-	var local := anchor - _monitor_screen.global_position
-	# Flip above the line when the box would run off the bottom of the screen.
-	if local.y + _flag_box.size.y > _monitor_screen.size.y - 8 and int(_evidence.line) > 0:
-		local.y -= _flag_box.size.y + 30
-	_flag_box.position = local.clamp(Vector2(8, 8), (_monitor_screen.size - _flag_box.size - Vector2(8, 8)).max(Vector2(8, 8)))
-
-
-func _close_flag_box() -> void:
-	if is_instance_valid(_flag_box): _flag_box.hide()
+func _clear_evidence() -> void:
 	_evidence = {}
 	_paint_evidence()
 
 
 func _flag_rule(rule_id: String) -> void:
-	if _evidence.is_empty(): return
+	if _evidence.is_empty():
+		# With nothing selected, a ticked rule can still be withdrawn.
+		if rule_id in _state.get("selected_rules", []): _withdraw_citation(rule_id)
+		else:
+			notify("Select the offending line first (or WHOLE FILE), then tick the standard.", false, "review")
+			render_state(_state)
+		return
 	var cited: Dictionary = _state.get("citation_evidence", {})
 	var location: Dictionary = _evidence.duplicate()
 	if rule_id in _state.get("selected_rules", []):
 		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
 		if cited.get(rule_id, {}) == location:
-			_close_flag_box()
+			_clear_evidence()
 			if rule_id not in _state.get("selected_rules", []): _banter.react("withdraw")
 			return
 	_emit_command({"type": "toggle-rule", "rule_id": rule_id, "path": location.path, "line": int(location.line)})
-	_close_flag_box()
+	_clear_evidence()
 	if rule_id in _state.get("selected_rules", []): _banter.react("flag")
 
 
-func _render_citation_list(state: Dictionary, can_review: bool) -> void:
-	for child: Node in _citation_list.get_children():
-		_citation_list.remove_child(child)
-		child.queue_free()
+func _render_slip(state: Dictionary, can_review: bool) -> void:
+	var day: int = int(state.get("day", 1))
 	var cited: Dictionary = state.get("citation_evidence", {})
-	for rule_id: String in state.get("selected_rules", []):
-		var row := PanelContainer.new()
-		row.add_theme_stylebox_override("panel", _style(Color("1e0d10"), RED, 1, 6, 3))
-		_citation_list.add_child(row)
-		var line := _row(row, 4)
-		var text := _label(line, rule_id + "  " + _location_text(cited.get(rule_id, {})), 11, TEXT)
-		text.clip_text = true
-		text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text.custom_minimum_size.x = 40
-		text.tooltip_text = text.text
-		var remove := _button(line, "×", _withdraw_citation.bind(rule_id))
-		remove.flat = true
-		remove.disabled = not can_review
-		remove.custom_minimum_size = Vector2(24, 22)
-		remove.tooltip_text = "Withdraw " + rule_id
+	for id: String in _slip_rows:
+		var row: Dictionary = _slip_rows[id]
+		var check: CheckBox = _flag_buttons[id]
+		var location: Dictionary = cited.get(id, {})
+		row.panel.visible = int(row.rule.introduced_day) <= day
+		check.set_pressed_no_signal(not location.is_empty())
+		check.disabled = not can_review
+		row.where.visible = not location.is_empty()
+		row.where.text = "" if location.is_empty() else "→ " + _location_text(location)
+		row.where.tooltip_text = row.where.text
+		row.summary.add_theme_color_override("font_color", TEXT if check.button_pressed else DIM)
+		row.panel.add_theme_stylebox_override("panel", _style(Color("1e0d10") if check.button_pressed else INSET, RED if check.button_pressed else BORDER, 1, 6, 4))
 
 
 func _withdraw_citation(rule_id: String) -> void:
@@ -1177,11 +1118,16 @@ func _paint_evidence() -> void:
 	_whole_file.disabled = _review_files.is_empty()
 	if _review_files.is_empty():
 		_evidence_label.text = ""
+		_selected_label.text = ""
 	elif pointing:
-		_evidence_label.text = "> FLAGGING %s — pick the standard it breaks" % _location_text(_evidence).to_upper()
+		_evidence_label.text = "> SELECTED %s — tick the standard it breaks on the right" % _location_text(_evidence).to_upper()
+		_selected_label.text = "> %s selected. Tick the standard it breaks." % _location_text(_evidence)
+		_selected_label.add_theme_color_override("font_color", AMBER)
 		_evidence_label.add_theme_color_override("font_color", AMBER)
 	else:
-		_evidence_label.text = "Click or select a line to flag it. WHOLE FILE flags the file itself."
+		_evidence_label.text = "Click or select the offending line, or WHOLE FILE, then tick the standard on the right."
+		_selected_label.text = "Select a line, then tick what it breaks. Full text: INTRANET > STANDARDS."
+		_selected_label.add_theme_color_override("font_color", DIM)
 		_evidence_label.add_theme_color_override("font_color", DIM)
 
 
@@ -1289,14 +1235,11 @@ func _open_chat_conversation() -> void:
 func _process(delta: float) -> void:
 	_sync_tutorial_pointer()
 	if not _paused: _banter.tick(delta)
-	if is_instance_valid(_flag_box) and _flag_box.visible:
-		if not _windows.review.is_visible_in_tree() or _evidence.is_empty(): _close_flag_box()
-		else: _place_flag_box()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and is_instance_valid(_flag_box) and _flag_box.visible:
-		_close_flag_box()
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and not _evidence.is_empty() and _windows.review.visible:
+		_clear_evidence()
 		get_viewport().set_input_as_handled()
 
 
@@ -1470,8 +1413,7 @@ func render_state(state: Dictionary) -> void:
 		_briefing_dialog.dialog_text = briefing
 		if _browser_path in ["memo", "news", "standards"] or _browser_path.begins_with("story/"):
 			_browse("news" if _browser_path.begins_with("story/") else _browser_path, false)
-	_selected_label.visible = selected.is_empty()
-	_render_citation_list(state, can_review)
+	_render_slip(state, can_review)
 	_paint_evidence()
 	_clear_button.disabled = selected.is_empty() or not can_review
 	_approve.disabled = not selected.is_empty() or not can_review
@@ -1505,7 +1447,7 @@ func render_state(state: Dictionary) -> void:
 			_pr_title.text = str(request.get("title", ""))
 			_pr_context.text = "%s: %s\n\n%s" % [str(request.get("author", "")), str(request.get("message", "")), str(request.get("description", ""))]
 			_set_review_files(request)
-			_close_flag_box()
+			_clear_evidence()
 			_packet_scroll.scroll_vertical = 0
 			_banter.open_pr(request_id, str(request.get("author", "")), int(request.get("revision", 1)))
 		_ai_note.text = "Helios can take a look. Its advice may be wrong, and using it gives the assistant more influence."
@@ -1720,7 +1662,7 @@ func _sync_tutorial_pointer() -> void:
 						# Practice only: guide to the visible comment, never to hidden audit data.
 						var evidence := _practice_evidence(id)
 						var pointed: bool = not _evidence.is_empty() and not evidence.is_empty() and _evidence.path == evidence.path and int(_evidence.line) == int(evidence.line)
-						if pointed and _flag_box.visible: target = _flag_buttons[id]
+						if pointed: target = _flag_buttons[id]
 						elif evidence.is_empty() or _file_label.text != evidence.path: target = _file_picker
 						else: target = _diff
 					else: target = _tutorial_launcher("review")

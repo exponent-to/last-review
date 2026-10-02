@@ -34,7 +34,7 @@ The assignment runs Monday through Friday. Your desk holds one PR at a time, lik
 
 1. Read the PR's author message, review packet, and proposed source files. The packet and source scroll independently.
 2. Search standards by ID, title, or text; optionally filter by category.
-3. Approve compliant work with no citations. To request changes, click or select the offending line in Review (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules) and pick the standard it breaks in the box that opens there. Every violated rule must be cited once, at a real location, with no unrelated rules. Stamp CHANGES REQUESTED to send it. Full rule text lives on INTRANET > STANDARDS.
+3. Approve compliant work with no citations. To request changes, click or select the offending line in Review (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules) then tick the standard it breaks on the citation slip in the right sidebar. Every violated rule must be cited once, at a real location, with no unrelated rules. Stamp CHANGES REQUESTED to send it. Full rule text lives on INTRANET > STANDARDS.
 4. Watch Slouch for coworker reactions. At closing, Morgan messages you about incidents, delayed work, and the company’s direction; there is no correctness report.
 5. At closing, open Morgan’s conversation and choose rest, dinner, or study before the next shift. Pay and living expenses settle in the simulation; the remaining queue is not disclosed.
 
