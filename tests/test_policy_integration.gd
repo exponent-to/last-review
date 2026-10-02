@@ -36,7 +36,13 @@ func run() -> void:
 	for frame in range(4): await process_frame
 	ui._open_next_pr()
 	check(state.active_request_id == "PR-1042", "Next PR opens first arrived packet.")
-	check(ui._diff.text == Catalog.request_at(0).files[0].source and ui._diff.gutters_draw_line_numbers, "Source and source line numbers are the actual audit evidence.")
+	var live_rows: Array = ui._diff_rows.filter(func(row: Dictionary) -> bool: return row.kind != "-")
+	check("\n".join(live_rows.map(func(row: Dictionary) -> String: return row.text)) == Catalog.request_at(0).files[0].source, "The proposed source is the audit evidence.")
+	var numbered := true
+	for row_index in range(ui._diff_rows.size()):
+		var row: Dictionary = ui._diff_rows[row_index]
+		numbered = numbered and ui._diff.get_line_gutter_text(row_index, ui._line_gutter) == ("" if row.kind == "-" else str(row.line))
+	check(numbered and ui._diff_rows.any(func(row: Dictionary) -> bool: return row.kind == "-"), "The gutter numbers the proposed file, and the tutorial PR shows removed lines.")
 	check(not ui._consult.visible, "Helios is hidden before Wednesday.")
 	check(Sim.dispatch(state, {"type": "consult-ai"}) == state, "Hidden consultation cannot be invoked early.")
 	state = Sim.advance(state, 20)
@@ -47,9 +53,15 @@ func run() -> void:
 	for frame in range(4): await process_frame
 	check(ui._windows.review.body.get_combined_minimum_size().x < ui._windows.review.size.x - 20, "Long request titles cannot push decision controls outside the window.")
 	var highlighter := Interface.PolicyHighlighter.new()
-	highlighter.configure("def test():\n    return 'if' # else", "pink")
+	var sample := "def test():\n    return 'if' # else"
+	highlighter.configure(Policy.line_diff("", sample), sample, "pink")
 	var colors: Dictionary = highlighter._get_line_syntax_highlighting(1)
 	check(colors.has(4) and colors.has(10) and colors.size() == 3, "Only real keyword tokens receive ink, not strings or comments.")
+	var edited := "def test():\n    pass\n    return 'if'"
+	var edit_rows: Array = Policy.line_diff("def test():\n    return 'if'", edited)
+	highlighter.configure(edit_rows, edited, "blue")
+	var removed_row := edit_rows.map(func(row: Dictionary) -> String: return row.kind).find("-")
+	check(removed_row < 0 or highlighter._get_line_syntax_highlighting(removed_row).size() == 1, "Removed lines are dimmed, never inked as live keywords.")
 	# Exercise every real packet through the simulation, daily press, chat, and UI.
 	state = Sim.initial_state()
 	for day in range(1, 6):
@@ -63,7 +75,7 @@ func run() -> void:
 			check(not Sim.active_request(state).has("violations"), "Audit answers are hidden from review view.")
 			for index in range(packet.files.size()):
 				ui._select_file(index)
-				check(ui._diff.text == packet.files[index].source, "Every file renders its exact source evidence.")
+				check("\n".join(ui._diff_rows.filter(func(row: Dictionary) -> bool: return row.kind != "-").map(func(row: Dictionary) -> String: return row.text)) == packet.files[index].source, "Every file renders its exact proposed source, with removed lines marked.")
 				if day >= 4: check(ui._code_legend.text.contains(str(packet.files[index].get("permit", "none"))), "Permit is visible per file.")
 			if day >= 3 and int(packet.arrival_seconds) == 0:
 				state = Sim.dispatch(state, {"type":"consult-ai"})

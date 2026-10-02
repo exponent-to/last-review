@@ -51,16 +51,26 @@ const RULE_SUMMARIES := {
 }
 
 class PolicyHighlighter extends SyntaxHighlighter:
+	# Keyword ink is computed on the proposed file, then mapped onto diff rows.
 	var spans: Dictionary = {}
+	var removed: Dictionary = {}
 	var ink := Color("72b7ff")
-	func configure(source: String, color_name: String) -> void:
+	func configure(rows: Array, source: String, color_name: String) -> void:
 		ink = Color("ef94c3") if color_name == "pink" else Color("72b7ff")
 		spans.clear()
+		removed.clear()
+		var row_for_line: Dictionary = {}
+		for index in range(rows.size()):
+			if rows[index].kind == "-": removed[index] = true
+			else: row_for_line[int(rows[index].line) - 1] = index
 		for span: Dictionary in load("res://content/policy_campaign.gd").keyword_spans(source):
-			if not spans.has(int(span.line)): spans[int(span.line)] = []
-			spans[int(span.line)].append(span)
+			var row: int = int(row_for_line.get(int(span.line), -1))
+			if row < 0: continue
+			if not spans.has(row): spans[row] = []
+			spans[row].append(span)
 		clear_highlighting_cache()
 	func _get_line_syntax_highlighting(line: int) -> Dictionary:
+		if removed.has(line): return {0: {"color": Color("6f5a5c")}}
 		var result := {0: {"color": Color("e0e8ef")}}
 		for span: Dictionary in spans.get(line, []):
 			result[int(span.start)] = {"color": ink}
@@ -149,6 +159,10 @@ var _tutorial_details: Dictionary = {}
 var _paper: PanelContainer
 var _last_feedback_key := "-"
 var _evidence: Dictionary = {}
+var _diff_rows: Array = []
+var _line_gutter := -1
+var _mark_gutter := -1
+var _diffstat_label: RichTextLabel
 var _evidence_label: Label
 var _flag_box: PanelContainer
 var _flag_title: Label
@@ -624,8 +638,17 @@ func _build_review_content(code: VBoxContainer) -> void:
 	packet_scroll.follow_focus = true
 	form.add_child(packet_scroll)
 	_pr_context = _paragraph(packet_scroll, "", 13, PAPER_MUTED)
+	_diffstat_label = RichTextLabel.new()
+	_diffstat_label.bbcode_enabled = true
+	_diffstat_label.fit_content = true
+	_diffstat_label.scroll_active = false
+	_diffstat_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_diffstat_label.add_theme_font_size_override("normal_font_size", 12)
+	_diffstat_label.add_theme_color_override("default_color", DIM)
+	_diffstat_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	code.add_child(_diffstat_label)
 	var file_row := _row(code, 8)
-	_label(file_row, "$ cat", 12, DIM)
+	_label(file_row, "$ git diff", 12, DIM)
 	_file_label = _paragraph(code, "", 12, CYAN)
 	_file_label.hide()
 	_file_picker = OptionButton.new()
@@ -648,8 +671,16 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_diff = CodeEdit.new()
 	_diff.name = "PullRequestDiff"
 	_diff.editable = false
-	_diff.gutters_draw_line_numbers = true
-	_diff.gutters_line_numbers_min_digits = 2
+	# New-file line numbers and +/- markers; removed lines have no number.
+	_diff.gutters_draw_line_numbers = false
+	_line_gutter = _diff.get_gutter_count()
+	_diff.add_gutter()
+	_diff.set_gutter_type(_line_gutter, TextEdit.GUTTER_TYPE_STRING)
+	_diff.set_gutter_width(_line_gutter, 34)
+	_mark_gutter = _diff.get_gutter_count()
+	_diff.add_gutter()
+	_diff.set_gutter_type(_mark_gutter, TextEdit.GUTTER_TYPE_STRING)
+	_diff.set_gutter_width(_mark_gutter, 18)
 	_diff.syntax_highlighter = PolicyHighlighter.new()
 	_diff.add_theme_font_size_override("font_size", 14)
 	_diff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -674,10 +705,17 @@ func _set_review_files(request: Dictionary) -> void:
 	_displayed_file_key = ""
 	_review_files = request.get("files", []).duplicate(true) if not request.is_empty() else []
 	_file_picker.clear()
+	var Policy = load("res://content/policy_campaign.gd")
 	for entry: Dictionary in _review_files:
-		_file_picker.add_item(str(entry.get("path", "")))
+		var stat: Dictionary = Policy.diffstat([entry])
+		var status: String = str(entry.get("status", "added"))
+		var name: String = str(entry.get("path", ""))
+		if status == "renamed": name = str(entry.get("old_path", "")) + " → " + name
+		_file_picker.add_item("%s  %s   +%d −%d" % [{"added": "A", "modified": "M", "renamed": "R"}.get(status, "M"), name, stat.added, stat.removed])
 	_file_picker.disabled = _review_files.is_empty()
+	_diffstat_label.text = "" if _review_files.is_empty() else _diffstat_text(Policy.diffstat(_review_files))
 	if _review_files.is_empty():
+		_diff_rows = []
 		_diff.text = ""
 		_code_legend.hide()
 		return
@@ -698,10 +736,17 @@ func _select_file(index: int) -> void:
 	_file_label.text = path
 	# Colorblind fallback: the ink name stays available on hover, off the main view.
 	_file_picker.tooltip_text = "Changed file: " + path + " — review all files before signing off.\nKeyword ink: " + str(entry.get("keyword_ink", "blue"))
+	_diff_rows = load("res://content/policy_campaign.gd").line_diff(str(entry.get("base", "")), str(entry.source))
 	var highlighter := PolicyHighlighter.new()
-	highlighter.configure(str(entry.source), str(entry.get("keyword_ink", "blue")))
+	highlighter.configure(_diff_rows, str(entry.source), str(entry.get("keyword_ink", "blue")))
 	_diff.syntax_highlighter = highlighter
-	_diff.text = str(entry.source)
+	_diff.text = "\n".join(_diff_rows.map(func(row: Dictionary) -> String: return str(row.text)))
+	for row_index in range(_diff_rows.size()):
+		var row: Dictionary = _diff_rows[row_index]
+		_diff.set_line_gutter_text(row_index, _line_gutter, "" if row.kind == "-" else str(row.line))
+		_diff.set_line_gutter_item_color(row_index, _line_gutter, Color("4f4d49"))
+		_diff.set_line_gutter_text(row_index, _mark_gutter, {"+": "+", "-": "−", " ": ""}[row.kind])
+		_diff.set_line_gutter_item_color(row_index, _mark_gutter, GREEN if row.kind == "+" else RED)
 	_evidence = {}
 	if is_instance_valid(_flag_box): _flag_box.hide()
 	_diff.draw_tabs = true
@@ -723,7 +768,8 @@ func _update_code_legend() -> void:
 	var notes: Array[String] = []
 	if int(_state.get("day", 1)) >= 4: notes.append("Permit: " + str(entry.get("permit", "none")))
 	if int(_state.get("day", 1)) >= 2:
-		notes.append("Line %d · %d characters (click a line to measure)" % [_diff.get_caret_line() + 1, _diff.get_line(_diff.get_caret_line()).length()])
+		var caret_line: int = _line_for_row(_diff.get_caret_line())
+		notes.append(("Line %d · %d characters (click a line to measure)" % [caret_line, _diff.get_line(_diff.get_caret_line()).length()]) if caret_line > 0 else "Removed line: not part of the new file")
 	_code_legend.text = "\n".join(notes)
 	_code_legend.visible = not notes.is_empty()
 
@@ -947,11 +993,38 @@ func _point_at(line: int) -> void:
 	var path: String = _file_label.text
 	var picked: int = line
 	if line < 0:
-		picked = (_diff.get_selection_from_line() if _diff.has_selection() else _diff.get_caret_line()) + 1
+		var first: int = _diff.get_selection_from_line() if _diff.has_selection() else _diff.get_caret_line()
+		var last: int = _diff.get_selection_to_line() if _diff.has_selection() else first
+		picked = 0
+		for row in range(first, last + 1):
+			picked = _line_for_row(row)
+			if picked > 0: break
+		if picked <= 0:
+			notify("That line is being removed. Flag a line in the new version.", false, "review")
+			return
 	_evidence = {"path": path, "line": picked}
 	tutorial_event.emit({"type": "point-evidence", "path": path, "line": picked})
 	_paint_evidence()
 	_open_flag_box()
+
+
+func _row_for_line(line: int) -> int:
+	# Display row of a 1-based line in the proposed file, or -1.
+	if line <= 0: return -1
+	for row in range(_diff_rows.size()):
+		if int(_diff_rows[row].line) == line: return row
+	return -1
+
+
+func _line_for_row(row: int) -> int:
+	return int(_diff_rows[row].line) if row >= 0 and row < _diff_rows.size() else 0
+
+
+func _diffstat_text(stat: Dictionary) -> String:
+	# A git-style bar: ten blocks split between additions and removals.
+	var total: int = int(stat.added) + int(stat.removed)
+	var plus: int = 0 if total == 0 else clampi(roundi(10.0 * stat.added / total), 1 if stat.added > 0 else 0, 10)
+	return "%d file%s   [color=#6fdc8c]+%d[/color] [color=#e5384a]−%d[/color]   [color=#6fdc8c]%s[/color][color=#e5384a]%s[/color]" % [stat.files, "" if stat.files == 1 else "s", stat.added, stat.removed, "+".repeat(plus), "−".repeat(10 - plus if total > 0 else 0)]
 
 
 func _build_flag_box() -> void:
@@ -1012,7 +1085,7 @@ func _place_flag_box() -> void:
 	_flag_box.size.y = _flag_box.get_combined_minimum_size().y
 	var anchor: Vector2
 	if int(_evidence.line) > 0:
-		var rect: Rect2i = _diff.get_rect_at_line_column(int(_evidence.line) - 1, 0)
+		var rect: Rect2i = _diff.get_rect_at_line_column(maxi(0, _row_for_line(int(_evidence.line))), 0)
 		anchor = _diff.global_position + Vector2(rect.position.x, rect.end.y + 4) if rect.position.y >= 0 else _diff.global_position + Vector2(24, 8)
 	else:
 		anchor = _whole_file.global_position + Vector2(_whole_file.size.x - _flag_box.size.x, _whole_file.size.y + 4)
@@ -1074,15 +1147,18 @@ func _paint_evidence() -> void:
 	if not is_instance_valid(_diff) or not is_instance_valid(_evidence_label): return
 	var path: String = _file_label.text
 	var cited: Dictionary = _state.get("citation_evidence", {})
-	for line in range(_diff.get_line_count()):
-		_diff.set_line_background_color(line, Color(0, 0, 0, 0))
+	for row in range(_diff.get_line_count()):
+		var kind: String = str(_diff_rows[row].kind) if row < _diff_rows.size() else " "
+		_diff.set_line_background_color(row, Color(GREEN, 0.07) if kind == "+" else Color(RED, 0.09) if kind == "-" else Color(0, 0, 0, 0))
 	for rule_id: String in cited:
 		var location: Dictionary = cited[rule_id]
-		if str(location.path) == path and int(location.line) > 0 and int(location.line) <= _diff.get_line_count():
-			_diff.set_line_background_color(int(location.line) - 1, Color(RED, 0.22))
+		var cited_row := _row_for_line(int(location.line))
+		if str(location.path) == path and cited_row >= 0:
+			_diff.set_line_background_color(cited_row, Color(RED, 0.26))
 	var pointing := not _evidence.is_empty() and str(_evidence.path) == path
-	if pointing and int(_evidence.line) > 0 and int(_evidence.line) <= _diff.get_line_count():
-		_diff.set_line_background_color(int(_evidence.line) - 1, Color(AMBER, 0.28))
+	var pointed_row := _row_for_line(int(_evidence.get("line", 0)))
+	if pointing and pointed_row >= 0:
+		_diff.set_line_background_color(pointed_row, Color(AMBER, 0.28))
 	_whole_file.disabled = _review_files.is_empty()
 	if _review_files.is_empty():
 		_evidence_label.text = ""

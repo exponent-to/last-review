@@ -62,7 +62,7 @@ func _run() -> void:
 		for index in range(ui._review_files.size()):
 			if ui._review_files[index].path == cite.path: ui._select_file(index)
 		for i in range(3): await process_frame
-		ui._diff.set_caret_line(maxi(0, int(cite.line) - 1))
+		ui._diff.set_caret_line(maxi(0, ui._row_for_line(int(cite.line))))
 		ui._point_at(-1 if int(cite.line) > 0 else 0)
 		await _shot("09a-flag-box")
 		ui._flag_buttons[str(cite.rule_id)].pressed.emit()

@@ -164,7 +164,7 @@ func _test_saves() -> void:
 	_round_trip(selected)
 	for value: Variant in [null, [], true, 42, "save", {"version": 1}, {"version": 2}]:
 		_check(not Simulation.validate_save(value).ok, "Invalid types and workshop saves must be rejected.")
-	for version in [1, 2, 3, 4, 5, 7]:
+	for version in [1, 2, 3, 4, 5, 6, 8]:
 		var unsupported := initial.duplicate(true)
 		unsupported.version = version
 		_check(not Simulation.validate_save(unsupported).ok, "Only the current save format is accepted.")
