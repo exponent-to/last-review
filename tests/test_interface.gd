@@ -33,7 +33,10 @@ func _run() -> void:
 	await _test_desktop()
 	_test_slouch()
 	check(ui._clock_label.text == "09:00", "Desktop clock must start at nine")
-	check(ui._approve.disabled and ui._diff.text.is_empty(), "No code or review actions are available before a coworker sends a link")
+	check(ui._pr_id.text == "PR-1042 / AWAITING REVIEW" and not ui._diff.text.is_empty(), "The day's first PR is already on the desk at shift start")
+	check(ui.find_children("*", "OptionButton", true, false).size() == 1, "Review has no arrived-PR picker; the only dropdown is the file picker")
+	for button: Node in ui._windows.review.find_children("*", "Button", true, false):
+		check(not button.text.contains("NEXT PR"), "Review has no NEXT PR button")
 	state = Simulation.advance(state, 20)
 	ui.render_state(state)
 	ui._select_chat_contact("Maya")
@@ -96,35 +99,47 @@ func _run() -> void:
 	check(not ui._approve.disabled and ui._reject.disabled, "Clearing citations must restore approval")
 	check(not ui._ai_note.text.contains(str(Catalog.request_at(0).ai_note)), "AI advice must be hidden before consultation")
 	check(not ui._consult.visible, "Consultation stays hidden until Wednesday")
-	var packets: Array = Catalog.requests()
-	for index in range(packets.size()):
-		var packet: Dictionary = Catalog.request_at(index)
-		state = Simulation.advance(state, maxi(0, Catalog.arrival_seconds(str(packet.id)) - int(state.shift_seconds)))
-		ui.render_state(state)
-		ui._open_pr_link(str(packet.id))
-		var previous_messages: String = str(ui._chat_seen.get(str(packet.author), ""))
-		for rule_id: String in packet.violations:
-			_command(Simulation.Catalog.audit_citation(packet, rule_id))
-		if packet.violations.is_empty():
-			ui._approve.pressed.emit()
-		else:
-			ui._reject.pressed.emit()
-		check(ui._feedback.text.contains(str(packet.id)), "Audit must identify the previous PR")
-		check(not ui._feedback.text.contains("CORRECT") and not ui._feedback.text.contains("Required:"), "Sent confirmation must not grade a review or reveal its answers")
-		check(not ui._feedback.text.contains("Trust +") and not ui._feedback.text.contains("Trust -"), "Audit must omit numeric social/stat deltas")
-		check(str(ui._chat_seen.get(str(packet.author), "")) != previous_messages, "Completed review must update its author's Slouch messages")
-		check(ui._chat_contact == "Theo", "Incoming coworker messages must never switch the player's selected conversation")
-		var has_reaction: bool = false
-		for message: Dictionary in Chat.messages(state, str(packet.author)):
-			if str(message.get("kind", "")) == "reaction":
-				has_reaction = true
-		check(has_reaction, "Coworker conversation must contain a review reaction")
-		if str(packet.author) != "Theo":
-			check(bool(ui._chat_unread.get(str(packet.author), false)), "Other coworker reactions must receive an unread indicator")
-		var following: Dictionary = Catalog.request_at(index + 1)
-		if following.is_empty() or int(following.day) != int(state.day):
-			state = Simulation.advance(state, Simulation.Catalog.shift_seconds())
+	var saw_revision := false
+	while state.phase != "complete":
+		if Simulation.active_request(state).is_empty() and state.phase == "review":
+			check(ui._pr_id.text == "REVIEW / DESK CLEAR" and ui._approve.disabled and ui._app_counts.review == 0, "Between PRs the desk is clear and nothing is waiting unread")
+			var coming: bool = int(state.desk_at) >= 0 and int(state.desk_at) < Simulation.Catalog.shift_seconds()
+			state = Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds) if coming else Simulation.Catalog.shift_seconds())
+			ui._windows.review.minimize_window()
 			ui.render_state(state)
+			if coming: check(ui._app_counts.review == 1 and ui._app_badges.review.visible, "A PR landing on the desk shows a review badge of exactly one")
+		if state.phase == "review":
+			var packet: Dictionary = Catalog.packet(state, state.active_request_id)
+			ui._open_pr_link(str(packet.id))
+			check(ui._windows.review.visible and ui._app_counts.review == 0, "Opening the desk PR's link opens Review and reads it")
+			check(ui._pr_id.text == Catalog.display_id(str(packet.id)) + " / AWAITING REVIEW", "The form shows the desk PR, revisions as 'PR · vN'")
+			if int(packet.revision) > 1:
+				saw_revision = true
+				check(ui._pr_id.text.contains(" · v%d" % int(packet.revision)) and ui._pr_context.text.contains(str(packet.message)), "Revisions show their version and their own author note")
+			var previous_messages: String = str(ui._chat_seen.get(str(packet.author), ""))
+			for rule_id: String in packet.violations:
+				_command(Simulation.Catalog.audit_citation(packet, rule_id))
+			if packet.violations.is_empty():
+				ui._approve.pressed.emit()
+			else:
+				ui._reject.pressed.emit()
+			check(ui._feedback.text.contains(Catalog.display_id(str(packet.id))), "Audit must identify the previous PR")
+			check(not ui._feedback.text.contains("CORRECT") and not ui._feedback.text.contains("Required:"), "Sent confirmation must not grade a review or reveal its answers")
+			check(not ui._feedback.text.contains("Trust +") and not ui._feedback.text.contains("Trust -"), "Audit must omit numeric social/stat deltas")
+			check(str(ui._chat_seen.get(str(packet.author), "")) != previous_messages, "Completed review must update its author's Slouch messages")
+			check(ui._chat_contact == "Theo", "Incoming coworker messages must never switch the player's selected conversation")
+			var has_reaction: bool = false
+			for message: Dictionary in Chat.messages(state, str(packet.author)):
+				if str(message.get("kind", "")) == "reaction":
+					has_reaction = true
+			check(has_reaction, "Coworker conversation must contain a review reaction")
+			if str(packet.author) != "Theo":
+				check(bool(ui._chat_unread.get(str(packet.author), false)), "Other coworker reactions must receive an unread indicator")
+			ui._open_pr_link(str(packet.id))
+			check(ui._system_status.text.contains("is closed"), "A stamped PR's Slouch link says it is closed")
+			if not state.desk_line.is_empty():
+				ui._open_pr_link(str(state.desk_line[0]))
+				check(ui._system_status.text.contains("isn't at your desk yet") and state.active_request_id.is_empty(), "A PR still in line cannot be opened early")
 		if state.phase == "debrief":
 			check(not ui._windows.has("shift"), "Closing must not open an explicit results window")
 			ui._select_chat_contact("manager")
@@ -133,7 +148,7 @@ func _run() -> void:
 			office.set_story(int(state.day), int(state.autonomy))
 			_check_active_rules(int(state.day))
 			ui._select_chat_contact("Theo")
-	check(state.phase == "complete", "Authored campaign must finish")
+	check(state.phase == "complete" and saw_revision, "Authored campaign must finish, with revisions coming back to the desk")
 	ui._select_chat_contact("manager")
 	check(ui._complete_button.visible and not ui._evening_buttons.visible, "Final manager conversation must offer a return to menu")
 	office.set_motion(false)
@@ -282,7 +297,6 @@ func _test_chat_first_open() -> void:
 	var loaded: Dictionary = initial.duplicate(true)
 	var first_packet: Dictionary = Catalog.request_at(0)
 	loaded = Simulation.advance(loaded, 20)
-	loaded = Simulation.dispatch(loaded, {"type": "select-request", "pr_id": str(first_packet.id)})
 	for id: String in first_packet.violations:
 		loaded = Simulation.dispatch(loaded, Simulation.Catalog.audit_citation(first_packet, id))
 	loaded = Simulation.dispatch(loaded, {"type": "review", "verdict": "approve" if first_packet.violations.is_empty() else "request_changes"})

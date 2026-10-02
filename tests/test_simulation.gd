@@ -21,26 +21,23 @@ func _check(condition: bool, message: String) -> void:
 		push_error(message)
 
 func _first_request_state() -> Dictionary:
-	var state: Dictionary = Simulation.advance(Simulation.initial_state(), 20)
-	return Simulation.dispatch(state, {"type": "select-request", "pr_id": Catalog.request_at(0).id})
+	# The day's first PR is already on the desk; nobody picks it.
+	return Simulation.advance(Simulation.initial_state(), 20)
 
+## Wait for the next PR to land if the desk is empty, then review it exactly.
 func _resolve(state: Dictionary) -> Dictionary:
 	var current: Dictionary = state
-	var pending: Array = Simulation.available_requests(current)
-	if pending.is_empty():
-		var next: Dictionary = Catalog.request_at(int(current.request_index))
-		if next.is_empty() or int(next.day) != int(current.day):
+	if Simulation.active_request(current).is_empty():
+		if int(current.desk_at) < 0 or int(current.desk_at) >= Catalog.shift_seconds():
 			return Simulation.advance(current, Simulation.Catalog.shift_seconds())
-		current = Simulation.advance(current, Catalog.arrival_seconds(next.id) - int(current.shift_seconds))
-		pending = Simulation.available_requests(current)
-	current = Simulation.dispatch(current, {"type": "select-request", "pr_id": pending[0].id})
-	var request: Dictionary = {}
-	for packet: Dictionary in Catalog.requests():
-		if packet.id == current.active_request_id:
-			request = packet
+		current = Simulation.advance(current, int(current.desk_at) - int(current.shift_seconds))
+	var request: Dictionary = Catalog.packet(current, current.active_request_id)
 	for rule_id: String in request.violations:
 		current = Simulation.dispatch(current, Catalog.audit_citation(request, rule_id))
 	return Simulation.dispatch(current, {"type": "review", "verdict": "approve" if request.violations.is_empty() else "request_changes"})
+
+func _waiting(state: Dictionary) -> bool:
+	return not Simulation.active_request(state).is_empty() or (int(state.desk_at) >= 0 and int(state.desk_at) < Catalog.shift_seconds())
 
 func _round_trip(state: Dictionary) -> void:
 	var raw: String = Simulation.serialize_save(state)
@@ -97,7 +94,7 @@ func _test_reviews() -> void:
 	var wednesday := Simulation.initial_state()
 	for day in range(2):
 		wednesday = Simulation.dispatch(Simulation.advance(wednesday, 300), {"type": "next-day", "choice": "rest"})
-	wednesday = Simulation.dispatch(wednesday, {"type": "select-request", "pr_id": Catalog.requests_for_day(3)[0].id})
+	_check(wednesday.active_request_id == Catalog.requests_for_day(3)[0].id, "Each morning puts the day's first PR on the desk.")
 	var consulted := Simulation.dispatch(wednesday, {"type": "consult-ai"})
 	_check(consulted.consulted and consulted.autonomy == wednesday.autonomy + 4, "Wednesday consultation increases reliance.")
 	_check(Simulation.dispatch(consulted, {"type": "consult-ai"}) == consulted, "Consultation effects apply only once per PR.")
@@ -113,35 +110,46 @@ func _test_reviews() -> void:
 
 func _test_career() -> void:
 	var state: Dictionary = Simulation.initial_state()
-	var processed: int = 0
 	var expected_credits: int = 120
 	var shifts: int = 0
+	var escalations: int = 0
 	for day: int in Catalog.campaign_days():
 		shifts += 1
-		var shift_size: int = Catalog.requests_for_day(day).size()
-		for review in range(shift_size):
+		var before: int = state.decisions.size()
+		while _waiting(state):
+			if Simulation.active_request(state).is_empty():
+				_check(Simulation.available_requests(state).is_empty(), "Between PRs the desk is empty; nothing can be picked.")
+				state = Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds))
+			_check(Simulation.available_requests(state).size() == 1, "Only one PR is ever available at a time.")
+			var on_desk: Dictionary = Catalog.packet(state, state.active_request_id)
 			state = _resolve(state)
-			processed += 1
-			_check(state.request_index == processed, "Each valid submission must advance exactly one request.")
+			_check(state.decisions.size() == before + 1, "Each valid submission signs exactly the PR on the desk.")
+			_check(state.decisions[-1].correct, "Exact citations and approvals stay correct on revisions too.")
+			if state.decisions[-1].verdict == "request_changes" and int(on_desk.revision) == 3: escalations += 1
+			before = state.decisions.size()
 			_round_trip(state)
-		_check(state.phase == "review", "Clearing current work must not close the shift before the deadline.")
+		var signed: int = 0
+		for decision: Dictionary in state.decisions:
+			if Catalog.packet(state, decision.pr_id).day == day: signed += 1
+		_check(signed >= Catalog.requests_for_day(day).size(), "Every authored PR and every revision reaches the desk before closing.")
+		_check(state.phase == "review" and state.desk_line.is_empty(), "Clearing the line must not close the shift before the deadline.")
 		state = Simulation.advance(state, Simulation.Catalog.shift_seconds())
 		_check(state.phase == "debrief" and state.day == day, "The final authored PR in a shift must enter that day's debrief.")
-		_check(state.last_debrief.pay == 80 + 10 * shift_size and state.last_debrief.expenses == 90 and state.last_debrief.correct == shift_size and state.last_debrief.reviewed == shift_size, "Daily pay must reflect audit correctness.")
-		expected_credits += 80 + 10 * shift_size - 90
+		_check(state.last_debrief.pay == 80 + 10 * signed and state.last_debrief.expenses == 90 and state.last_debrief.correct == signed and state.last_debrief.reviewed == signed and state.last_debrief.handed_off == 0, "Daily pay must reflect audit correctness, revisions included.")
+		expected_credits += 80 + 10 * signed - 90
 		_check(state.credits == expected_credits, "Daily economy must apply exactly once.")
-		_check(state.autonomy == 10 + 4 * shifts, "Management must increase automation authority each day.")
+		_check(state.autonomy == 10 + 4 * shifts + escalations, "Management must increase automation authority each day, and Helios takes escalations.")
 		var frozen: Dictionary = state.duplicate(true)
 		for command: Dictionary in [{"type": "review", "verdict": "approve"}, {"type": "consult-ai"}, {"type": "next-day", "choice": "invalid"}]:
 			_check(Simulation.dispatch(state, command) == frozen, "Invalid debrief actions must not replay daily pay.")
 		state = Simulation.dispatch(state, {"type": "next-day", "choice": "rest"})
 		_round_trip(state)
 	_check(state.phase == "complete" and state.request_index == Catalog.requests().size() and state.day == Catalog.campaign_days()[-1], "Career must finish safely after five shifts and evening choices.")
-	_check(state.decisions.size() == Catalog.requests().size() and state.shift_history[-1].evening_choice == "rest", "Final evening choice must be recorded and applied.")
+	_check(state.decisions.size() > Catalog.requests().size() and not state.revisions.is_empty() and state.shift_history[-1].evening_choice == "rest", "Change requests add revisions to the career; the final evening is recorded.")
 	for command: Dictionary in [{"type": "review", "verdict": "approve"}, {"type": "next-day", "choice": "socialize"}, {"type": "consult-ai"}]:
 		_check(Simulation.dispatch(state, command) == state, "Complete careers must not accept more rewards or decisions.")
 	var debrief: Dictionary = Simulation.initial_state()
-	for _i in range(Catalog.requests_for_day(int(debrief.day)).size()):
+	while _waiting(debrief):
 		debrief = _resolve(debrief)
 	debrief = Simulation.advance(debrief, Simulation.Catalog.shift_seconds())
 	var social: Dictionary = Simulation.dispatch(debrief, {"type": "next-day", "choice": "socialize"})
@@ -164,7 +172,7 @@ func _test_saves() -> void:
 	_round_trip(selected)
 	for value: Variant in [null, [], true, 42, "save", {"version": 1}, {"version": 2}]:
 		_check(not Simulation.validate_save(value).ok, "Invalid types and workshop saves must be rejected.")
-	for version in [1, 2, 3, 4, 5, 6, 8]:
+	for version in [1, 2, 3, 4, 5, 6, 7, 9]:
 		var unsupported := initial.duplicate(true)
 		unsupported.version = version
 		_check(not Simulation.validate_save(unsupported).ok, "Only the current save format is accepted.")
@@ -174,6 +182,8 @@ func _test_saves() -> void:
 		["stress", "20"], ["autonomy", 11], ["phase", "complete"], ["consulted", true],
 		["coworkers", {"Maya": 100, "Theo": 50, "Inez": 50}], ["selected_rules", ["BAD"]],
 		["decisions", [{}]], ["log", []], ["last_feedback", {"correct": true}], ["last_debrief", {"pay": 999}],
+		["active_request_id", ""], ["desk_line", []], ["desk_at", 3], ["arrivals", []],
+		["revisions", [{"id": "PR-1042-v2"}]],
 	]
 	for corruption: Array in corruptions:
 		var bad: Dictionary = initial.duplicate(true)
@@ -207,7 +217,7 @@ func _test_catalog() -> void:
 	_check(initial_ids == ["P01", "P02", "P03"], "New reviewers must start with exactly three foundational policies.")
 	_check(Catalog.rules_for_day(2).size() == 5 and Catalog.rules_for_day(3).size() == 7, "Active standards must grow gradually across shifts.")
 	_check(Catalog.campaign_days() == [1, 2, 3, 4, 5], "Campaign days must be derived in authored order.")
-	_check(Catalog.requests_for_day(1).size() == 15 and Catalog.requests_for_day(5).size() == 15, "Each shift has fifteen scheduled arrivals.")
+	_check(Catalog.requests_for_day(1).size() == 15 and Catalog.requests_for_day(5).size() == 15, "Each shift lines up fifteen authored PRs.")
 	var previous_day: int = 0
 	var ids: Array = []
 	for request: Dictionary in Catalog.requests():

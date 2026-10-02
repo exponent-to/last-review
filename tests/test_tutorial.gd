@@ -22,7 +22,7 @@ func _initialize() -> void:
 	var unsupported := progress.duplicate(true)
 	unsupported.version = 1
 	check(not Tutorial.validate(unsupported, state).ok, "Only the current orientation format is supported.")
-	state = Simulation.dispatch(state, {"type": "select-request", "pr_id": "PR-1042"})
+	check(state.active_request_id == "PR-1042", "The practice PR is already on the desk.")
 	progress = Tutorial.observe(progress, {"type": "open-review"}, state)
 	for file: Dictionary in Tutorial.Catalog.request_at(0).files:
 		progress = Tutorial.observe(progress, {"type": "inspect-file", "path": file.path}, state)
@@ -40,10 +40,12 @@ func _initialize() -> void:
 	check(SaveStore.decode_session(JSON.parse_string(Simulation.serialize_save(Simulation.initial_state()))).tutorial.is_empty(), "Current career saves remain loadable.")
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	state = Tutorial.retry_practice_state(state)
-	check(state.decisions.is_empty() and state.chat_replies.is_empty(), "Retry removes the mistake without fabricating a conversation.")
+	check(state.decisions.is_empty() and state.chat_replies.is_empty() and state.active_request_id == "PR-1042", "Retry removes the mistake and puts the practice PR back on the desk.")
 	state = Simulation.dispatch(state, Simulation.Catalog.audit_citation(Simulation.Catalog.request_at(0), "P01"))
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "request_changes"})
 	progress = Tutorial.observe(progress, {"type": "correct-submit"}, state)
 	check(progress.stage == 7 and Tutorial.validate(progress, state).ok, "Finished practice can be saved before Monday.")
+	check(state.desk_line[mini(2, state.desk_line.size() - 1)] == "PR-1042-v2" and int(state.shift_seconds) == 0, "Practice queues Maya's revision, but the stopped clock never delivers it.")
+	check(not Tutorial.prompt(progress).body.contains("NEXT PR"), "The handoff explains the one-at-a-time desk, not a picker.")
 	print("Tutorial: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

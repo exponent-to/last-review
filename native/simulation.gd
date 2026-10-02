@@ -1,29 +1,38 @@
 extends RefCounted
 ## Deterministic timed review rules. Catalog answers are used only to audit submitted decisions.
+## One PR sits on the desk at a time. Stamping it brings the next in line a beat later;
+## a change request sends it back to its author, whose revision rejoins the line.
 
 const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
 const Policy = preload("res://content/policy_campaign.gd")
-const SAVE_VERSION: int = 7
+const SAVE_VERSION: int = 8
 const SHIFT_SECONDS: int = 300
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
 const LOG_LIMIT: int = 40
 const AUTHORS: Array = ["Maya", "Theo", "Inez"]
 const EVENINGS: Array = ["rest", "socialize", "study"]
+## Game seconds between a stamp and the next PR landing on the desk.
+const DESK_BEAT: int = 3
+## A revision rejoins the line behind this many PRs (or sooner if fewer remain).
+const REVISION_GAP: int = 2
 
 static func initial_state() -> Dictionary:
 	var first_day: int = int(Catalog.campaign_days()[0])
-	return {
+	var state: Dictionary = {
 		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
 		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
 		"coworkers": {"Maya": 50, "Theo": 50, "Inez": 50},
 		"selected_rules": [], "citation_evidence": {}, "consulted": false, "decisions": [],
 		"shift_seconds": 0, "active_request_id": "", "consulted_requests": [],
+		"desk_line": [], "desk_at": -1, "arrivals": [], "revisions": [],
 		"actions": [], "shift_history": [], "chat_replies": [],
-		"log": [{"day": first_day, "message": "Your review shift begins. Incoming work will arrive in team chat."}],
+		"log": [{"day": first_day, "message": "Your review shift begins. Work lands on your desk one PR at a time."}],
 		"last_feedback": {}, "last_debrief": {},
 	}
+	_open_desk(state)
+	return state
 
 static func clock_minutes(state: Dictionary) -> int:
 	return START_MINUTE + floori(float(state.shift_seconds) * float(END_MINUTE - START_MINUTE) / float(SHIFT_SECONDS))
@@ -32,7 +41,11 @@ static func advance(state: Dictionary, seconds: int = 1) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
 	if next.phase != "review" or seconds <= 0:
 		return next
-	next.shift_seconds = mini(Catalog.shift_seconds(), int(next.shift_seconds) + mini(seconds, Catalog.shift_seconds()))
+	var target: int = mini(Catalog.shift_seconds(), int(next.shift_seconds) + mini(seconds, Catalog.shift_seconds()))
+	# The next PR lands at its scheduled second, so batched and stepped clocks agree.
+	if int(next.desk_at) >= 0 and int(next.desk_at) < Catalog.shift_seconds() and int(next.desk_at) <= target:
+		_deliver(next)
+	next.shift_seconds = target
 	if next.shift_seconds == Catalog.shift_seconds():
 		next.actions.append({"type": "timeout", "day": next.day, "shift_seconds": Catalog.shift_seconds()})
 		_debrief(next)
@@ -49,30 +62,51 @@ static func _public_request(request: Dictionary, consulted: bool = false) -> Dic
 	public.erase("violations")
 	public.erase("findings")
 	public.erase("explanation")
+	public.erase("recipe")
 	if not consulted:
 		public.erase("ai_verdict")
 		public.erase("ai_note")
 	return public
 
-## Arrived, still-pending requests for this shift, in authored order.
-static func available_requests(state: Dictionary) -> Array:
-	var result: Array = []
-	if state.phase != "review":
-		return result
+## Start a day's line: its authored packets in order, the first already on the desk.
+static func _open_desk(state: Dictionary) -> void:
+	state.desk_line = []
 	for request: Dictionary in Catalog.requests_for_day(int(state.day)):
-		if Catalog.arrival_seconds(request.id) <= int(state.shift_seconds) and not _reviewed(state, request.id):
-			result.append(_public_request(request, request.id in state.consulted_requests))
-	return result
+		state.desk_line.append(request.id)
+	state.active_request_id = ""
+	state.desk_at = int(state.shift_seconds)
+	_deliver(state)
 
-## Explicit selection only: arrivals never silently open code on the player's desk.
+## The next PR in line reaches the desk at `desk_at` and becomes the active review.
+static func _deliver(state: Dictionary) -> void:
+	if int(state.desk_at) < 0 or state.desk_line.is_empty() or not str(state.active_request_id).is_empty():
+		return
+	var request_id: String = state.desk_line.pop_front()
+	state.active_request_id = request_id
+	state.arrivals.append({"pr_id": request_id, "day": state.day, "shift_seconds": state.desk_at})
+	state.desk_at = -1
+	state.selected_rules = []
+	state.citation_evidence = {}
+	state.consulted = request_id in state.consulted_requests
+
+## The desk holds at most one PR. Kept as a list for callers that iterate.
+static func available_requests(state: Dictionary) -> Array:
+	var request: Dictionary = active_request(state)
+	return [] if request.is_empty() else [request]
+
+## The PR on the desk, without audit answers; empty between PRs and after closing.
 static func active_request(state: Dictionary) -> Dictionary:
-	for request: Dictionary in available_requests(state):
-		if request.id == state.active_request_id:
-			return request
-	return {}
+	var request: Dictionary = _desk(state)
+	return {} if request.is_empty() else _public_request(request, request.id in state.consulted_requests)
+
+## Internal, read-only: the full packet on the desk (audit data included).
+static func _desk(state: Dictionary) -> Dictionary:
+	if state.phase != "review" or str(state.active_request_id).is_empty() or _reviewed(state, state.active_request_id):
+		return {}
+	return Catalog.packet(state, state.active_request_id, false)
 
 static func _update_request_index(state: Dictionary) -> void:
-	var requests: Array = Catalog.requests()
+	var requests: Array = Catalog.originals()
 	state.request_index = requests.size()
 	for index in range(requests.size()):
 		if int(requests[index].day) < int(state.day):
@@ -117,19 +151,6 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 		return next
 	if next.phase != "review":
 		return next
-	if kind == "select-request":
-		var requested: Variant = command.get("request_id", command.get("pr_id", ""))
-		if typeof(requested) != TYPE_STRING:
-			return next
-		var allowed: bool = requested.is_empty()
-		for request: Dictionary in available_requests(next):
-			allowed = allowed or request.id == requested
-		if allowed and next.active_request_id != requested:
-			next.active_request_id = requested
-			next.selected_rules = []
-			next.citation_evidence = {}
-			next.consulted = requested in next.consulted_requests
-		return next
 	if kind == "chat-reply":
 		var contact: Variant = command.get("contact")
 		if typeof(contact) != TYPE_STRING:
@@ -143,7 +164,7 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 				next.actions.append(event)
 				break
 		return next
-	var active: Dictionary = active_request(next)
+	var active: Dictionary = _desk(next)
 	if active.is_empty():
 		return next
 	match kind:
@@ -200,11 +221,7 @@ static func _cite(state: Dictionary, rule_id: String, evidence: Variant) -> Dict
 	return dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "path": location.get("path"), "line": location.get("line")})
 
 static func _review(state: Dictionary, verdict: String) -> void:
-	var request: Dictionary = {}
-	for packet: Dictionary in Catalog.requests():
-		if packet.id == state.active_request_id:
-			request = packet
-			break
+	var request: Dictionary = Catalog.packet(state, state.active_request_id, false)
 	var expected: Array = request.violations
 	var correct: bool = expected.is_empty() if verdict == "approve" else _same_rules(state.selected_rules, expected)
 	if verdict == "request_changes" and correct:
@@ -237,11 +254,33 @@ static func _review(state: Dictionary, verdict: String) -> void:
 		"trust_delta": int(state.trust) - previous_trust,
 	}
 	_record(state, "%s: %s. %s" % [request.id, "audit passed" if correct else "audit failed", response])
+	if verdict == "request_changes":
+		if int(request.revision) < Policy.MAX_REVISION:
+			_send_back(state, request)
+		else:
+			# No v4: the author escalates and Helios takes the PR off the human desk.
+			state.autonomy = clampi(int(state.autonomy) + 1, 0, 100)
+			_record(state, "%s escalated %s after three rounds. Helios has taken it over." % [request.author, request.origin_id])
 	state.active_request_id = ""
 	state.selected_rules = []
 	state.citation_evidence = {}
 	state.consulted = false
+	state.desk_at = -1 if state.desk_line.is_empty() else int(state.shift_seconds) + DESK_BEAT
 	_update_request_index(state)
+
+## The author revises what was cited. Only cited rules that really were broken get
+## fixed; the revision rejoins the line behind the next few PRs.
+static func _send_back(state: Dictionary, request: Dictionary) -> void:
+	var version: int = int(request.revision) + 1
+	var revision_id: String = Policy.revision_id(request, version)
+	var cited: Array = state.selected_rules.duplicate()
+	cited.sort()
+	var fixed: Array = cited.filter(func(rule_id: String) -> bool: return rule_id in request.violations)
+	state.revisions.append({
+		"id": revision_id, "parent_id": request.id, "origin_id": request.origin_id, "version": version, "day": state.day,
+		"cited": cited, "fixed": fixed, "regression": Policy.regression_rule(request, revision_id, fixed, cited),
+	})
+	state.desk_line.insert(mini(REVISION_GAP, state.desk_line.size()), revision_id)
 
 static func _debrief(state: Dictionary) -> void:
 	state.phase = "debrief"
@@ -250,12 +289,16 @@ static func _debrief(state: Dictionary) -> void:
 	var shift_ids: Array = []
 	for request: Dictionary in Catalog.requests_for_day(int(state.day)):
 		shift_ids.append(request.id)
+	for entry: Dictionary in state.revisions:
+		if int(entry.day) == int(state.day):
+			shift_ids.append(entry.id)
 	for decision: Dictionary in state.decisions:
 		if decision.pr_id in shift_ids:
 			reviewed += 1
 			if decision.correct:
 				correct += 1
-	var handed_off: int = shift_ids.size() - reviewed
+	# Whatever is on the desk or still in line at the bell goes to Helios.
+	var handed_off: int = state.desk_line.size() + (0 if str(state.active_request_id).is_empty() else 1)
 	var pay: int = 80 + 10 * correct
 	state.credits = clampi(int(state.credits) + pay - 90, -9999, 9999)
 	state.autonomy = clampi(int(state.autonomy) + (4 + handed_off), 0, 100)
@@ -269,6 +312,8 @@ static func _debrief(state: Dictionary) -> void:
 	}
 	state.shift_history.append({"day": state.day, "shift_seconds": state.shift_seconds, "reviewed": reviewed, "handed_off": handed_off})
 	state.active_request_id = ""
+	state.desk_line = []
+	state.desk_at = -1
 	state.selected_rules = []
 	state.citation_evidence = {}
 	state.consulted = false
@@ -298,6 +343,7 @@ static func _evening(state: Dictionary, choice: String) -> void:
 		state.day = int(Catalog.request_at(int(state.request_index)).day)
 		state.phase = "review"
 		state.shift_seconds = 0
+		_open_desk(state)
 		_update_request_index(state)
 		_record(state, "Day %d begins. Read the updated rulebook before reviewing." % state.day)
 
@@ -361,7 +407,8 @@ static func validate_save(value: Variant) -> Dictionary:
 		return _invalid("invalid phase or consultation flag.")
 	if not _rule_list(value.get("selected_rules"), int(value.day)):
 		return _invalid("selected rules must be unique active rule IDs.")
-	if typeof(value.get("actions")) != TYPE_ARRAY or value.actions.size() > campaign_size * 8 + days.size() * 2:
+	# Each authored PR can be reviewed and consulted up to three times (v1-v3), plus replies.
+	if typeof(value.get("actions")) != TYPE_ARRAY or value.actions.size() > campaign_size * 12 + days.size() * 2:
 		return _invalid("invalid or oversized action history.")
 	var replay: Dictionary = initial_state()
 	for index in range(value.actions.size()):
@@ -383,9 +430,8 @@ static func validate_save(value: Variant) -> Dictionary:
 			if kind in ["consult-ai", "review"]:
 				if typeof(event.get("pr_id")) != TYPE_STRING:
 					return _invalid("action is missing its request identity.")
-				replay = dispatch(replay, {"type": "select-request", "request_id": event.pr_id})
 				if replay.active_request_id != event.pr_id:
-					return _invalid("action targets an unavailable or already reviewed request.")
+					return _invalid("action targets a request that is not on the desk.")
 				if kind == "review":
 					if not _rule_list(event.get("cited_rules"), int(replay.day)) or typeof(event.get("evidence")) != TYPE_DICTIONARY:
 						return _invalid("review contains invalid citations.")
@@ -403,7 +449,6 @@ static func validate_save(value: Variant) -> Dictionary:
 	if int(value.day) != int(replay.day) or int(value.shift_seconds) < int(replay.shift_seconds):
 		return _invalid("current clock precedes its action history.")
 	replay = advance(replay, int(value.shift_seconds) - int(replay.shift_seconds))
-	replay = dispatch(replay, {"type": "select-request", "request_id": value.active_request_id})
 	if typeof(value.get("citation_evidence")) != TYPE_DICTIONARY:
 		return _invalid("citations are missing their evidence.")
 	replay.selected_rules = []

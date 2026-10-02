@@ -1,6 +1,7 @@
 extends RefCounted
-## Authored conversation derived from arrived PRs and saved, explicit reply choices.
-## Does not import Simulation: Catalog owns the shared arrival schedule.
+## Authored conversation derived from desk arrivals, decisions, and saved reply choices.
+## Does not import Simulation: state records when each PR reached the desk, and
+## Catalog rebuilds revisions from the recipe the state records.
 
 const Catalog = preload("res://content/catalog.gd")
 const CONTACTS: Array = ["Maya", "Theo", "Inez", "company", "manager"]
@@ -10,6 +11,10 @@ const HISTORY_LIMIT: int = 24
 
 static func _authored() -> Dictionary:
 	return load("res://content/policy_chat.gd").authored()
+
+
+static func _lines():
+	return load("res://content/policy_chat.gd")
 
 
 static func _append(history: Array, author: String, text: String, kind: String, pr_id: String = "", day: int = 1, seconds: float = 0.0, sequence: int = -100) -> void:
@@ -65,15 +70,16 @@ static func _decision_for(state: Dictionary, pr_id: String) -> Dictionary:
 	return {}
 
 
+static func _arrival(state: Dictionary, pr_id: String) -> Dictionary:
+	for entry: Dictionary in state.get("arrivals", []):
+		if entry.get("pr_id") == pr_id:
+			return entry
+	return {}
+
+
+## A coworker sends a PR when it reaches the player's desk, never before.
 static func _arrived(state: Dictionary, request: Dictionary) -> bool:
-	var request_day := int(request.day)
-	var today := int(state.get("day", 1))
-	if request_day < today:
-		# Every earlier shift closed after all deliveries, including handed-off work.
-		return true
-	if request_day > today:
-		return false
-	return Catalog.arrival_seconds(str(request.id)) <= float(state.get("shift_seconds", 0.0))
+	return not _arrival(state, str(request.id)).is_empty()
 
 
 static func _option(contact: String, pr_id: String, reply_id: String) -> Dictionary:
@@ -123,7 +129,11 @@ static func reply_options(state: Dictionary, contact: String) -> Array:
 static func _request_history(history: Array, state: Dictionary, contact: String, request: Dictionary) -> void:
 	var pr_id := str(request.id)
 	var packet: Dictionary = _authored().get("requests", {}).get(pr_id, {})
-	_append(history, contact, str(packet.get("request", "")), "request", pr_id, int(request.day), Catalog.arrival_seconds(pr_id), -1)
+	var arrival := _arrival(state, pr_id)
+	var arrived_at := float(arrival.get("shift_seconds", 0))
+	# Revisions carry their own author note, phrased only from what the player cited.
+	var text := str(packet.get("request", request.get("message", "")))
+	_append(history, contact, text, "request", pr_id, int(arrival.get("day", request.day)), arrived_at, -1)
 	var seen: Array = []
 	var replies: Array = state.get("chat_replies", [])
 	for index in range(replies.size()):
@@ -138,7 +148,7 @@ static func _request_history(history: Array, state: Dictionary, contact: String,
 			continue
 		seen.append(reply_id)
 		var day := int(saved.get("day", request.day))
-		var seconds := float(saved.get("shift_seconds", Catalog.arrival_seconds(pr_id)))
+		var seconds := float(saved.get("shift_seconds", arrived_at))
 		var sequence := _event_order(state, "chat-reply", pr_id, reply_id, index)
 		_append(history, "You", str(option.text), "reply", "", day, seconds, sequence)
 		history[-1].id = contact + "|" + pr_id + "|" + reply_id + "|reply"
@@ -147,8 +157,11 @@ static func _request_history(history: Array, state: Dictionary, contact: String,
 		history[-1]["reply_key"] = contact + "|" + pr_id + "|" + reply_id
 	var decision := _decision_for(state, pr_id)
 	if not decision.is_empty():
-		# Reactions follow the chosen verdict; audit correctness is never consulted.
-		_append(history, contact, str(packet.get(str(decision.get("verdict", "")), "")), "reaction", "", int(request.day), float(decision.get("shift_seconds", Catalog.shift_seconds())), _event_order(state, "review", pr_id, "", replies.size()))
+		# Reactions follow the chosen verdict and citations; audit correctness is never consulted.
+		var reaction := str(packet.get("approve", "")) if decision.get("verdict") == "approve" else ""
+		if decision.get("verdict") == "request_changes" or int(request.get("revision", 1)) > 1:
+			reaction = _lines().reaction(contact, int(request.get("revision", 1)), str(decision.get("verdict", "")), decision.get("cited_rules", []), pr_id)
+		_append(history, contact, reaction, "reaction", "", int(request.day), float(decision.get("shift_seconds", Catalog.shift_seconds())), _event_order(state, "review", pr_id, "", replies.size()))
 		history[-1].id = contact + "|" + pr_id + "|reaction"
 
 
@@ -183,8 +196,9 @@ static func messages(state: Dictionary, contact: String) -> Array:
 		var tone := "warm" if relationship >= 65 else ("distant" if relationship <= 35 else "neutral")
 		if tone != "neutral":
 			_append(history, contact, str(person.get(tone, "")), "ambient", "", 1, 0, -90)
-		for request: Dictionary in Catalog.requests():
-			if request.author == contact and _arrived(state, request):
+		for arrival: Dictionary in state.get("arrivals", []):
+			var request := Catalog.packet(state, str(arrival.get("pr_id", "")), false)
+			if not request.is_empty() and request.author == contact:
 				_request_history(history, state, contact, request)
 	return _chronological(history)
 
@@ -193,19 +207,26 @@ static func _manager_messages(state: Dictionary) -> Array:
 	var history: Array = []
 	var copy: Dictionary = _authored().get("manager", {})
 	_append(history, "Morgan / Engineering Manager", str(copy.get("intro", "")), "intro")
+	# A PR sent back three times escalates to Morgan as soon as it happens.
+	for decision: Dictionary in state.get("decisions", []):
+		if decision.get("verdict") != "request_changes": continue
+		var escalated := Catalog.packet(state, str(decision.get("pr_id", "")), false)
+		if int(escalated.get("revision", 1)) < _lines().MAX_REVISION: continue
+		_append(history, "Morgan", _lines().escalation(str(escalated.author), str(escalated.origin_id)), "notice", "", int(escalated.day), float(decision.get("shift_seconds", 0)), _event_order(state, "review", str(escalated.id)))
 	for shift: Dictionary in state.get("shift_history", []):
 		var first := history.size()
 		var had_incident := false
 		var had_friction := false
 		var held := false
-		for request: Dictionary in Catalog.requests_for_day(int(shift.day)):
+		for request: Dictionary in Catalog.day_packets(state, int(shift.day)):
 			var decision := _decision_for(state, str(request.id))
 			if decision.is_empty(): continue
 			if decision.verdict == "approve" and not bool(decision.get("correct", true)):
-				var incident: String = str(_authored().get("requests", {}).get(request.id, {}).get("incident", ""))
+				var origin := str(request.get("origin_id", request.id))
+				var incident: String = str(_authored().get("requests", {}).get(origin, {}).get("incident", ""))
 				if not incident.is_empty() and not had_incident:
 					# One concrete example, rather than an identical warning per bad approval.
-					incident = str(request.id) + ": " + incident
+					incident = Catalog.display_id(str(request.id)) + ": " + incident
 					_append(history, "Morgan", incident, "notice", str(request.id))
 					had_incident = true
 			elif decision.verdict == "request_changes":

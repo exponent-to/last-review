@@ -126,8 +126,10 @@ func _test_component() -> void:
 	banter.queue_free()
 
 func _test_review_desk() -> void:
+	# The beat between a stamp and the next PR landing leaves the desk empty.
+	await _fresh_ui(Simulation.dispatch(Simulation.initial_state(), {"type": "review", "verdict": "approve"}))
+	check(not ui._banter.visible, "No author sits beside the form while no PR is open")
 	await _fresh_ui(Simulation.initial_state())
-	check(not ui._banter.visible, "No author sits beside the form before a PR is open")
 	state = Simulation.advance(state, 20)
 	ui.render_state(state)
 	var packet: Dictionary = Catalog.request_at(0)
@@ -230,7 +232,7 @@ func _test_orientation() -> void:
 	ui._process(ReviewBanter.LINE_SECONDS + 0.01)
 	ui._process(ReviewBanter.IDLE_SECONDS * 2)
 	check(not ui._banter.is_speaking() and ui._banter.visible, "Orientation has no idle nudges, but Maya stays seated")
-	_command({"type": "select-request", "pr_id": ""})
+	ui._windows.review.close_window()
 	ui._open_pr_link(str(packet.id))
 	check(not ui._banter.is_speaking(), "Maya greets only once during orientation")
 	ui._reject.pressed.emit()

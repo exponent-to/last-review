@@ -1,7 +1,6 @@
 extends RefCounted
 ## Authored review packets. Audit answers stay outside the active player view.
 
-static var _arrival_index: Dictionary = {}
 static var _requests: Array = []
 
 static func rules() -> Array:
@@ -14,10 +13,17 @@ static func rules_for_day(day: int) -> Array:
 			active.append(rule)
 	return active
 
+## The authored originals, in line order. Revisions live in each career's state.
 static func requests() -> Array:
 	if _requests.is_empty():
 		_requests = load("res://content/policy_campaign.gd").requests()
 	return _requests.duplicate(true)
+
+## Shared, read-only originals for hot internal paths; never mutate the result.
+static func originals() -> Array:
+	if _requests.is_empty():
+		_requests = load("res://content/policy_campaign.gd").requests()
+	return _requests
 
 static func request_at(index: int) -> Dictionary:
 	var packets: Array = requests()
@@ -44,19 +50,50 @@ static func requests_for_day(day: int) -> Array:
 			packets.append(request)
 	return packets
 
-## Deterministic in-world inbox delivery; queue size remains private scheduling data.
-static func arrival_seconds(request_id: String) -> int:
-	if _arrival_index.is_empty():
-		for packet: Dictionary in requests(): _arrival_index[packet.id] = int(packet.arrival_seconds)
-	return int(_arrival_index.get(request_id, -1))
+## Any packet a career has seen or queued, original or revision, with audit data.
+## Revisions are regenerated from the recipe recorded in `state.revisions`.
+## `copy` = false returns a shared read-only packet for hot internal paths.
+static func packet(state: Dictionary, request_id: String, copy: bool = true) -> Dictionary:
+	for request: Dictionary in originals():
+		if request.id == request_id:
+			return request.duplicate(true) if copy else request
+	for entry: Dictionary in state.get("revisions", []):
+		if entry.get("id") == request_id:
+			var parent: Dictionary = packet(state, str(entry.get("parent_id", "")), false)
+			if parent.is_empty(): return {}
+			var revision: Dictionary = load("res://content/policy_campaign.gd")._revision_ref(parent, int(entry.version), entry.fixed, str(entry.regression), entry.cited)
+			return revision.duplicate(true) if copy else revision
+	return {}
+
+## A day's originals plus the revisions its change requests produced.
+static func day_packets(state: Dictionary, day: int) -> Array:
+	var packets: Array = requests_for_day(day)
+	for entry: Dictionary in state.get("revisions", []):
+		if int(entry.get("day", 0)) == day:
+			packets.append(packet(state, str(entry.id)))
+	return packets
+
+## The shift second a PR reached the desk, or -1 if it never has.
+static func arrival(state: Dictionary, request_id: String) -> int:
+	for entry: Dictionary in state.get("arrivals", []):
+		if entry.get("pr_id") == request_id:
+			return int(entry.shift_seconds)
+	return -1
+
+## "PR-2004-v2" reads as "PR-2004 · v2"; originals keep their plain ID.
+static func display_id(request_id: String) -> String:
+	var marker: int = request_id.rfind("-v")
+	if marker > 0 and request_id.substr(marker + 2).is_valid_int():
+		return request_id.left(marker) + " · v" + request_id.substr(marker + 2)
+	return request_id
 
 static func shift_seconds() -> int:
 	return 300
 
 ## Audit/test helper: a citation command pointing at the packet's real evidence.
-static func audit_citation(packet: Dictionary, rule_id: String) -> Dictionary:
-	for finding: Dictionary in packet.get("findings", []):
+static func audit_citation(request: Dictionary, rule_id: String) -> Dictionary:
+	for finding: Dictionary in request.get("findings", []):
 		if finding.rule_id == rule_id:
 			return {"type": "toggle-rule", "rule_id": rule_id, "path": finding.path, "line": int(finding.line)}
-	var files: Array = packet.get("files", [])
+	var files: Array = request.get("files", [])
 	return {"type": "toggle-rule", "rule_id": rule_id, "path": str(files[0].path) if not files.is_empty() else "", "line": 0}
