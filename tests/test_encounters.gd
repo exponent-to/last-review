@@ -228,7 +228,7 @@ func _templates() -> Array:
 
 func _test_line_hygiene() -> void:
 	var subjects := RegEx.create_from_string("(?i)\\b(P\\d\\d|load-bearing|pigeon|urgen\\w*|tabs?|uppercase|lowercase|blue|pink|ink|exclamation|sign-?off|whitespace|filenames?|comments?|record|keywords?)\\b")
-	var claims := RegEx.create_from_string("(?i)(good catch|great catch|nice catch|you're right|you are right|you're wrong|my bad|my mistake|it's fine|compliant|\\bclean\\b|broken|\\bbugs?\\b|\\bcorrect|incorrect|violat|audit|typo)")
+	var claims := RegEx.create_from_string("(?i)(good catch|great catch|nice catch|you're right|you are right|you're wrong|\\bmy bad\\b|my mistake|it's fine|compliant|\\bclean\\b|broken|\\bbugs?\\b|\\bcorrect|incorrect|violat|audit|typo)")
 	var font: FontFile = ReviewBanter.TerminalFont
 	var wrap_width: float = ReviewBanter.WIDTH - ReviewBanter.SHADOW - ReviewBanter.PAD.x * 2
 	var seen := {}

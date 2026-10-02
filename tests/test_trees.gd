@@ -15,7 +15,7 @@ var failures := 0
 
 func _initialize() -> void:
 	var subjects := RegEx.create_from_string("(?i)\\b(P\\d\\d|load-bearing|pigeon|urgen\\w*|tabs?|uppercase|lowercase|blue|pink|ink|exclamation|sign-?off|whitespace|filenames?|comments?|record|keywords?)\\b")
-	var claims := RegEx.create_from_string("(?i)(good catch|great catch|nice catch|you're right|you are right|you're wrong|my bad|my mistake|it's fine|compliant|\\bclean\\b|broken|\\bbugs?\\b|\\bcorrect|incorrect|violat|audit|typo)")
+	var claims := RegEx.create_from_string("(?i)(good catch|great catch|nice catch|you're right|you are right|you're wrong|\\bmy bad\\b|my mistake|it's fine|compliant|\\bclean\\b|broken|\\bbugs?\\b|\\bcorrect|incorrect|violat|audit|typo)")
 	var articles := RegEx.create_from_string("(?i)\\b(the|a|an|your|my|this|that|our|whole)\\s+\\{topics?\\}")
 	var braces := RegEx.create_from_string("\\{[^}]*\\}")
 	var by_title := {}
