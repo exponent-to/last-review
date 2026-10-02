@@ -69,6 +69,7 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 - `native/main_menu.gd`, `native/cold_open.gd`, `native/tutorial.gd` — start/load menu, animated hiring vignette, and guided practice.
 - `native/daily_reader.gd`, `content/daily_press.gd` — morning news, articles, and rule-derived daily memos.
 - `native/office_scene.gd`, `art/` — rasterized SVG office scenery and animation.
+- `native/portraits.gd`, `art/cats/` — pixel-art cat portraits of the cast, shown in Slouch, Review, and notifications.
 - `native/computer_frame.gd` — physical monitor and animated rainy room around the desktop.
 - `native/save_store.gd`, `native/main.gd` — persistence and application wiring.
 - `tests/`, `scripts/`, `export_presets.cfg` — checks and native macOS packaging.

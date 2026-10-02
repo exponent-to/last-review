@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Helios: the company AI, a steel cat with amber eyes. -->
+  <path fill="#120f09" d="M0 0h32v32H0z"/>
+  <path fill="#2e2511" d="M2 2h1v1h-1zM6 2h1v1h-1zM10 2h1v1h-1zM14 2h1v1h-1zM18 2h1v1h-1zM22 2h1v1h-1zM26 2h1v1h-1zM30 2h1v1h-1zM30 6h1v1h-1zM2 26h1v1h-1zM30 26h1v1h-1z"/>
+  <path fill="#08090b" d="M4 2h1v1h-1zM27 2h1v1h-1zM3 3h1v2h-1zM5 3h1v1h-1zM26 3h1v1h-1zM28 3h1v2h-1zM6 4h1v1h-1zM25 4h1v1h-1zM2 5h1v3h-1zM7 5h1v1h-1zM11 5h4v1h-4zM17 5h4v1h-4zM24 5h1v1h-1zM29 5h1v3h-1zM8 6h3v1h-3zM21 6h3v1h-3zM1 8h1v15h-1zM30 8h1v15h-1zM2 23h1v1h-1zM29 23h1v1h-1zM3 24h2v1h-2zM27 24h2v1h-2zM5 25h6v1h-6zM21 25h6v1h-6zM3 26h7v1h-7zM22 26h7v1h-7zM2 27h1v1h-1zM11 27h10v1h-10zM29 27h1v1h-1zM1 28h1v4h-1zM30 28h1v4h-1z"/>
+  <path fill="#86919b" d="M4 5h2v1h-2zM26 5h2v1h-2zM4 6h3v1h-3zM25 6h3v1h-3zM3 7h7v1h-7zM22 7h7v1h-7zM2 8h13v1h-13zM17 8h13v1h-13zM3 9h12v1h-12zM17 9h12v1h-12zM2 10h13v1h-13zM17 10h13v1h-13zM2 17h28v1h-28zM2 18h12v1h-12zM18 18h12v1h-12zM7 19h18v1h-18zM2 20h6v1h-6zM9 20h14v1h-14zM24 20h6v1h-6zM7 21h2v1h-2zM23 21h2v1h-2zM3 22h26v2h-26zM5 24h22v1h-22zM2 28h28v1h-28zM2 29h10v1h-10zM20 29h10v1h-10zM2 30h1v1h-1zM4 30h8v1h-8zM20 30h8v1h-8zM29 30h1v1h-1zM2 31h10v1h-10zM20 31h10v1h-10z"/>
+  <path fill="#c8d0d6" d="M4 3h1v2h-1zM27 3h1v2h-1zM3 5h1v2h-1zM28 5h1v2h-1zM11 6h10v1h-10zM10 7h12v1h-12zM3 27h8v1h-8zM21 27h8v1h-8z"/>
+  <path fill="#4c5660" d="M15 2h2v4h-2zM6 5h1v1h-1zM25 5h1v1h-1zM7 6h1v1h-1zM24 6h1v1h-1zM15 8h2v3h-2zM2 19h5v1h-5zM25 19h5v1h-5zM2 21h5v1h-5zM25 21h5v1h-5zM11 25h1v1h-1zM13 25h1v1h-1zM15 25h2v1h-2zM18 25h1v1h-1zM20 25h1v1h-1zM10 26h1v1h-1zM12 26h1v1h-1zM14 26h1v1h-1zM17 26h1v1h-1zM19 26h1v1h-1zM21 26h1v1h-1z"/>
+  <path fill="#1c2127" d="M2 11h28v1h-28zM2 12h3v1h-3zM9 12h14v1h-14zM27 12h3v1h-3zM2 13h2v2h-2zM7 13h1v2h-1zM10 13h12v2h-12zM24 13h1v2h-1zM28 13h2v2h-2zM2 15h3v1h-3zM9 15h14v1h-14zM27 15h3v1h-3zM2 16h28v1h-28zM14 18h4v1h-4zM10 21h1v1h-1zM12 21h1v1h-1zM14 21h1v1h-1zM17 21h1v1h-1zM19 21h1v1h-1zM21 21h1v1h-1zM12 25h1v1h-1zM14 25h1v1h-1zM17 25h1v1h-1zM19 25h1v1h-1zM11 26h1v1h-1zM13 26h1v1h-1zM15 26h2v1h-2zM18 26h1v1h-1zM20 26h1v1h-1zM12 29h8v1h-8zM12 30h1v1h-1zM19 30h1v1h-1zM12 31h8v1h-8z"/>
+  <path fill="#7a5a1c" d="M5 12h4v1h-4zM23 12h4v1h-4zM4 13h1v2h-1zM9 13h1v2h-1zM22 13h1v2h-1zM27 13h1v2h-1zM5 15h4v1h-4zM23 15h4v1h-4zM13 30h1v1h-1zM18 30h1v1h-1z"/>
+  <path fill="#e0b44a" d="M5 13h1v2h-1zM8 13h1v2h-1zM23 13h1v2h-1zM26 13h1v2h-1zM8 20h1v1h-1zM23 20h1v1h-1zM9 21h1v1h-1zM11 21h1v1h-1zM13 21h1v1h-1zM15 21h2v1h-2zM18 21h1v1h-1zM20 21h1v1h-1zM22 21h1v1h-1zM14 30h1v1h-1zM17 30h1v1h-1z"/>
+  <path fill="#fff1b8" d="M6 13h1v2h-1zM25 13h1v2h-1zM15 30h2v1h-2z"/>
+  <path fill="#e5384a" d="M15 0h2v2h-2z"/>
+  <path fill="#e6ebee" d="M5 4h1v1h-1zM26 4h1v1h-1zM2 9h1v1h-1zM29 9h1v1h-1zM2 22h1v1h-1zM29 22h1v1h-1zM3 30h1v1h-1zM28 30h1v1h-1z"/>
+</svg>

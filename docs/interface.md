@@ -34,6 +34,8 @@ No trust, stress, automation, relationship, or final-score meters are displayed.
 
 `content/chat.gd` supplies `messages(state, contact)` for company, Maya, Theo, Inez, and manager Morgan. Slouch renders authored author/text rows; it does not derive hints from hidden audit answers. Incoming messages never open, raise, or switch the app. The selected conversation remains under player control. Unread counts appear on conversations, red circular desktop-icon badges, and taskbar entries. Opening a conversation clears only its messages; the player’s own replies never increase the count.
 
+Every message from someone else carries a 32-pixel cat portrait left of its bubble (`native/portraits.gd`); the player's own messages have none, and a faceless sender such as Operations keeps the same indent. The DM buttons show each coworker's portrait, and a Slouch ticker card from a person shows their face beside the text.
+
 Opening a conversation clears its dot. New messages follow the bottom only when the player was reading the latest content; otherwise the previous scroll position is retained. Contact changes settle at the latest messages after native layout. The message viewport uses `SCROLL_MODE_SHOW_NEVER` horizontally so a hidden paragraph's temporary unwrapped width cannot inflate the floating window on first open.
 
 ## Verification
