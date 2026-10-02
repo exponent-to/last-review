@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Inez, perked up under the cursor. Drawn over inez.svg; transparent except the pixels it changes. -->
+  <path fill="#050506" d="M8 14h2v3h-2zM22 14h2v3h-2z"/>
+  <path fill="#2f8a4f" d="M10 14h1v1h-1zM24 14h1v1h-1z"/>
+  <path fill="#6fdc8c" d="M10 15h1v2h-1zM24 15h1v2h-1zM7 16h1v1h-1zM21 16h1v1h-1z"/>
+  <path fill="#0a090d" d="M6 16h1v1h-1zM11 16h1v1h-1zM20 16h1v1h-1zM25 16h1v1h-1zM7 17h4v1h-4zM21 17h4v1h-4z"/>
+</svg>

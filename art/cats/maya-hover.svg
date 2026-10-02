@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Maya, perked up under the cursor. Drawn over maya.svg; transparent except the pixels it changes. -->
+  <path fill="#25140b" d="M1 2h2v1h-2zM29 2h2v1h-2zM3 3h2v1h-2zM27 3h2v1h-2zM5 4h2v1h-2zM25 4h2v1h-2zM7 5h1v1h-1zM24 5h1v1h-1zM2 6h1v1h-1zM8 6h2v1h-2zM22 6h2v1h-2zM29 6h1v1h-1z"/>
+  <path fill="#e38b3a" d="M2 3h1v1h-1zM29 3h1v1h-1zM6 5h1v1h-1zM25 5h1v1h-1zM3 6h1v1h-1zM7 6h1v1h-1zM24 6h1v1h-1zM28 6h1v1h-1z"/>
+  <path fill="#e69c92" d="M3 4h2v1h-2zM27 4h2v1h-2zM5 5h1v1h-1zM26 5h1v1h-1zM6 6h1v1h-1zM25 6h1v1h-1z"/>
+  <path fill="#1e3a36" d="M1 6h1v1h-1zM30 6h1v1h-1z"/>
+  <path fill="#a9d46c" d="M8 14h1v1h-1zM10 14h1v1h-1zM21 14h2v1h-2z"/>
+  <path fill="#120c08" d="M9 14h1v1h-1zM23 14h1v1h-1z"/>
+</svg>

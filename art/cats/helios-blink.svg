@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Helios, eyes shut mid-blink. Drawn over helios.svg; transparent except the pixels it changes. -->
+  <path fill="#1c2127" d="M4 12h6v2h-6zM22 12h6v2h-6zM4 15h6v1h-6zM22 15h6v1h-6z"/>
+  <path fill="#7a5a1c" d="M4 14h1v1h-1zM9 14h1v1h-1zM22 14h1v1h-1zM27 14h1v1h-1z"/>
+  <path fill="#e0b44a" d="M5 14h4v1h-4zM23 14h4v1h-4z"/>
+</svg>

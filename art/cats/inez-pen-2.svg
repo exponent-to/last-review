@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Inez, red pen lifted between taps. Drawn over inez.svg; transparent except the pixels it changes. -->
+  <path fill="#c0202f" d="M14 24h1v1h-1zM13 25h1v1h-1zM12 26h1v1h-1zM11 27h1v1h-1zM10 28h1v1h-1z"/>
+  <path fill="#8a1622" d="M14 25h1v1h-1zM13 26h1v1h-1zM12 27h1v1h-1zM11 28h1v1h-1z"/>
+  <path fill="#e6ebee" d="M9 29h1v1h-1z"/>
+</svg>

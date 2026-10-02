@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Maya, mouth open, for the talking flap. Drawn over maya.svg; transparent except the pixels it changes. -->
+  <path fill="#f7e6c8" d="M12 19h3v1h-3zM17 19h3v1h-3zM12 20h1v1h-1zM19 20h1v1h-1zM12 21h2v1h-2zM18 21h2v1h-2zM12 22h3v1h-3zM17 22h3v1h-3z"/>
+  <path fill="#a0583e" d="M15 19h2v1h-2zM13 20h2v1h-2zM17 20h2v1h-2z"/>
+  <path fill="#5a1f1a" d="M15 20h2v1h-2z"/>
+  <path fill="#25140b" d="M14 21h1v1h-1zM17 21h1v1h-1zM15 22h2v1h-2z"/>
+  <path fill="#e0767a" d="M15 21h2v1h-2z"/>
+</svg>

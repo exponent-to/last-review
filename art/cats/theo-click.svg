@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Theo, reacting to a poke. Drawn over theo.svg; transparent except the pixels it changes. -->
+  <path fill="#17181b" d="M3 0h1v1h-1zM28 0h1v1h-1zM4 1h1v1h-1zM27 1h1v1h-1zM5 2h1v1h-1zM26 2h1v1h-1zM6 3h1v1h-1zM25 3h1v1h-1zM7 4h1v1h-1zM24 4h1v1h-1zM8 5h1v1h-1zM23 5h1v1h-1zM7 11h4v1h-4zM21 11h4v1h-4zM6 12h1v5h-1zM11 12h1v5h-1zM20 12h1v5h-1zM25 12h1v5h-1zM7 17h4v1h-4zM21 17h4v1h-4z"/>
+  <path fill="#a3a7ab" d="M4 2h1v1h-1zM27 2h1v1h-1zM6 17h1v1h-1zM11 17h1v1h-1zM20 17h1v1h-1zM25 17h1v1h-1z"/>
+  <path fill="#cf9fa2" d="M5 3h1v1h-1zM26 3h1v1h-1zM6 4h1v1h-1zM25 4h1v1h-1zM7 5h1v1h-1zM24 5h1v1h-1z"/>
+  <path fill="#eeede6" d="M5 5h1v1h-1zM26 5h1v1h-1zM13 19h2v1h-2zM17 19h2v1h-2zM12 20h1v1h-1zM19 20h1v1h-1zM12 21h2v1h-2zM18 21h2v1h-2zM12 22h8v1h-8z"/>
+  <path fill="#b9cf96" d="M7 12h4v2h-4zM21 12h4v2h-4zM7 14h1v2h-1zM10 14h1v2h-1zM21 14h1v2h-1zM24 14h1v2h-1zM7 16h4v1h-4zM21 16h4v1h-4z"/>
+  <path fill="#101112" d="M8 14h2v2h-2zM22 14h2v2h-2z"/>
+  <path fill="#7d8084" d="M12 19h1v1h-1zM15 19h2v1h-2zM19 19h1v1h-1zM13 20h2v1h-2zM17 20h2v1h-2zM14 21h1v1h-1zM17 21h1v1h-1z"/>
+  <path fill="#2a2224" d="M15 20h2v2h-2z"/>
+</svg>

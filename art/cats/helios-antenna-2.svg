@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Helios, antenna light dimmed. Drawn over helios.svg; transparent except the pixels it changes. -->
+  <path fill="#5a1a20" d="M15 0h2v2h-2z"/>
+</svg>
