@@ -28,7 +28,7 @@ static func observe(progress: Dictionary, event: Dictionary, state: Dictionary) 
 						next.inspected_files.append(file.path)
 				if next.inspected_files.size() == packet.files.size(): next.stage = 5
 		5:
-			if kind == "open-handbook": next.stage = 6
+			if kind == "open-standards": next.stage = 6
 		6:
 			if kind == "correct-submit" and not state.decisions.is_empty() and state.decisions[-1].pr_id == packet.id and state.decisions[-1].correct:
 				next.stage = 7
@@ -50,8 +50,8 @@ static func prompt(progress: Dictionary) -> Dictionary:
 		["OPEN THE PR", "Select Maya's conversation and click OPEN PR-1042."],
 		["OPEN THE PR", "Click OPEN PR-1042 in Maya's message."],
 		["LOOK AT BOTH FILES", "Use the file dropdown. Read the comments in each file. A comment is any text after #. You are checking appearances, not what the program does."],
-		["OPEN HANDBOOK", "Three policies apply today. You'll get more each morning. Open the handbook to find them."],
-		["CITE THE PHRASE", "Policy P01 bans load-bearing in comments. In Review, open the file with that comment and click its line; it turns amber. Switch to the Handbook and tick P01. Back in Review, stamp CHANGES REQUESTED. The other two policies pass."],
+		["READ THE STANDARDS", "Three policies apply today. You'll get more each morning. Open INTRANET and choose STANDARDS to read them."],
+		["CITE THE PHRASE", "Policy P01 bans load-bearing in comments. In Review, open the file with that comment and click its line. Pick P01 in the box that opens, then stamp CHANGES REQUESTED. The other two policies pass."],
 		["READY", "That's the job. Work arrives constantly; you aren't expected to clear it all. Use NEXT PR in Review to grab another arrived change. Pause whenever you need. Start Monday when ready."]
 	]
 	var entry: Array = steps[int(progress.stage)]

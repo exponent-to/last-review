@@ -26,7 +26,7 @@ func _initialize() -> void:
 	progress = Tutorial.observe(progress, {"type": "open-review"}, state)
 	for file: Dictionary in Tutorial.Catalog.request_at(0).files:
 		progress = Tutorial.observe(progress, {"type": "inspect-file", "path": file.path}, state)
-	progress = Tutorial.observe(progress, {"type": "open-handbook"}, state)
+	progress = Tutorial.observe(progress, {"type": "open-standards"}, state)
 	check(progress.stage == 6, "Real training sequence reaches disposition.")
 	var envelope := {"format": "last-review-session", "version": 1, "state": state, "tutorial": progress}
 	var loaded := SaveStore.decode_session(JSON.parse_string(JSON.stringify(envelope)))

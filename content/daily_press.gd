@@ -50,7 +50,7 @@ static func memo(day: int) -> Dictionary:
 	result.mechanics = [
 		"Work is assigned through Slouch and queued in Review. Take the next item with NEXT PR. Do not wait to be asked twice.",
 		"Every changed file is shown in full, with line numbers. Read the keyword colors yourself. Nobody will read them for you.",
-		"If every standard is met, stamp APPROVED. If not, mark the offending line in Review (or WHOLE FILE), cite the standard it breaks in the Handbook, then stamp CHANGES REQUESTED. An uncited objection is not an objection.",
+		"If every standard is met, stamp APPROVED. If not, click the offending line in Review (or WHOLE FILE), pick the standard it breaks, then stamp CHANGES REQUESTED. An uncited objection is not an objection.",
 		"Your shift is five minutes from BEGIN SHIFT. You may pause; the queue will not. Whatever remains at closing is reassigned to Helios.",
 	]
 	result.rules = new_rules

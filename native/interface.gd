@@ -78,12 +78,11 @@ var _chat_last_draw: String = ""
 var _chat_heading: Label
 var _chat_scroll: ScrollContainer
 var _chat_messages: VBoxContainer
-var _rule_rows: Array[Dictionary] = []
 var _monitor_screen: Control
 var _desktop_home: Control
 var _home_icons: Dictionary = {}
 var _notifications: Notifications
-var _app_counts := {"review": 0, "rules": 0, "chat": 0, "browser": 0, "system": 0}
+var _app_counts := {"review": 0, "chat": 0, "browser": 0, "system": 0}
 var _app_badges: Dictionary = {}
 var _known_requests: Dictionary = {}
 var _unread_requests: Dictionary = {}
@@ -115,9 +114,6 @@ var _file_positions: Dictionary = {}
 var _selected_files: Dictionary = {}
 var _displayed_file_key: String = ""
 var _diff: CodeEdit
-var _search: LineEdit
-var _category: OptionButton
-var _rule_count: Label
 var _selected_label: Label
 var _clear_button: Button
 var _approve: Button
@@ -154,7 +150,11 @@ var _paper: PanelContainer
 var _last_feedback_key := "-"
 var _evidence: Dictionary = {}
 var _evidence_label: Label
-var _handbook_evidence: Label
+var _flag_box: PanelContainer
+var _flag_title: Label
+var _flag_buttons: Dictionary = {}
+var _citation_list: VBoxContainer
+var _standards_link: Button
 var _chat_channel_label: Label
 var _whole_file: Button
 
@@ -177,6 +177,7 @@ func _ready() -> void:
 	_build_desktop(frame)
 	_build_dock(frame)
 	_build_tutorial_panel()
+	_build_flag_box()
 	_notifications = Notifications.new()
 	_monitor_screen.add_child(_notifications)
 	_notifications.activated.connect(_open_notification)
@@ -476,7 +477,6 @@ func _build_desktop(parent: Node) -> void:
 	code.size_flags_stretch_ratio = 2.4
 	_build_review_content(code)
 	_build_decision(review_body)
-	_build_rulebook(_new_window("rules", "HANDBOOK / ENGINEERING STANDARDS").body)
 	_build_chat(_new_window("chat", "SLOUCH / ENGINEERING").body)
 	_build_system(_new_window("system", "SYSTEM / WORKSTATION SETTINGS").body)
 	_build_browser(_new_window("browser", "INTRANET / LOCAL BROWSER").body)
@@ -521,7 +521,6 @@ func _build_home() -> void:
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var launchers: Array = [
 		["review", "REVIEW", "review"],
-		["rules", "HANDBOOK", "handbook"],
 		["chat", "SLOUCH", "slouch"],
 		["browser", "INTRANET", "browser"],
 		["system", "SYSTEM", "system"],
@@ -578,7 +577,7 @@ func _new_window(id: String, title: String) -> DesktopWindow:
 	var window: DesktopWindow = DesktopWindow.new()
 	window.window_id = id
 	window.window_title = title
-	window.resize_minimum_size = {"review": Vector2(650, 390), "rules": Vector2(340, 320), "chat": Vector2(520, 300)}.get(id, Vector2(420, 280))
+	window.resize_minimum_size = {"review": Vector2(650, 390), "chat": Vector2(520, 300)}.get(id, Vector2(420, 280))
 	window.activated.connect(_focus_app)
 	window.minimized.connect(func(_id: String) -> void: _update_dock())
 	window.closed.connect(func(_id: String) -> void: _update_dock())
@@ -704,6 +703,7 @@ func _select_file(index: int) -> void:
 	_diff.syntax_highlighter = highlighter
 	_diff.text = str(entry.source)
 	_evidence = {}
+	if is_instance_valid(_flag_box): _flag_box.hide()
 	_diff.draw_tabs = true
 	_update_code_legend()
 	_paint_evidence()
@@ -752,7 +752,7 @@ func _build_dock(parent: Node) -> void:
 	_home_button = home
 	home.add_theme_font_size_override("font_size", 12)
 	home.tooltip_text = "Show the desktop. Open windows remain on the taskbar."
-	for item: Array in [["review", "REVIEW"], ["rules", "HANDBOOK"], ["chat", "SLOUCH"], ["browser", "INTRANET"], ["system", "SYSTEM"]]:
+	for item: Array in [["review", "REVIEW"], ["chat", "SLOUCH"], ["browser", "INTRANET"], ["system", "SYSTEM"]]:
 		var id: String = str(item[0])
 		var button: Button = _button(dock, str(item[1]), _open_app.bind(id))
 		button.toggle_mode = true
@@ -775,7 +775,6 @@ func _arrange_windows() -> void:
 	var extent: Vector2 = _desktop.size
 	var layouts: Dictionary = {
 		"review": Rect2(Vector2(142, 8), Vector2(extent.x - 150, extent.y - 16)),
-		"rules": Rect2(Vector2(extent.x - 400, 30), Vector2(380, minf(600, extent.y - 50))),
 		"chat": Rect2(Vector2(160, 55), Vector2(minf(760, extent.x - 190), minf(520, extent.y - 82))),
 		"system": Rect2(Vector2(210, 90), Vector2(minf(650, extent.x - 240), minf(470, extent.y - 118))),
 		"browser": Rect2(Vector2(185, 70), Vector2(minf(720, extent.x - 215), minf(500, extent.y - 98))),
@@ -803,7 +802,7 @@ func _open_app(id: String) -> void:
 	window.restore_window()
 	_mark_app_read(id)
 	_update_dock()
-	var event_type: String = {"chat": "open-chat", "review": "open-review", "rules": "open-handbook"}.get(id, "")
+	var event_type: String = {"chat": "open-chat", "review": "open-review"}.get(id, "")
 	if not event_type.is_empty(): tutorial_event.emit({"type": event_type})
 	if id == "review" and not _review_files.is_empty():
 		tutorial_event.emit({"type": "inspect-file", "path": _file_label.text})
@@ -840,6 +839,7 @@ func _build_browser(page: VBoxContainer) -> void:
 	_button(links, "NEWS", _browse.bind("news"))
 	_button(links, "PROCEDURE", _browse.bind("procedure"))
 	_button(links, "DAILY MEMO", _browse.bind("memo"))
+	_standards_link = _button(links, "STANDARDS", _browse.bind("standards"))
 	var content: VBoxContainer = _scroll_column(page)
 	_browser_text = _paragraph(content, "", 15)
 	_browser_plain = content.get_parent()
@@ -857,7 +857,10 @@ func _browse(path: String, record: bool = true) -> void:
 	_browser_path = path
 	_browser_address.text = "intranet://engineering/" + path
 	_browser_back.disabled = _browser_history.is_empty()
-	var reading := path in ["news", "memo"] or path.begins_with("story/")
+	var reading := path in ["news", "memo", "standards"] or path.begins_with("story/")
+	if path == "standards":
+		_mark_app_read("browser")
+		tutorial_event.emit({"type": "open-standards"})
 	_browser_plain.visible = not reading
 	_daily_reader.visible = reading
 	if reading:
@@ -866,7 +869,7 @@ func _browse(path: String, record: bool = true) -> void:
 		return
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, click the offending line (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then tick the rule it breaks in HANDBOOK.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, click the offending line (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then pick the standard it breaks in the box that opens on that line. Full standards are on the intranet.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
 		_:
 			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nNEWS carries the morning headlines. DAILY MEMO carries today's instructions from management. PROCEDURE describes the review process.\n\nExternal access restricted by company policy."
 
@@ -908,69 +911,6 @@ func _browser_go_back() -> void:
 		_browse(previous, false)
 
 
-func _build_rulebook(parent: Node) -> void:
-	var column: VBoxContainer = _column(parent)
-	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.size_flags_stretch_ratio = 1.05
-	column.custom_minimum_size.x = 300
-	_label(column, "NORTHSTAR STANDARDS / COMPLIANCE", 13, CYAN)
-	_search = LineEdit.new()
-	_search.placeholder_text = "Search ID, title, or text"
-	_search.clear_button_enabled = true
-	_search.custom_minimum_size.y = 35
-	_search.text_changed.connect(func(_text: String) -> void: _filter_rules())
-	column.add_child(_search)
-	_category = OptionButton.new()
-	_category.add_item("All categories")
-	_category.custom_minimum_size.y = 34
-	_category.item_selected.connect(func(_index: int) -> void: _filter_rules())
-	column.add_child(_category)
-	_rule_count = _paragraph(column, "", 12, DIM)
-	_handbook_evidence = _paragraph(column, "", 12, DIM)
-	var rules_body: VBoxContainer = _scroll_column(column)
-	var categories: Array[String] = []
-	var all_rules: Array = Catalog.rules()
-	for rule: Dictionary in all_rules:
-		var category: String = str(rule.get("category", "General"))
-		if not categories.has(category):
-			categories.append(category)
-			_category.add_item(category)
-		var panel: PanelContainer = PanelContainer.new()
-		panel.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 0, 0))
-		rules_body.add_child(panel)
-		var body: VBoxContainer = _column(_margin(panel, 8, 6), 4)
-		var header := _row(body, 4)
-		var check: CheckBox = CheckBox.new()
-		check.text = str(rule.get("id", "")) + "  / CITE"
-		check.add_theme_font_size_override("font_size", 13)
-		var id: String = str(rule.get("id", ""))
-		check.toggled.connect(func(_pressed: bool) -> void: _toggle_citation(id))
-		header.add_child(check)
-		_spacer(header)
-		var summary := _paragraph(body, str(RULE_SUMMARIES.get(id, rule.get("title", ""))), 13, TEXT)
-		summary.tooltip_text = str(rule.get("title", ""))
-		var where := _label(body, "", 11, RED)
-		where.clip_text = true
-		where.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		where.custom_minimum_size.x = 60
-		where.hide()
-		var details := _column(body, 4)
-		_paragraph(details, str(rule.get("title", "")), 13, CYAN)
-		_paragraph(details, str(rule.get("text", "")), 13, DIM)
-		details.hide()
-		var disclosure := Button.new()
-		disclosure.text = "DETAILS +"
-		disclosure.flat = true
-		disclosure.toggle_mode = true
-		disclosure.add_theme_font_size_override("font_size", 11)
-		disclosure.tooltip_text = "Show full wording and exceptions for " + id
-		disclosure.toggled.connect(func(expanded: bool) -> void:
-			details.visible = expanded
-			disclosure.text = "DETAILS −" if expanded else "DETAILS +")
-		header.add_child(disclosure)
-		_rule_rows.append({"rule": rule, "panel": panel, "check": check, "summary": summary, "details": details, "disclosure": disclosure, "where": where})
-
-
 func _build_decision(parent: Node) -> void:
 	var holder: VBoxContainer = _column(parent, 6)
 	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -983,14 +923,12 @@ func _build_decision(parent: Node) -> void:
 	_clear_button.custom_minimum_size.y = 24
 	_clear_button.add_theme_font_size_override("font_size", 10)
 	_clear_button.tooltip_text = "Withdraw every citation on this PR."
-	# The standards live in HANDBOOK; this desk only shows what has been cited.
+	# Citations are made on the code itself; full rule text lives on the intranet.
 	var column: VBoxContainer = _scroll_column(holder)
 	column.add_theme_constant_override("separation", 6)
-	_selected_label = _paragraph(column, "CITATIONS: NONE", 12, DIM)
-	_paragraph(column, "Point at the evidence here, then tick the rule it breaks in HANDBOOK.", 11, DIM)
-	var handbook := _button(column, "OPEN HANDBOOK", _open_app.bind("rules"))
-	handbook.add_theme_font_size_override("font_size", 11)
-	handbook.custom_minimum_size.y = 28
+	_selected_label = _paragraph(column, "NONE YET", 12, DIM)
+	_citation_list = _column(column, 4)
+	_paragraph(column, "Click a line to flag it. Full standards: INTRANET > STANDARDS.", 11, DIM)
 	_consult = _button(column, "ASK HELIOS", _emit_command.bind({"type": "consult-ai"}))
 	_consult.add_theme_color_override("font_color", AMBER)
 	_consult.tooltip_text = "Ask Helios for a recommendation. It can lighten your workload, but invites the assistant further into the process. Advice can be wrong."
@@ -1003,12 +941,128 @@ func _build_decision(parent: Node) -> void:
 
 
 func _point_at(line: int) -> void:
-	# line -1 reads the clicked caret line; 0 means the whole file.
+	# line -1 reads the clicked (or first selected) line; 0 means the whole file.
 	if _displayed_file_key.is_empty() or _review_files.is_empty(): return
+	if not bool(_state.get("phase", "review") == "review"): return
 	var path: String = _file_label.text
-	_evidence = {"path": path, "line": _diff.get_caret_line() + 1 if line < 0 else line}
-	tutorial_event.emit({"type": "point-evidence", "path": path, "line": int(_evidence.line)})
+	var picked: int = line
+	if line < 0:
+		picked = (_diff.get_selection_from_line() if _diff.has_selection() else _diff.get_caret_line()) + 1
+	_evidence = {"path": path, "line": picked}
+	tutorial_event.emit({"type": "point-evidence", "path": path, "line": picked})
 	_paint_evidence()
+	_open_flag_box()
+
+
+func _build_flag_box() -> void:
+	# A code-review comment box that opens on the flagged line.
+	_flag_box = PanelContainer.new()
+	var frame := _style(Color("0d0d0f"), AMBER, 1, 10, 8)
+	frame.border_width_left = 4
+	frame.shadow_color = Color(0, 0, 0, 0.6)
+	frame.shadow_size = 8
+	_flag_box.add_theme_stylebox_override("panel", frame)
+	_flag_box.z_index = 60
+	_flag_box.hide()
+	_monitor_screen.add_child(_flag_box)
+	var box := _column(_flag_box, 6)
+	var heading := _row(box, 8)
+	_flag_title = _label(heading, "", 12, AMBER)
+	_spacer(heading)
+	var close := _button(heading, "×", _close_flag_box)
+	close.flat = true
+	close.custom_minimum_size = Vector2(24, 22)
+	close.tooltip_text = "Close without citing (Esc)"
+	var choices := HFlowContainer.new()
+	choices.add_theme_constant_override("h_separation", 6)
+	choices.add_theme_constant_override("v_separation", 6)
+	box.add_child(choices)
+	for rule: Dictionary in Catalog.rules():
+		var id: String = str(rule.id)
+		var choice := Button.new()
+		choice.text = id
+		choice.toggle_mode = true
+		choice.custom_minimum_size = Vector2(54, 30)
+		choice.add_theme_font_size_override("font_size", 13)
+		choice.tooltip_text = "%s  %s\n%s" % [id, str(rule.title), str(RULE_SUMMARIES.get(id, ""))]
+		choice.add_theme_stylebox_override("pressed", _style(Color("2a0d12"), RED, 1, 9, 7))
+		choice.add_theme_color_override("font_pressed_color", RED)
+		choice.pressed.connect(_flag_rule.bind(id))
+		choices.add_child(choice)
+		_flag_buttons[id] = choice
+	_paragraph(box, "Pick the standard this breaks. Hover an ID for its summary.", 11, DIM)
+
+
+func _open_flag_box() -> void:
+	if _evidence.is_empty(): return
+	var day: int = int(_state.get("day", 1))
+	var cited: Dictionary = _state.get("citation_evidence", {})
+	_flag_title.text = "FLAG %s AS BREAKING:" % _location_text(_evidence).to_upper()
+	for rule: Dictionary in Catalog.rules():
+		var button: Button = _flag_buttons[str(rule.id)]
+		button.visible = int(rule.introduced_day) <= day
+		button.set_pressed_no_signal(cited.get(str(rule.id), {}) == _evidence)
+	_flag_box.size = Vector2(minf(420, _monitor_screen.size.x - 24), 0)
+	_flag_box.show()
+	_place_flag_box.call_deferred()
+
+
+func _place_flag_box() -> void:
+	if not is_instance_valid(_flag_box) or not _flag_box.visible or _evidence.is_empty(): return
+	_flag_box.size.y = _flag_box.get_combined_minimum_size().y
+	var anchor: Vector2
+	if int(_evidence.line) > 0:
+		var rect: Rect2i = _diff.get_rect_at_line_column(int(_evidence.line) - 1, 0)
+		anchor = _diff.global_position + Vector2(rect.position.x, rect.end.y + 4) if rect.position.y >= 0 else _diff.global_position + Vector2(24, 8)
+	else:
+		anchor = _whole_file.global_position + Vector2(_whole_file.size.x - _flag_box.size.x, _whole_file.size.y + 4)
+	var local := anchor - _monitor_screen.global_position
+	# Flip above the line when the box would run off the bottom of the screen.
+	if local.y + _flag_box.size.y > _monitor_screen.size.y - 8 and int(_evidence.line) > 0:
+		local.y -= _flag_box.size.y + 30
+	_flag_box.position = local.clamp(Vector2(8, 8), (_monitor_screen.size - _flag_box.size - Vector2(8, 8)).max(Vector2(8, 8)))
+
+
+func _close_flag_box() -> void:
+	if is_instance_valid(_flag_box): _flag_box.hide()
+	_evidence = {}
+	_paint_evidence()
+
+
+func _flag_rule(rule_id: String) -> void:
+	if _evidence.is_empty(): return
+	var cited: Dictionary = _state.get("citation_evidence", {})
+	var location: Dictionary = _evidence.duplicate()
+	if rule_id in _state.get("selected_rules", []):
+		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
+		if cited.get(rule_id, {}) == location:
+			_close_flag_box()
+			return
+	_emit_command({"type": "toggle-rule", "rule_id": rule_id, "path": location.path, "line": int(location.line)})
+	_close_flag_box()
+
+
+func _render_citation_list(state: Dictionary, can_review: bool) -> void:
+	for child: Node in _citation_list.get_children():
+		_citation_list.remove_child(child)
+		child.queue_free()
+	var cited: Dictionary = state.get("citation_evidence", {})
+	for rule_id: String in state.get("selected_rules", []):
+		var row := PanelContainer.new()
+		row.add_theme_stylebox_override("panel", _style(Color("1e0d10"), RED, 1, 6, 3))
+		_citation_list.add_child(row)
+		var line := _row(row, 4)
+		var text := _label(line, rule_id + "  " + _location_text(cited.get(rule_id, {})), 11, TEXT)
+		text.clip_text = true
+		text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text.custom_minimum_size.x = 40
+		text.tooltip_text = text.text
+		var remove := _button(line, "×", _emit_command.bind({"type": "toggle-rule", "rule_id": rule_id}))
+		remove.flat = true
+		remove.disabled = not can_review
+		remove.custom_minimum_size = Vector2(24, 22)
+		remove.tooltip_text = "Withdraw " + rule_id
 
 
 func _location_text(location: Dictionary) -> String:
@@ -1016,21 +1070,8 @@ func _location_text(location: Dictionary) -> String:
 	return ("FILE  " if int(location.get("line", 0)) == 0 else "LINE %d  " % int(location.line)) + name
 
 
-func _toggle_citation(rule_id: String) -> void:
-	if rule_id in _state.get("selected_rules", []):
-		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
-		return
-	if _evidence.is_empty():
-		notify("Point at the evidence first: click the offending line in the code, or WHOLE FILE.", true, "review")
-		render_state(_state)
-		return
-	_emit_command({"type": "toggle-rule", "rule_id": rule_id, "path": _evidence.path, "line": int(_evidence.line)})
-	_evidence = {}
-	_paint_evidence()
-
-
 func _paint_evidence() -> void:
-	if not is_instance_valid(_diff) or not is_instance_valid(_evidence_label) or not is_instance_valid(_handbook_evidence): return
+	if not is_instance_valid(_diff) or not is_instance_valid(_evidence_label): return
 	var path: String = _file_label.text
 	var cited: Dictionary = _state.get("citation_evidence", {})
 	for line in range(_diff.get_line_count()):
@@ -1046,17 +1087,11 @@ func _paint_evidence() -> void:
 	if _review_files.is_empty():
 		_evidence_label.text = ""
 	elif pointing:
-		_evidence_label.text = "> POINTING AT %s — tick the rule it breaks in HANDBOOK" % _location_text(_evidence).to_upper()
+		_evidence_label.text = "> FLAGGING %s — pick the standard it breaks" % _location_text(_evidence).to_upper()
 		_evidence_label.add_theme_color_override("font_color", AMBER)
 	else:
-		_evidence_label.text = "To cite: click the offending line, or WHOLE FILE, then tick the rule in HANDBOOK."
+		_evidence_label.text = "Click or select a line to flag it. WHOLE FILE flags the file itself."
 		_evidence_label.add_theme_color_override("font_color", DIM)
-	if _evidence.is_empty():
-		_handbook_evidence.text = "Nothing selected. Point at a line or file in REVIEW before citing."
-		_handbook_evidence.add_theme_color_override("font_color", DIM)
-	else:
-		_handbook_evidence.text = "> EVIDENCE: %s\nTick the rule it breaks." % _location_text(_evidence)
-		_handbook_evidence.add_theme_color_override("font_color", AMBER)
 
 
 func _stamp_button(parent: Node, text: String, ink: Color, action: Callable) -> Button:
@@ -1157,6 +1192,15 @@ func _open_chat_conversation() -> void:
 
 func _process(_delta: float) -> void:
 	_sync_tutorial_pointer()
+	if is_instance_valid(_flag_box) and _flag_box.visible:
+		if not _windows.review.is_visible_in_tree() or _evidence.is_empty(): _close_flag_box()
+		else: _place_flag_box()
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and is_instance_valid(_flag_box) and _flag_box.visible:
+		_close_flag_box()
+		get_viewport().set_input_as_handled()
 
 
 func _render_chat() -> void:
@@ -1283,7 +1327,7 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author message and code diff.\n2. Point at each violation in REVIEW (click its line, or WHOLE FILE), then tick the rule it breaks in HANDBOOK.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author message and code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE) and pick the standard it breaks. Full standards: INTRANET > STANDARDS.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nPR links arrive in Slouch throughout the day. Ask coworkers for context, then open their links to review. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
 
 
 func set_save_slot(slot: int) -> void:
@@ -1298,35 +1342,6 @@ func _clear_citations() -> void:
 	var selected: Array = _state.get("selected_rules", []).duplicate()
 	for rule_id: String in selected:
 		_emit_command({"type": "toggle-rule", "rule_id": rule_id})
-
-
-func _filter_rules() -> void:
-	if not is_instance_valid(_search):
-		return
-	var query: String = _search.text.strip_edges().to_lower()
-	var category: String = _category.get_item_text(_category.selected)
-	var day: int = int(_state.get("day", 1))
-	var visible_count: int = 0
-	var active_count: int = 0
-	var new_count: int = 0
-	for entry: Dictionary in _rule_rows:
-		var rule: Dictionary = entry["rule"]
-		if rule.id == "P03":
-			entry.summary.text = RULE_SUMMARIES.P03 + (" Pink needs an INK-EXCEPTION permit." if day >= 4 else "")
-		var active: bool = int(rule.get("introduced_day", 1)) <= day
-		if active:
-			active_count += 1
-		if int(rule.get("introduced_day", 1)) == day:
-			new_count += 1
-		var haystack: String = (str(rule.get("id", "")) + " " + str(rule.get("title", "")) + " " + str(rule.get("text", ""))).to_lower()
-		var matches: bool = active and (query.is_empty() or haystack.contains(query)) and (_category.selected == 0 or str(rule.get("category", "")) == category)
-		var panel: Control = entry["panel"]
-		panel.visible = matches
-		if matches:
-			visible_count += 1
-	_rule_count.text = "%d shown / %d active rules" % [visible_count, active_count]
-	if day > 1 and new_count > 0:
-		_rule_count.text += "\n%d added this shift" % new_count
 
 
 func render_state(state: Dictionary) -> void:
@@ -1348,24 +1363,11 @@ func render_state(state: Dictionary) -> void:
 		_last_day = day
 		var briefing: String = Catalog.briefing(day)
 		_briefing_dialog.dialog_text = briefing
-		_filter_rules()
-		if _browser_path in ["memo", "news"] or _browser_path.begins_with("story/"):
+		if _browser_path in ["memo", "news", "standards"] or _browser_path.begins_with("story/"):
 			_browse("news" if _browser_path.begins_with("story/") else _browser_path, false)
-	for entry: Dictionary in _rule_rows:
-		var rule: Dictionary = entry["rule"]
-		var check: CheckBox = entry["check"]
-		check.set_pressed_no_signal(selected.has(str(rule.get("id", ""))))
-		check.disabled = not can_review
-		var location: Dictionary = state.get("citation_evidence", {}).get(str(rule.id), {})
-		entry.where.visible = not location.is_empty()
-		entry.where.text = "" if location.is_empty() else "CITED → " + _location_text(location)
-		entry.panel.add_theme_stylebox_override("panel", _style(Color("1e0d10") if check.button_pressed else INSET, RED if check.button_pressed else BORDER, 1, 0, 0))
-	var cited_lines: Array[String] = []
-	for rule_id: String in selected:
-		cited_lines.append(rule_id + "  → " + _location_text(state.get("citation_evidence", {}).get(rule_id, {})))
-	_selected_label.text = "NONE YET" if selected.is_empty() else "\n".join(cited_lines)
+	_selected_label.visible = selected.is_empty()
+	_render_citation_list(state, can_review)
 	_paint_evidence()
-	_selected_label.add_theme_color_override("font_color", DIM if selected.is_empty() else RED)
 	_clear_button.disabled = selected.is_empty() or not can_review
 	_approve.disabled = not selected.is_empty() or not can_review
 	_approve.tooltip_text = "Clear citations before approving." if not selected.is_empty() else "Approve this pull request."
@@ -1398,6 +1400,7 @@ func render_state(state: Dictionary) -> void:
 			_pr_title.text = str(request.get("title", ""))
 			_pr_context.text = "%s: %s\n\n%s" % [str(request.get("author", "")), str(request.get("message", "")), str(request.get("description", ""))]
 			_set_review_files(request)
+			_close_flag_box()
 			_packet_scroll.scroll_vertical = 0
 		_ai_note.text = "Helios can take a look. Its advice may be wrong, and using it gives the assistant more influence."
 		if consulted:
@@ -1470,9 +1473,9 @@ func _sync_app_events() -> void:
 		var added := 0
 		for rule: Dictionary in Catalog.rules():
 			if int(rule.introduced_day) == day: added += 1
-		if added > 0 and not _app_is_reading("rules"):
-			_app_counts.rules += added
-			_ambient_push("rules", "New review standards are available. Read the handbook before signing off.")
+		if added > 0 and not _app_is_reading("browser"):
+			_app_counts.browser += 1
+			_ambient_push("browser", "New standards are posted on the intranet.", "standards")
 		if not _app_is_reading("browser"):
 			_app_counts.browser += 1
 			_ambient_push("browser", "A new daily memo is on the intranet.", "memo")
@@ -1498,7 +1501,7 @@ func _open_notification(app: String, target: String) -> void:
 		_open_pr_link(target)
 		return
 	if app == "chat" and not target.is_empty(): _select_chat_contact(target)
-	if app == "browser" and target == "memo": _browse("memo")
+	if app == "browser" and target in ["memo", "standards"]: _browse(target)
 	_open_app(app)
 
 
@@ -1611,7 +1614,7 @@ func _sync_tutorial_pointer() -> void:
 				elif _chat_contact != "Maya": target = _chat_contacts.Maya
 				elif is_instance_valid(_tutorial_pr_link): target = _tutorial_pr_link
 			4: target = _file_picker if _windows.review.visible and _windows.review._active else _tutorial_launcher("review")
-			5: target = _tutorial_launcher("rules")
+			5: target = _standards_link if _windows.browser.visible and _windows.browser._active else _tutorial_launcher("browser")
 			6:
 				var id := "P01"
 				if id not in _state.get("selected_rules", []):
@@ -1619,13 +1622,10 @@ func _sync_tutorial_pointer() -> void:
 						# Practice only: guide to the visible comment, never to hidden audit data.
 						var evidence := _practice_evidence(id)
 						var pointed: bool = not _evidence.is_empty() and not evidence.is_empty() and _evidence.path == evidence.path and int(_evidence.line) == int(evidence.line)
-						if pointed: target = _tutorial_launcher("rules")
+						if pointed and _flag_box.visible: target = _flag_buttons[id]
 						elif evidence.is_empty() or _file_label.text != evidence.path: target = _file_picker
 						else: target = _diff
-					elif _evidence.is_empty() or not _windows.rules.visible or not _windows.rules._active: target = _tutorial_launcher("review")
-					else:
-						for row: Dictionary in _rule_rows:
-							if row.rule.id == id: target = row.check
+					else: target = _tutorial_launcher("review")
 				else: target = _reject if _windows.review.visible and _windows.review._active else _tutorial_launcher("review")
 	if is_instance_valid(target) and target != _tutorial_next and _tutorial_panel.get_global_rect().intersects(target.get_global_rect()):
 		for location: Vector2 in [Vector2(12, _monitor_screen.size.y - _tutorial_panel.size.y - 50), Vector2(_monitor_screen.size.x - _tutorial_panel.size.x - 12, _monitor_screen.size.y - _tutorial_panel.size.y - 50), Vector2(12, 48)]:

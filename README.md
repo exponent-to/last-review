@@ -2,7 +2,7 @@
 
 A native software-engineering life sim built with Godot 4.7.2. You review pull requests at a company handing more authority to an AGI assistant. Policy compliance, coworker approval, and your own ability to cope do not always align.
 
-The playable slice opens at a main menu with New Game and Load Game. New Game plays a skippable cold open: a laptop wakes in a dark room, an inbox full of rejections receives a lowball Northstar offer, and you open and sign it yourself. The story then hands off to untimed orientation on the office desktop. Load Game resumes the saved run without replaying the opening. Launch Review, Handbook, Slouch, Intranet, or System from the home-screen icons. The windowed desktop uses bundled IBM Plex Mono and hand-authored pixel art, with a rainy room visible around the monitor. The rulebook starts small and expands as management issues new policies.
+The playable slice opens at a main menu with New Game and Load Game. New Game plays a skippable cold open: a laptop wakes in a dark room, an inbox full of rejections receives a lowball Northstar offer, and you open and sign it yourself. The story then hands off to untimed orientation on the office desktop. Load Game resumes the saved run without replaying the opening. Launch Review, Slouch, Intranet, or System from the home-screen icons. The windowed desktop uses bundled IBM Plex Mono and hand-authored pixel art, with a rainy room visible around the monitor. The rulebook starts small and expands as management issues new policies.
 
 ## Play
 
@@ -34,7 +34,7 @@ The assignment runs Monday through Friday. A PR arrives immediately and another 
 
 1. Read the PR's author message, review packet, and proposed source files. The packet and source scroll independently.
 2. Search standards by ID, title, or text; optionally filter by category.
-3. Approve compliant work with no citations. To request changes, point at the evidence (click the offending line, or WHOLE FILE for filename, ink, opening-line, and quoted-label rules), then switch to the Handbook and tick the rule it breaks. Every violated rule must be cited once, at a real location, with no unrelated rules. Stamp CHANGES REQUESTED to send it.
+3. Approve compliant work with no citations. To request changes, click or select the offending line in Review (or WHOLE FILE for filename, ink, opening-line, and quoted-label rules) and pick the standard it breaks in the box that opens there. Every violated rule must be cited once, at a real location, with no unrelated rules. Stamp CHANGES REQUESTED to send it. Full rule text lives on INTRANET > STANDARDS.
 4. Watch Slouch for coworker reactions. At closing, Morgan messages you about incidents, delayed work, and the company’s direction; there is no correctness report.
 5. At closing, open Morgan’s conversation and choose rest, dinner, or study before the next shift. Pay and living expenses settle in the simulation; the remaining queue is not disclosed.
 
