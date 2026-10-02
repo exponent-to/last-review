@@ -267,6 +267,7 @@ func _build_pause_overlay() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pause_overlay.add_child(center)
 	var box := _column(center, 18)
+	box.custom_minimum_size.x = 380
 	_label(box, "// SESSION SUSPENDED", 24, RED)
 	_paragraph(box, "The clock is stopped. Nobody is watching.\nFor now.", 15, DIM)
 	_resume_button = _button(box, "RESUME SHIFT", func() -> void: pause_requested.emit())
@@ -1179,10 +1180,7 @@ func _play_stamp(verdict: String) -> void:
 
 
 func _build_chat(page: VBoxContainer) -> void:
-	var header: HBoxContainer = _row(page)
-	_label(header, "SLOUCH", 16, CYAN)
-	_spacer(header)
-	_label(header, "COMPANY WORKSPACE", 11, DIM)
+	# The titlebar already names the app; the space goes to conversations.
 	var columns: HBoxContainer = _row(page, 12)
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var sidebar: VBoxContainer = _column(columns, 6)

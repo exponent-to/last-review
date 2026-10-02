@@ -11,7 +11,7 @@ static var _cache: Dictionary = {}
 
 const PEOPLE: Dictionary = {
  "Maya": {
-  "intro": "Hi. Maya. I'll be sending you PRs. I'm sorry in advance, and also in arrears.",
+  "intro": "Hi, I'm Maya. I'll be sending you PRs. I'm sorry in advance, and also in arrears.",
   "warm": "You're one of the good ones. Don't tell anyone or they'll give you more work.",
   "distant": "I'm not mad. I'm just tired, and lately you're the shape of the reason.",
   "acknowledge": "Thanks. Take your time. Not too much time.",
