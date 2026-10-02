@@ -88,6 +88,13 @@ func _test_component() -> void:
 	root.add_child(banter)
 	banter.size = Vector2(ReviewBanter.WIDTH, 150)
 	check(not banter.visible, "Nobody sits at an empty desk")
+	banter.open_pr("PR-9002", "Maya")
+	var said: String = banter.line
+	banter.tick(ReviewBanter.LINE_SECONDS + 1.0)
+	check(banter.line == said and not banter.is_speaking() and banter._bubble.modulate.a > 0.5, "The last line stays on screen after it has been said")
+	banter.close_pr()
+	banter.tick(ReviewBanter.LINE_SECONDS + 1.0)
+	check(banter.line.is_empty() and not banter.visible, "The lingering line leaves with the author")
 	banter.size = Vector2(40, 150)
 	banter.open_pr("PR-9001", "Inez")
 	banter.size = Vector2(ReviewBanter.WIDTH, 150)
