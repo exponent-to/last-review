@@ -234,9 +234,18 @@ func _refresh() -> void:
 			child.queue_free()
 		if not who.is_empty():
 			var portrait := make_portrait(who, PORTRAIT)
-			portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			# A live cat can be poked; the lettered placeholder stays inert.
+			if portrait.has_signal("clicked"): portrait.clicked.connect(_poked)
+			else: portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_seat.add_child(portrait)
 			portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for seated: Node in _seat.get_children():
+		if seated.has_method("set_talking"): seated.set_talking(is_speaking())
+
+
+## The reviewer clicked the seated cat. A goodbye already underway plays out.
+func _poked() -> void:
+	if kind not in FAREWELLS: react("poke")
 
 
 func _layout() -> void:

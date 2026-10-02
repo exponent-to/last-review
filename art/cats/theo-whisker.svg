@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Theo, whiskers flicking. Drawn over theo.svg; transparent except the pixels it changes. -->
+  <path fill="#f7f6f0" d="M0 16h2v1h-2zM30 16h2v1h-2zM3 17h1v1h-1zM28 17h1v1h-1zM0 24h2v1h-2zM30 24h2v1h-2z"/>
+  <path fill="#2b3747" d="M0 17h1v1h-1zM31 17h1v1h-1zM0 23h2v1h-2zM30 23h2v1h-2z"/>
+  <path fill="#17181b" d="M1 17h1v1h-1zM30 17h1v1h-1z"/>
+</svg>

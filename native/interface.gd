@@ -294,6 +294,7 @@ func _build_crt_overlay() -> void:
 func set_paused(paused: bool) -> void:
 	_paused = paused
 	_notifications.paused = paused
+	Portraits.set_paused(paused, self)
 	_pause_overlay.visible = paused
 	_pause_button.text = "RESUME" if paused else "PAUSE"
 	if paused:

@@ -8,7 +8,8 @@ const AUTHORS: Array[String] = ["Maya", "Theo", "Inez"]
 ## open: a fresh PR. revision: a resubmission (v2+). idle: the reviewer has not
 ## acted for a while. flag / withdraw: a citation is added or removed.
 ## approved / changes: the stamp. consult: the reviewer asks Helios.
-const TRIGGERS: Array[String] = ["open", "revision", "idle", "flag", "withdraw", "approved", "changes", "consult"]
+## poke: the reviewer clicks the author's portrait.
+const TRIGGERS: Array[String] = ["open", "revision", "idle", "flag", "withdraw", "approved", "changes", "consult", "poke"]
 
 const LINES := {
 	# Tired and dry. Would like to get back to her actual job.
@@ -93,6 +94,16 @@ const LINES := {
 			"Let the thing that wrote our API docs take a look.",
 			"Asking Helios. Cool. I'll go update my resume.",
 		],
+		"poke": [
+			"Please don't.",
+			"I'm awake. Technically.",
+			"That's my face. I still need it for standup.",
+			"Poking me won't make it merge any faster.",
+			"Four coffees in. Do not test me.",
+			"Is this a new kind of performance review?",
+			"I felt that in my on-call rotation.",
+			"Touch the diff, not the developer.",
+		],
 	},
 	# Overconfident. It's always a one-line change.
 	"theo": {
@@ -176,6 +187,16 @@ const LINES := {
 			"Asking Helios is just reviewing with extra steps.",
 			"Tell Helios I said what's up.",
 		],
+		"poke": [
+			"Bro. Personal space.",
+			"Whoa. Do you poke all your senior engineers?",
+			"Easy. That's a ten-x engineer you're poking.",
+			"Ha. Okay. That tickles, my guy.",
+			"Was that a high five? Let's go.",
+			"Poking me doesn't count as a review, bro.",
+			"Dude. I just got these whiskers groomed.",
+			"Respectfully, hands off the merchandise.",
+		],
 	},
 	# Process-minded and passive-aggressive. It was decided in a meeting.
 	"inez": {
@@ -258,6 +279,16 @@ const LINES := {
 			"Interesting. Is that in the review process doc?",
 			"Consulting the assistant. I'll add that to the timeline.",
 			"Make sure it follows the review template.",
+		],
+		"poke": [
+			"I'll be adding this to the incident report.",
+			"Physical contact was not on the meeting agenda.",
+			"Noted. With a timestamp.",
+			"Please route all pokes through the proper channel.",
+			"I've cc'd HR on that.",
+			"Was that a sync request? Use the calendar.",
+			"I'll be raising this at the retro. Respectfully.",
+			"Per the handbook, that's a two-meeting conversation.",
 		],
 	},
 }

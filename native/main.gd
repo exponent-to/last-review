@@ -213,6 +213,7 @@ func _on_reset() -> void:
 
 func _on_motion(enabled: bool) -> void:
 	motion_enabled = enabled
+	GameInterface.Portraits.set_motion(enabled)
 	if is_instance_valid(menu): menu.set_motion(enabled)
 	if is_instance_valid(_cold_open): _cold_open.set_motion(enabled)
 	if is_instance_valid(scenery):
