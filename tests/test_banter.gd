@@ -229,7 +229,8 @@ func _test_consult() -> void:
 	ui._open_pr_link(str(packet.id))
 	check(ui._consult.visible and not ui._consult.disabled, "Helios is available on Wednesday")
 	ui._consult.pressed.emit()
-	check(state.consulted and ui._banter.kind == "consult" and ui._banter.line in Banter.lines(str(packet.author), "consult"), "Asking Helios gets a reaction to being second-guessed")
+	var consult_lines: Array = Encounters.desk_lines(packet, "consult", Encounters.mood(state, str(packet.author)))
+	check(state.consulted and ui._banter.kind == "consult" and ui._banter.line in consult_lines, "Asking Helios gets a reaction to being second-guessed")
 
 func _test_orientation() -> void:
 	await _fresh_ui(Tutorial.initial_practice_state())
