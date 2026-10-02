@@ -7,7 +7,7 @@ extends Control
 const Banter = preload("res://content/banter.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 const PORTRAITS := "res://native/portraits.gd"
-const PORTRAIT := 56
+const PORTRAIT := 72
 ## Widest a speech bubble grows; it wraps beyond this.
 const WIDTH := 420
 ## Space between the portrait and the bubble's tail.
@@ -41,6 +41,8 @@ var kind := ""
 ## Unpaused seconds since the reviewer last did something visible.
 var idle_seconds := 0.0
 var _age := 0.0
+## The line has finished being said but stays up until the next one replaces it.
+var _settled := false
 var _line_pr := ""
 var _queued: Dictionary = {}
 var _counts: Dictionary = {}
@@ -138,27 +140,29 @@ func farewell(who: String, verdict: String, id: String = "") -> void:
 ## Advance by unpaused game time. The caller skips this while paused.
 func tick(delta: float) -> void:
 	if delta <= 0.0: return
-	if not line.is_empty():
+	if not line.is_empty() and not _settled:
 		_age += delta
 		if _age >= _duration():
 			var queued := _queued
 			_queued = {}
-			if queued.is_empty(): _say("", "", "")
-			else: _say(str(queued.speaker), str(queued.text), str(queued.kind), str(queued.pr))
+			if not queued.is_empty(): _say(str(queued.speaker), str(queued.text), str(queued.kind), str(queued.pr))
+			elif pr_id.is_empty(): _say("", "", "")
+			# The last line lingers on screen until something replaces it.
+			else: _settled = true
 	if not quiet and not pr_id.is_empty() and is_visible_in_tree():
 		idle_seconds += delta
-		if idle_seconds >= IDLE_SECONDS and line.is_empty():
+		if idle_seconds >= IDLE_SECONDS and (line.is_empty() or _settled):
 			idle_seconds = 0.0
 			_say(author, _pick(author, "idle", pr_id), "idle")
 	_fade()
 
 
 func is_speaking() -> bool:
-	return not line.is_empty()
+	return not line.is_empty() and not _settled
 
 
 func bubble_rect() -> Rect2:
-	return Rect2(_bubble.position, _bubble.size) if is_speaking() else Rect2()
+	return Rect2(_bubble.position, _bubble.size) if not line.is_empty() else Rect2()
 
 
 ## The cat portrait once the portraits module exists; a lettered square until then.
@@ -214,6 +218,7 @@ func _say(who: String, text: String, trigger: String, id: String = pr_id) -> voi
 	kind = trigger if not text.is_empty() else ""
 	_line_pr = id if not text.is_empty() else ""
 	_age = 0.0
+	_settled = false
 	_refresh()
 	_layout()
 	_fade()
@@ -273,8 +278,15 @@ func _fade() -> void:
 	if line.is_empty():
 		_bubble.modulate.a = 0.0
 		return
+	if _settled:
+		# Said and done: still readable, slightly quieter than a fresh line.
+		_bubble.modulate.a = 0.82
+		_bubble.position.y = _rest_y
+		return
 	var shown := clampf(_age / FADE_IN, 0.0, 1.0)
-	var leaving := clampf((_duration() - _age) / FADE_OUT, 0.0, 1.0)
+	# Only fade out when the line is being replaced or the author is leaving;
+	# otherwise it settles and stays up.
+	var leaving := clampf((_duration() - _age) / FADE_OUT, 0.0, 1.0) if (not _queued.is_empty() or pr_id.is_empty()) else 1.0
 	_bubble.modulate.a = minf(shown, leaving)
 	# A small upward pop as the line appears.
 	_bubble.position.y = _rest_y + (1.0 - shown) * 4.0
