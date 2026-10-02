@@ -627,7 +627,6 @@ func _build_review_content(code: VBoxContainer) -> void:
 	code.add_child(_paper)
 	var form: VBoxContainer = _column(_paper, 4)
 	var title_row: HBoxContainer = _row(form)
-	_label(title_row, "NORTHSTAR // INTERNAL // FORM CR-7", 10, PAPER_MUTED)
 	_spacer(title_row)
 	_pr_id = _label(title_row, "PULL REQUEST", 11, STAMP_RED)
 	var rule := ColorRect.new()

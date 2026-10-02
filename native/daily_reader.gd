@@ -126,7 +126,6 @@ func _news() -> void:
 
 ## The full active rulebook, as an intranet page.
 func _standards() -> void:
-	_text("NORTHSTAR / STANDARDS & COMPLIANCE", 11, MUTED)
 	_text("Active review standards", 22)
 	_text("Every change must meet each standard below. Flag violations on the offending line in Review.", 13, MUTED)
 	for rule: Dictionary in Press.Catalog.rules_for_day(_day):
@@ -150,7 +149,6 @@ func _memo() -> void:
 	if memo.is_empty():
 		_text("No memo for this day.")
 		return
-	_text("NORTHSTAR / ENGINEERING OPERATIONS", 12, MUTED)
 	_text(str(memo.subject), 23)
 	_text("From: Morgan · To: Review desk", 12, MUTED)
 	_divider()
