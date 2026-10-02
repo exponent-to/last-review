@@ -248,10 +248,14 @@ func _layout() -> void:
 	_name.position = Vector2(-8, side + 1)
 	_name.size = Vector2(side + 16, 14)
 	if line.is_empty():
+		# Shrink back to the portrait when nobody is talking.
 		_bubble.size = Vector2.ZERO
+		if not is_equal_approx(custom_minimum_size.y, side + 16.0): custom_minimum_size.y = side + 16.0
 		return
 	var left := side + GAP
-	var widest := minf(WIDTH, size.x - left - TAIL - SHADOW) - PAD.x * 2
+	# Before the first real layout the width can be tiny; never wrap narrower
+	# than a readable column, or the strip balloons to a tall sliver.
+	var widest := maxf(180.0, minf(WIDTH, size.x - left - TAIL - SHADOW) - PAD.x * 2)
 	var natural := TerminalFont.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
 	_text_width = maxf(16.0, minf(ceilf(natural) + 1.0, widest))
 	var text := TerminalFont.get_multiline_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, _text_width, FONT_SIZE)
