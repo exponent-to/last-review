@@ -1,0 +1,274 @@
+extends RefCounted
+## What PR authors say while you review their change. Lines react only to what
+## the reviewer visibly does. They never see audit data, and they must never
+## hint whether, where, or how a change breaks a standard. A defensive reaction
+## to a flag sounds the same whether the flag is right or wrong.
+
+const AUTHORS: Array[String] = ["Maya", "Theo", "Inez"]
+## open: a fresh PR. revision: a resubmission (v2+). idle: the reviewer has not
+## acted for a while. flag / withdraw: a citation is added or removed.
+## approved / changes: the stamp. consult: the reviewer asks Helios.
+const TRIGGERS: Array[String] = ["open", "revision", "idle", "flag", "withdraw", "approved", "changes", "consult"]
+
+const LINES := {
+	# Tired and dry. Would like to get back to her actual job.
+	"maya": {
+		"open": [
+			"Quick one. I'd like to get back to my actual job.",
+			"It's a small change. Please don't make it a whole thing.",
+			"This was due before standup. Yesterday's standup.",
+			"I wrote this between two incidents. Be gentle.",
+			"Product asked for it. I'm just the hands.",
+			"Can we be fast? I have a migration on fire.",
+			"I've stared at this diff since lunch. Your turn.",
+			"Small diff, long ticket. Don't read the ticket.",
+		],
+		"revision": [
+			"v2. I removed the thing. Happy now?",
+			"Resubmitted. My actual job sends its regards.",
+			"Round two. I brought coffee. For me.",
+			"New version. Please find something new to dislike.",
+			"Back again. I've stopped counting the force-pushes.",
+			"Updated per review. The review being you.",
+			"Here it is again, now with less of my will to live.",
+			"Revised. The commit message is just a sigh.",
+		],
+		"idle": [
+			"It passed CI. Just saying.",
+			"Helios already looked at it, for what that's worth.",
+			"I could've rewritten it in the time this is taking.",
+			"Are you reviewing it or printing it out?",
+			"No rush. I'll be here, not doing my actual job.",
+			"It's the same diff it was a minute ago, I promise.",
+			"The build's been green for an hour. Lonely, but green.",
+			"My pager just went off. Unrelated. Probably.",
+		],
+		"flag": [
+			"Sure. I'll fix it right after the outage.",
+			"Great. Another ticket for the backlog nobody reads.",
+			"That's not a bug, that's a scheduling decision.",
+			"I'm going to pretend I didn't see that.",
+			"Fine. Add it to my list. It's a long list.",
+			"Wonderful. I'll fix it in my free time, which is never.",
+			"You're really doing this. Today. To me.",
+			"Cool. I'll explain it to my manager. Again.",
+		],
+		"withdraw": [
+			"Thank you. Sanity has been restored.",
+			"See? You got there. Eventually.",
+			"I'll take my apology in the form of an approval.",
+			"Good. I was already drafting a very tired reply.",
+			"Unflagged. Back to the actual job, then.",
+			"One less thing. My therapist thanks you.",
+			"A rare retraction. I'm taking a screenshot.",
+			"Okay. I'll stop drafting my resignation letter.",
+		],
+		"approved": [
+			"Thanks. Back to my actual job.",
+			"Great. Merging before anyone has opinions.",
+			"Approved. I'll inform my pager.",
+			"Finally. That only took one coffee.",
+			"Thanks. I'll be in the incident channel, as always.",
+			"Merged. I'm going to go stare at a wall now.",
+			"Wow. Okay. I'll tell the release train.",
+			"Thanks. My actual job missed me. It said so in Jira.",
+		],
+		"changes": [
+			"Cool. I'll add it to the pile with everything else.",
+			"Changes requested. And my weekend, apparently.",
+			"Fine. I'll fix it after this outage. And the next one.",
+			"Great. Another round. I love rounds.",
+			"I'll push a fix. And by fix I mean more commits.",
+			"Wonderful. I'll tell my actual job I'm busy.",
+			"Okay. Let me find where I left my motivation.",
+			"See you in v2. It'll look exactly as tired as v1.",
+		],
+		"consult": [
+			"Oh good, ask the robot. It's been so helpful.",
+			"Helios wrote half my tests. Ask it about those.",
+			"Sure, get a second opinion from autocomplete.",
+			"Great, now my code review has a code review.",
+			"Ask it about my vacation days while you're in there.",
+			"The thing replacing us all. Great reviewer, I'm sure.",
+			"Let the thing that wrote our API docs take a look.",
+			"Asking Helios. Cool. I'll go update my resume.",
+		],
+	},
+	# Overconfident. It's always a one-line change.
+	"theo": {
+		"open": [
+			"It's a one-line change, bro. Two, tops.",
+			"Shipped this in like ten minutes. You're welcome.",
+			"Easiest review of your life. Let's go.",
+			"Wrote it on my phone at the gym. Still flawless.",
+			"Didn't run it locally, but I believe in it.",
+			"Big refactor, tiny diff. That's called talent.",
+			"Approve this and we both get to leave early.",
+			"This is the most elegant thing you'll see today.",
+		],
+		"revision": [
+			"Fixed it. Also refactored three unrelated files.",
+			"v2, baby. Somehow even cleaner than v1.",
+			"Pushed a fix. Didn't test it, but it's a fix.",
+			"Back and better. Like a sequel that slaps.",
+			"Revision's up. Squashed everything into one commit.",
+			"Okay, okay, I changed stuff. Mostly vibes.",
+			"New version. Also renamed some variables, for fun.",
+			"Took your note. Added a feature while I was in there.",
+		],
+		"idle": [
+			"It passed CI, my guy.",
+			"Helios already looked at it. Just saying.",
+			"Bro, it's one line. Are you reading it in Latin?",
+			"You could approve this with your eyes closed. Try it.",
+			"I've already started the next feature, just so you know.",
+			"Any day now. I already told standup it's merged.",
+			"I've got a demo in five. No pressure. Some pressure.",
+			"Scrolling isn't reviewing, my dude.",
+		],
+		"flag": [
+			"That's not a bug, that's a feature.",
+			"Whoa. Bold call. Respectfully, no.",
+			"Have you considered that it works on my machine?",
+			"Nah, that's intentional. Super intentional.",
+			"I'll fix it in a follow-up. Trust.",
+			"Bro, that's straight from Stack Overflow. It's vetted.",
+			"Okay, but have you seen how fast it runs?",
+			"That's not tech debt, that's a tech investment.",
+		],
+		"withdraw": [
+			"Knew you'd come around.",
+			"Yeah. That's what I thought.",
+			"Respect. Admitting you're wrong is growth.",
+			"Told you. It's a one-line change.",
+			"Good call un-calling that call.",
+			"See, now we're vibing.",
+			"There's the reviewer I know and tolerate.",
+			"Back to approving greatness, are we?",
+		],
+		"approved": [
+			"Let's gooo. Merging before lunch.",
+			"Easiest review of your life. Told you.",
+			"Deploying straight to prod. Like a legend.",
+			"Nice. You're going in my promo packet.",
+			"Merged. Already on to v2 of something else.",
+			"You're my favorite reviewer. Don't tell Inez.",
+			"Merged. Ringing the gong. We should get a gong.",
+			"Ship it. I'll write the tests after. Probably.",
+		],
+		"changes": [
+			"Wow. Okay. I'll just rewrite the whole thing, I guess.",
+			"Changes requested? On a one-line change?",
+			"Cool cool. I'll push a fix in five. Maybe fifty.",
+			"Bro. I had a demo with this.",
+			"Fine. But I'm telling my lifting buddies about this.",
+			"Alright. v2 is gonna be so good you'll cry.",
+			"You're lucky I like you. Pushing a fix.",
+			"Whatever. I'll just force-push until it's right.",
+		],
+		"consult": [
+			"Asking the AI? I basically am the AI.",
+			"Helios and I go way back. Like, a week.",
+			"Bro, I prompt-engineered half of that thing.",
+			"Go ahead. It learned to code from my commits.",
+			"Okay, sure, ask the autocomplete.",
+			"Wild. You're asking the intern that never sleeps.",
+			"Asking Helios is just reviewing with extra steps.",
+			"Tell Helios I said what's up.",
+		],
+	},
+	# Process-minded and passive-aggressive. It was decided in a meeting.
+	"inez": {
+		"open": [
+			"As agreed in Tuesday's sync, this is ready for review.",
+			"Per the architecture review, this is the agreed approach.",
+			"This was decided in the planning meeting. You were invited.",
+			"Linking the RFC, the follow-up RFC, and the RFC retro.",
+			"Please review by end of day, per the calendar invite.",
+			"I've attached the meeting notes. All forty pages.",
+			"This reflects the consensus from the offsite. Mostly mine.",
+			"Ticket, design doc, RACI chart. All attached. Unlike some.",
+		],
+		"revision": [
+			"Per your feedback, revised. Noted for the retro.",
+			"v2 attached. I've updated the decision log accordingly.",
+			"Resubmitted, as outlined in my email. Which you read.",
+			"Revised. I've booked a sync to discuss your process.",
+			"Here is the revision. Please acknowledge receipt.",
+			"Updated per feedback. The feedback has been archived.",
+			"As requested. I've cc'd the working group, for visibility.",
+			"Revision two. The changelog now has its own changelog.",
+		],
+		"idle": [
+			"Just following up on my previous follow-up.",
+			"Our working agreement says reviews start within the hour.",
+			"I'll note the review latency in the weekly metrics.",
+			"Helios already looked at it. I have the transcript.",
+			"Gentle reminder that this is blocking three teams.",
+			"Should I book a meeting so you can review this in it?",
+			"It passed CI. I've attached the CI's meeting notes.",
+			"No pressure. The steering committee is just watching.",
+		],
+		"flag": [
+			"Interesting. That was settled in the design review.",
+			"Noted. I'll raise it at the next architecture sync.",
+			"I'd encourage you to read the meeting notes first.",
+			"That was decided in a meeting you declined.",
+			"Flagged. Wonderful. I'll add it to the agenda.",
+			"Let's take this offline. Into a forty-minute meeting.",
+			"I'll need that feedback in writing. In triplicate.",
+			"Respectfully, that's out of scope for this PR.",
+		],
+		"withdraw": [
+			"Thank you. I'll update the meeting notes.",
+			"Glad we're aligned. As we were in the meeting.",
+			"Retraction noted. Literally. I've noted it.",
+			"I appreciate you circling back on that.",
+			"Good. I was about to schedule a sync.",
+			"Withdrawn. I'll remove it from my escalation draft.",
+			"Thank you for respecting the process.",
+			"Appreciated. I'll mention your growth in the retro.",
+		],
+		"approved": [
+			"Thank you. I'll note the turnaround time.",
+			"Approved, as decided in the meeting. Thank you.",
+			"Lovely. I'll announce it at the all-hands.",
+			"Merged. I'll close the ticket and its three sub-tickets.",
+			"Thank you for following the process. Rare, these days.",
+			"Excellent. I'll update the roadmap slide.",
+			"I've added a thank-you to the meeting notes.",
+			"Noted. Your approval has been minuted.",
+		],
+		"changes": [
+			"Noted. I'll bring it up at the retro.",
+			"I'll schedule time to understand your concerns.",
+			"Added to the decision log. In red.",
+			"Changes requested. Let's sync. I've sent an invite.",
+			"Per process, I'll need a written rationale. By Friday.",
+			"I'll escalate this to the working group. Respectfully.",
+			"Fine. I'll update the RFC to reflect your opinion.",
+			"Understood. I'll inform the stakeholders of the delay.",
+		],
+		"consult": [
+			"Helios was in the meeting where this was decided.",
+			"Asking Helios? It's on the steering committee now.",
+			"Please cc me on whatever it says.",
+			"I'll note that you needed assistance with this one.",
+			"Helios co-authored the RFC. Just for context.",
+			"Interesting. Is that in the review process doc?",
+			"Consulting the assistant. I'll add that to the timeline.",
+			"Make sure it follows the review template.",
+		],
+	},
+}
+
+
+## Every line for an author and trigger. Author names are case-insensitive.
+static func lines(author: String, trigger: String) -> Array:
+	return LINES.get(author.to_lower(), {}).get(trigger, [])
+
+
+## One line, chosen by index and wrapped around the authored list; "" if none.
+static func line(author: String, trigger: String, index: int) -> String:
+	var options: Array = lines(author, trigger)
+	return "" if options.is_empty() else str(options[posmod(index, options.size())])
