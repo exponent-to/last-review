@@ -334,7 +334,8 @@ func _pick(who: String, trigger: String, id: String, options: Array = []) -> Str
 	var index := (key.hash() & 0x7fffffff) + count
 	var pool: Array = options if not options.is_empty() else Banter.lines(who, trigger)
 	if pool.is_empty(): return ""
-	var text := str(pool[posmod(index, pool.size())])
+	# Encounter options lead with this PR's own line; say it first, then vary.
+	var text := str(pool[0]) if count == 0 and not options.is_empty() else str(pool[posmod(index, pool.size())])
 	var last_key := who.to_lower() + ":" + trigger
 	if text == str(_last_said.get(last_key, "")) and pool.size() > 1: text = str(pool[posmod(index + 1, pool.size())])
 	_last_said[last_key] = text
