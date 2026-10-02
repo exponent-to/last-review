@@ -880,6 +880,9 @@ func _build_browser(page: VBoxContainer) -> void:
 	_button(links, "PROCEDURE", _browse.bind("procedure"))
 	_button(links, "DAILY MEMO", _browse.bind("memo"))
 	_standards_link = _button(links, "STANDARDS", _browse.bind("standards"))
+	# Browser chrome uses the same compact type as every other control.
+	for chrome: Node in navigation.get_children() + links.get_children():
+		if chrome is Button: chrome.add_theme_font_size_override("font_size", 12)
 	var content: VBoxContainer = _scroll_column(page)
 	_browser_text = _paragraph(content, "", 15)
 	_browser_plain = content.get_parent()
@@ -1120,13 +1123,13 @@ func _paint_evidence() -> void:
 		_evidence_label.text = ""
 		_selected_label.text = ""
 	elif pointing:
-		_evidence_label.text = "> SELECTED %s — tick the standard it breaks on the right" % _location_text(_evidence).to_upper()
-		_selected_label.text = "> %s selected. Tick the standard it breaks." % _location_text(_evidence)
+		_evidence_label.text = "> %s selected" % _location_text(_evidence)
+		_selected_label.text = "Tick the standard it breaks."
 		_selected_label.add_theme_color_override("font_color", AMBER)
 		_evidence_label.add_theme_color_override("font_color", AMBER)
 	else:
-		_evidence_label.text = "Click or select the offending line, or WHOLE FILE, then tick the standard on the right."
-		_selected_label.text = "Select a line, then tick what it breaks. Full text: INTRANET > STANDARDS."
+		_evidence_label.text = "Select the offending line, or"
+		_selected_label.text = "Full text: INTRANET > STANDARDS"
 		_selected_label.add_theme_color_override("font_color", DIM)
 		_evidence_label.add_theme_color_override("font_color", DIM)
 

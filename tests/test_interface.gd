@@ -77,7 +77,7 @@ func _run() -> void:
 		if ui._review_files[index].path == finding.path: ui._select_file(index)
 	ui._diff.set_caret_line(ui._row_for_line(int(finding.line)))
 	ui._point_at(-1)
-	check(ui._evidence.line == finding.line and ui._evidence_label.text.contains("SELECTED"), "Clicking a code line selects it as evidence")
+	check(ui._evidence.line == finding.line and ui._evidence_label.text.contains("selected"), "Clicking a code line selects it as evidence")
 	check(ui._flag_buttons.P01 is CheckBox and ui._windows.review.is_ancestor_of(ui._flag_buttons.P01), "The citation slip lives in Review's right sidebar")
 	ui._flag_buttons.P01.pressed.emit()
 	check(state.selected_rules == ["P01"] and state.citation_evidence.P01 == {"path": finding.path, "line": finding.line}, "Picking a standard cites the flagged line")
