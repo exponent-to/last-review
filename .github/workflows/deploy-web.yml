@@ -17,7 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # Always build the newest main, not the commit that triggered this run.
+      # Concurrency keeps only one pending run, and push events can arrive out
+      # of order, so building the event's SHA could publish a stale game.
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Cache Godot editor and Web template
         uses: actions/cache@v4
@@ -61,5 +66,6 @@ jobs:
           fi
           git config user.name "PRs please release bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Publish PRs please ${GITHUB_SHA::7}" -m "From ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          game_sha="$(git -C .. rev-parse HEAD)"
+          git commit -m "Publish PRs please ${game_sha::7}" -m "From ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${game_sha}"
           git push origin main
