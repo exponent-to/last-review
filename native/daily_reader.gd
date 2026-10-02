@@ -114,7 +114,29 @@ func _divider() -> void:
 	_content.add_child(line)
 
 func _masthead() -> void:
-	_text("h   Hackerish News", 23)
+	# A boxed "h" logo beside the name, like the site it parodies.
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	_content.add_child(row)
+	var badge := PanelContainer.new()
+	var box := StyleBoxFlat.new()
+	box.bg_color = INK
+	box.content_margin_left = 7
+	box.content_margin_right = 7
+	box.content_margin_top = 0
+	box.content_margin_bottom = 1
+	badge.add_theme_stylebox_override("panel", box)
+	row.add_child(badge)
+	var logo := Label.new()
+	logo.text = "h"
+	logo.add_theme_font_size_override("font_size", 20)
+	logo.add_theme_color_override("font_color", PAPER)
+	badge.add_child(logo)
+	var name := Label.new()
+	name.text = "Hackerish News"
+	name.add_theme_font_size_override("font_size", 23)
+	name.add_theme_color_override("font_color", INK)
+	row.add_child(name)
 	_divider()
 
 func _news() -> void:
