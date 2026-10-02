@@ -75,6 +75,8 @@ func show_page(day: int, path: String, before_shift: bool) -> void:
 	if path == "memo":
 		_memo_seen = true
 		_memo()
+	elif path == "standards":
+		_standards()
 	elif path.begins_with("story/"):
 		var story := Press.story(day, path.trim_prefix("story/"))
 		if story.is_empty(): _news()
@@ -121,6 +123,16 @@ func _news() -> void:
 		_link(str(article.title), "story/" + str(article.id))
 		_text(str(article.source) + " · " + str(article.byline), 11, MUTED)
 		_divider()
+
+## The full active rulebook, as an intranet page.
+func _standards() -> void:
+	_text("NORTHSTAR / STANDARDS & COMPLIANCE", 11, MUTED)
+	_text("Active review standards", 22)
+	_text("Every change must meet each standard below. Flag violations on the offending line in Review.", 13, MUTED)
+	for rule: Dictionary in Press.Catalog.rules_for_day(_day):
+		_divider()
+		_text("%s  %s%s" % [str(rule.id), str(rule.title), "   NEW TODAY" if int(rule.introduced_day) == _day and _day > 1 else ""], 17)
+		_text(str(rule.text), 14)
 
 func _story(article: Dictionary) -> void:
 	_link("← Front page", "news", 13)

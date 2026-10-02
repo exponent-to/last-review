@@ -57,32 +57,39 @@ func _run() -> void:
 	ui._select_chat_contact("Theo")
 	check(ui.theme.default_font is FontFile, "Interface must use the bundled terminal font")
 	check(ui.theme.default_font.resource_path.ends_with("IBMPlexMono-Regular.ttf"), "Terminal typography must not depend on installed system fonts")
-	check(ui._rule_rows.size() == Catalog.rules().size(), "Rulebook must include the authored catalog")
+	check(ui._flag_buttons.size() == Catalog.rules().size(), "The flag box offers every authored standard")
 	_check_active_rules(int(state.day))
 	check(not ui._hud["day"].text.is_valid_int(), "Workday must use an in-world name instead of a score counter")
 	for stat: String in ["credits", "trust", "stress", "autonomy"]:
 		check(not ui._hud.has(stat), "Top chrome must not expose numeric player statistics")
 	check(ui._pr_id.text == str(Catalog.request_at(0).id) + " / AWAITING REVIEW", "Request header must omit queue size and position")
 	check(not ui._footer.text.contains(" OF "), "Footer must not reveal queue totals")
-	ui._search.text = "load-bearing"
-	ui._filter_rules()
-	check(ui._rule_count.text.begins_with("1 shown"), "Rulebook search should find the timeout rule")
-	var p01_check: CheckBox
-	for row: Dictionary in ui._rule_rows:
-		if row.rule.id == "P01": p01_check = row.check
-	p01_check.button_pressed = true
-	check(state.selected_rules.is_empty() and not p01_check.button_pressed, "A rule cannot be cited before pointing at evidence")
+	check(not ui._windows.has("rules") and not ui._home_icons.has("rules"), "There is no separate Handbook application")
+	ui._browse("standards")
+	var standards_text := ""
+	for label: Node in ui._daily_reader._content.find_children("*", "Label", true, false): standards_text += label.text + "\n"
+	check(standards_text.contains("P01") and standards_text.contains(str(Catalog.rules()[0].text)), "INTRANET > STANDARDS shows the full active rule text")
 	var finding: Dictionary = Catalog.audit_citation(Catalog.request_at(0), "P01")
 	for index in range(ui._review_files.size()):
 		if ui._review_files[index].path == finding.path: ui._select_file(index)
 	ui._diff.set_caret_line(int(finding.line) - 1)
 	ui._point_at(-1)
-	check(ui._evidence.line == finding.line and ui._evidence_label.text.contains("POINTING AT"), "Clicking a code line points at it as evidence")
-	check(ui._windows.review.find_children("*", "CheckBox", true, false).is_empty(), "Rules are cited in HANDBOOK, never from the Review window")
-	check(ui._handbook_evidence.text.contains("LINE %d" % finding.line), "HANDBOOK shows the evidence waiting to be cited")
-	p01_check.button_pressed = true
-	check(state.selected_rules == ["P01"] and state.citation_evidence.P01 == {"path": finding.path, "line": finding.line}, "Native rule checkbox must cite the pointed-at line")
-	check(ui._evidence.is_empty(), "Each citation consumes its pointer")
+	check(ui._evidence.line == finding.line and ui._flag_box.visible and ui._evidence_label.text.contains("FLAGGING"), "Clicking a code line opens the flag box on that line")
+	check(ui._windows.review.find_children("*", "CheckBox", true, false).is_empty(), "Review has no rulebook checklist")
+	ui._flag_buttons.P01.pressed.emit()
+	check(state.selected_rules == ["P01"] and state.citation_evidence.P01 == {"path": finding.path, "line": finding.line}, "Picking a standard cites the flagged line")
+	check(not ui._flag_box.visible and ui._evidence.is_empty(), "Citing closes the flag box")
+	check(ui._citation_list.get_child_count() == 1, "Review lists each citation with its location")
+	var other_line: int = 2 if int(finding.line) == 1 else 1
+	ui._diff.set_caret_line(other_line - 1)
+	ui._point_at(-1)
+	check(ui._flag_box.visible and not ui._flag_buttons.P01.button_pressed, "A rule cited elsewhere is not marked on this line")
+	ui._flag_buttons.P01.pressed.emit()
+	check(state.selected_rules == ["P01"] and int(state.citation_evidence.P01.line) == other_line, "Re-flagging a rule moves its citation")
+	ui._diff.set_caret_line(int(finding.line) - 1)
+	ui._point_at(-1)
+	ui._flag_buttons.P01.pressed.emit()
+	check(int(state.citation_evidence.P01.line) == int(finding.line), "The citation can be moved back to the real evidence")
 	check(ui._approve.disabled and not ui._reject.disabled, "Citations must gate the correct decision controls")
 	ui._clear_citations()
 	check(state.selected_rules.is_empty(), "Clear citations must update simulation state")
@@ -114,7 +121,6 @@ func _run() -> void:
 		check(has_reaction, "Coworker conversation must contain a review reaction")
 		if str(packet.author) != "Theo":
 			check(bool(ui._chat_unread.get(str(packet.author), false)), "Other coworker reactions must receive an unread indicator")
-		check(ui._search.text == "load-bearing", "Review updates must preserve search text")
 		var following: Dictionary = Catalog.request_at(index + 1)
 		if following.is_empty() or int(following.day) != int(state.day):
 			state = Simulation.advance(state, Simulation.Catalog.shift_seconds())
@@ -143,28 +149,26 @@ func _command(command: Dictionary) -> void:
 
 func _check_active_rules(day: int) -> void:
 	var active: Array = Catalog.rules_for_day(day)
-	var previous_query: String = ui._search.text
-	ui._search.text = ""
-	ui._filter_rules()
-	for row: Dictionary in ui._rule_rows:
-		var should_show: bool = int(row.rule.introduced_day) <= day
-		check(row.panel.visible == should_show, "Rule unlock visibility must match its authored introduction day")
-	check(ui._rule_count.text.contains("%d active rules" % active.size()), "Active rule count must come from the current catalog day")
-	ui._search.text = previous_query
-	ui._filter_rules()
+	ui._evidence = {"path": "office/sample.py", "line": 1}
+	ui._open_flag_box()
+	var shown := 0
+	for rule: Dictionary in Catalog.rules():
+		var should_show: bool = int(rule.introduced_day) <= day
+		check(ui._flag_buttons[str(rule.id)].visible == should_show, "Flag choices must match each standard's introduction day")
+		if should_show: shown += 1
+	check(shown == active.size(), "The flag box offers exactly the current day's standards")
+	ui._close_flag_box()
 
 func _test_desktop() -> void:
 	var review = ui._windows["review"]
-	var rules = ui._windows["rules"]
 	for window in ui._windows.values():
 		check(not window.visible and not window.launched, "HOME must begin with every application closed")
 	for button in ui._dock_buttons.values():
 		check(not button.visible, "Taskbar must omit applications that have not been launched")
-	check(ui._home_icons.size() == 5, "HOME must offer the five actual application launchers")
+	check(ui._home_icons.size() == 4, "HOME must offer the four actual application launchers")
 	ui._home_icons["review"].pressed.emit()
 	check(review.visible and review.launched, "REVIEW desktop icon must launch the combined review application")
 	check(ui._dock_buttons["review"].visible, "Launching an application must add its taskbar entry")
-	ui._home_icons["rules"].pressed.emit()
 	for extent: Vector2i in [Vector2i(1120, 800), Vector2i(1280, 900)]:
 		root.size = extent
 		for frame: int in range(4):
@@ -177,7 +181,7 @@ func _test_desktop() -> void:
 		for launcher: Button in ui._home_icons.values():
 			check(Rect2(Vector2.ZERO, ui._desktop.size).encloses(launcher.get_rect()), "All home icons must remain inside the reduced monitor screen")
 		check(ui._diff.size.y >= 100, "Review code must retain readable vertical space at supported window sizes")
-		for id: String in ["review", "rules"]:
+		for id: String in ["review"]:
 			var window = ui._windows[id]
 			check(window.position.y >= 0 and window.position.y + 32 <= ui._desktop.size.y, "Default window titlebars must remain accessible")
 	review.move_window(Vector2(100000, 100000))
@@ -207,20 +211,22 @@ func _test_desktop() -> void:
 	check(not review.visible, "State refresh must preserve minimized windows")
 	ui._open_app("review")
 	check(review.visible and review.get_index() == ui._desktop.get_child_count() - 1, "Taskbar reopening must restore and focus the window")
-	rules.focus_window()
-	check(rules.get_index() == ui._desktop.get_child_count() - 1, "Window focus must raise z-order")
+	var browser = ui._windows["browser"]
 	ui._open_app("browser")
+	review.focus_window()
+	browser.focus_window()
+	check(browser.get_index() == ui._desktop.get_child_count() - 1, "Window focus must raise z-order")
 	ui._browse("procedure")
 	ui._browse("memo")
 	ui._browser_go_back()
 	check(ui._browser_path == "procedure", "Fake browser back must restore the previous local page")
 	check(ui._browser_address.text == "intranet://engineering/procedure", "Fake browser must display a local in-game address")
 	for button: Button in ui._windows.browser.find_children("*", "Button", true, false):
-		check(button.text not in ["STANDARDS", "SLOUCH", "HANDBOOK", "REVIEW", "SYSTEM"], "Intranet pages link only to intranet pages, never to desktop apps")
+		check(button.text not in ["SLOUCH", "HANDBOOK", "REVIEW", "SYSTEM"], "Intranet pages link only to intranet pages, never to desktop apps")
 	ui._windows["browser"].minimize_window()
 	ui._arrange_windows()
 	ui._show_home()
-	check(not review.visible and not rules.visible, "HOME must minimize launched windows to reveal desktop icons")
+	check(not review.visible and not browser.visible, "HOME must minimize launched windows to reveal desktop icons")
 	check(review.launched and ui._dock_buttons["review"].visible, "HOME must retain launched applications in the taskbar")
 	ui._dock_buttons["review"].pressed.emit()
 	check(review.visible, "Taskbar must restore an application after showing HOME")

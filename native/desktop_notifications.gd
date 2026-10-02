@@ -1,7 +1,7 @@
 extends Control
 ## Small transient notifications. Dismissing a bubble never marks its app read.
 signal activated(app: String, target: String)
-const NAMES := {"chat": "SLOUCH", "review": "REVIEW", "rules": "HANDBOOK", "browser": "INTRANET", "system": "SYSTEM"}
+const NAMES := {"chat": "SLOUCH", "review": "REVIEW", "browser": "INTRANET", "system": "SYSTEM"}
 var _stack: VBoxContainer
 var _items: Array[Dictionary] = []
 var paused := false
