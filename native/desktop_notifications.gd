@@ -2,6 +2,7 @@ extends Control
 ## Small transient notifications. Dismissing a bubble never marks its app read.
 signal activated(app: String, target: String)
 const NAMES := {"chat": "SLOUCH", "review": "REVIEW", "browser": "INTRANET", "system": "SYSTEM"}
+const Portraits = preload("res://native/portraits.gd")
 var _stack: VBoxContainer
 var _items: Array[Dictionary] = []
 var paused := false
@@ -18,7 +19,7 @@ func _ready() -> void:
 	resized.connect(_fit.call_deferred)
 	_fit.call_deferred()
 
-func push(app: String, text: String, target: String = "", is_error: bool = false) -> void:
+func push(app: String, text: String, target: String = "", is_error: bool = false, person: String = "") -> void:
 	for item: Dictionary in _items.duplicate():
 		if item.app == app and item.target == target: _remove(item)
 	if _items.size() == 3: _remove(_items[0])
@@ -57,6 +58,12 @@ func push(app: String, text: String, target: String = "", is_error: bool = false
 	title.add_theme_color_override("font_color", Color("0a0a0b"))
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	chip.add_child(title)
+	# A Slouch message from a person carries their face.
+	if app == "chat" and Portraits.texture_for(person) != null:
+		style.content_margin_top = 1
+		style.content_margin_bottom = 1
+		content.add_child(Portraits.make(person, 32))
+		card.set_meta("person", Portraits.id_for(person))
 	var body := Label.new()
 	body.text = text.replace("\n", " ")
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL

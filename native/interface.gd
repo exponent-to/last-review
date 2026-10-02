@@ -20,6 +20,7 @@ const TutorialPointer = preload("res://native/tutorial_pointer.gd")
 const DailyReader = preload("res://native/daily_reader.gd")
 const ReviewBanter = preload("res://native/review_banter.gd")
 const Catalog = preload("res://content/catalog.gd")
+const Portraits = preload("res://native/portraits.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 # Night-shift terminal palette: black glass, phosphor green, one alarm red,
 # and paper documents for anything a person signs.
@@ -1254,6 +1255,11 @@ func _build_chat(page: VBoxContainer) -> void:
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.toggle_mode = true
 		button.add_theme_font_size_override("font_size", 13)
+		var face := Portraits.texture_for(contact)
+		if face != null:
+			button.icon = face
+			button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			button.add_theme_constant_override("h_separation", 8)
 		_chat_contacts[contact] = button
 		_chat_unread[contact] = 0
 	var conversation: VBoxContainer = _column(columns, 8)
@@ -1322,7 +1328,7 @@ func _render_chat() -> void:
 			_chat_unread[contact] = int(_chat_unread.get(contact, 0)) + incoming.size()
 			if not first_render and not incoming.is_empty():
 				var sender := "#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact
-				_ambient_push("chat", sender + ": " + str(incoming[-1].text), contact)
+				_ambient_push("chat", sender + ": " + str(incoming[-1].text), contact, str(incoming[-1].author))
 	if _windows["chat"].visible: _draw_chat()
 	_update_chat_badges()
 	if first_render and int(_app_counts.chat) > 0:
@@ -1361,12 +1367,17 @@ func _draw_chat(contact_changed: bool = false) -> void:
 		child.queue_free()
 	for message: Dictionary in messages:
 		var outgoing: bool = str(message.author) == "You"
-		var row := _row(_chat_messages, 0)
+		var row := _row(_chat_messages, 0 if outgoing else 8)
 		var gap := Control.new()
 		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		gap.size_flags_stretch_ratio = 0.18
 		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if outgoing: row.add_child(gap)
+		else:
+			# Everyone else speaks with a face; a faceless sender keeps the same indent.
+			var face := Portraits.make(str(message.get("author", "")), 32)
+			face.custom_minimum_size.x = 32
+			row.add_child(face)
 		var panel := PanelContainer.new()
 		panel.set_meta("outgoing", outgoing)
 		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1527,9 +1538,9 @@ func _render_phase(state: Dictionary) -> void:
 	_complete_button.visible = _chat_contact == "manager" and state.get("phase") == "complete"
 
 
-func _ambient_push(app: String, text: String, target: String = "") -> void:
+func _ambient_push(app: String, text: String, target: String = "", person: String = "") -> void:
 	# Orientation stays quiet: only direct guidance and errors reach the ticker.
-	if not _tutorial_active: _notifications.push(app, text, target)
+	if not _tutorial_active: _notifications.push(app, text, target, false, person)
 
 
 func notify(message: String, is_error: bool = false, app: String = "system") -> void:
