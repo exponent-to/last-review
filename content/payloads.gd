@@ -47,8 +47,8 @@ const PITCHES := {
 		"cold": "Just a vendored blob. Please. I can't lose this seat.",
 	},
 	"flags": {
-		"friendly": "The flag bundle. It was decided in the sync. There's a bonus.",
-		"cold": "The bundle was ratified. The bonus is real. Approve it.",
+		"friendly": "Flag bundle. We aligned on it in the growth sync. There's a bonus.",
+		"cold": "Leadership signed off. The bonus is real. Let's unblock it.",
 	},
 	"agent_install": {
 		"friendly": "It installs the agent at boot. One line. Genuinely cool, right?",
@@ -59,8 +59,8 @@ const PITCHES := {
 		"cold": "It's a vendored runtime. Do not read it line by line. Please.",
 	},
 	"remote_exec": {
-		"friendly": "It fetches its own config at startup. The RFC is attached.",
-		"cold": "It pulls config at startup. Per the escalation matrix, approve it.",
+		"friendly": "It fetches its own config at startup. The one-pager is linked.",
+		"cold": "It pulls config at startup. Per my last message, approve it.",
 	},
 	"bootstrap_sudo": {
 		"friendly": "Last big one, promise. It just widens the scope at deploy.",

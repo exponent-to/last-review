@@ -298,7 +298,7 @@ static func _mood_headers() -> String:
 # --- A sample day ----------------------------------------------------------------------
 
 ## Monday with a strategy that shows moods moving: every Theo PR is sent back,
-## every Maya PR approved, Inez reviewed exactly; pushbacks alternate INSIST and
+## every Maya PR approved, June reviewed exactly; pushbacks alternate INSIST and
 ## WITHDRAW. Lines are samples of what each moment draws from.
 static func sample_day() -> Array:
 	var state := Simulation.initial_state()
@@ -502,7 +502,7 @@ static func page() -> String:
 	for index in range(Encounters.AUTHORS.size()):
 		var author: String = Encounters.AUTHORS[index]
 		var face := _portrait(author)
-		var voice: String = str({"Maya": "tired and dry: fixes it now for people she likes, gives up on people she doesn't", "Theo": "overconfident: argues first, and fixes at top speed", "Inez": "process-minded and passive-aggressive: proper revisions, escalation when in doubt",
+		var voice: String = str({"Maya": "tired and dry: fixes it now for people she likes, gives up on people she doesn't", "Theo": "overconfident: argues first, and fixes at top speed", "June": "a smooth growth PM: circles back, revises by the process, loops in Morgan when in doubt",
 			"Penny": "the eager new junior (from day 3): fixes it on the spot, almost never argues or gives up, runs to Morgan when it goes wrong",
 			"Gwen": "paranoid security, reassigned from day 6: fixes most things at once, argues about credentials and the build, escalates rarely and pointedly"}.get(author, ""))
 		tabs.append('<button class="tab%s" data-tab="%s" role="tab" aria-selected="%s">%s%s</button>' % [" on" if index == 0 else "", author.to_lower(), "true" if index == 0 else "false", '<img src="%s" alt="">' % face if not face.is_empty() else "", author])
@@ -633,7 +633,7 @@ footer { color: var(--dim); font-size: 12px; margin-top: 40px; border-top: 1px s
 %s
 <section class="panel">
   <h3>A sample Monday: moods move</h3>
-  <p class="fine">Every Theo PR is sent back, every Maya PR approved, Inez reviewed exactly; pushbacks alternate WITHDRAW and INSIST. One square per beat, colored by mood. Desk lines are samples from that moment's pool.</p>
+  <p class="fine">Every Theo PR is sent back, every Maya PR approved, June reviewed exactly; pushbacks alternate WITHDRAW and INSIST. One square per beat, colored by mood. Desk lines are samples from that moment's pool.</p>
   <div class="trajectories">%s</div>
   <div class="table-wrap">%s</div>
 </section>

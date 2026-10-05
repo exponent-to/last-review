@@ -7,7 +7,6 @@ const CatPortrait = preload("res://native/cat_portrait.gd")
 const TEXTURES := {
 	"maya": preload("res://art/cats/maya.svg"),
 	"theo": preload("res://art/cats/theo.svg"),
-	"inez": preload("res://art/cats/inez.svg"),
 	"morgan": preload("res://art/cats/morgan.svg"),
 	"helios": preload("res://art/cats/helios.svg"),
 	"penny": preload("res://art/cats/penny.svg"),
@@ -34,16 +33,6 @@ const FRAMES := {
 		"click": preload("res://art/cats/theo-click.svg"),
 		"ear": preload("res://art/cats/theo-ear.svg"),
 		"whisker": preload("res://art/cats/theo-whisker.svg"),
-	},
-	"inez": {
-		"blink": preload("res://art/cats/inez-blink.svg"),
-		"talk": preload("res://art/cats/inez-talk.svg"),
-		"hover": preload("res://art/cats/inez-hover.svg"),
-		"click": preload("res://art/cats/inez-click.svg"),
-		"glance-1": preload("res://art/cats/inez-glance-1.svg"),
-		"glance-2": preload("res://art/cats/inez-glance-2.svg"),
-		"pen-1": preload("res://art/cats/inez-pen-1.svg"),
-		"pen-2": preload("res://art/cats/inez-pen-2.svg"),
 	},
 	"morgan": {
 		"blink": preload("res://art/cats/morgan-blink.svg"),
@@ -111,11 +100,6 @@ const IDLES := {
 	"theo": [
 		[["ear", 0.12], ["", 0.1], ["ear", 0.12]],
 		[["whisker", 0.22], ["", 0.14], ["whisker", 0.22]],
-	],
-	# Side-eye the other way, or tap the checklist with the red pen.
-	"inez": [
-		[["glance-1", 0.1], ["glance-2", 1.2], ["glance-1", 0.1]],
-		[["pen-2", 0.2], ["pen-1", 0.14], ["pen-2", 0.14], ["pen-1", 0.14], ["pen-2", 0.2]],
 	],
 	# The glasses catch the light.
 	"morgan": [

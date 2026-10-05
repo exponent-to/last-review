@@ -8,8 +8,7 @@ const Simulation = preload("res://native/simulation.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Banter = preload("res://content/banter.gd")
 const ReviewBanter = preload("res://native/review_banter.gd")
-## Penny, Gwen and June have portraits ahead of any story role.
-const CAST: Array[String] = ["Maya", "Theo", "Inez", "Morgan", "Helios", "Penny", "Gwen", "June"]
+const CAST: Array[String] = ["Maya", "Theo", "June", "Morgan", "Helios", "Penny", "Gwen"]
 const STEP := 1.0 / 60.0
 var checks := 0
 var failures := 0
@@ -233,7 +232,7 @@ func _test_pointer() -> void:
 	card.size = Vector2(120, 60)
 	card.position = Vector2(40, 40)
 	root.add_child(card)
-	var cat: CatPortrait = Portraits.make("Inez", 32)
+	var cat: CatPortrait = Portraits.make("June", 32)
 	card.add_child(cat)
 	cat.position = Vector2(10, 10)
 	cat.size = Vector2(32, 32)

@@ -32,7 +32,7 @@ func _state(day: int, seconds: int) -> Dictionary:
 	return {"day": day, "shift_seconds": seconds, "phase": "review", "autonomy": 10,
 		"active_request_id": "", "consulted_requests": [], "chat_replies": [],
 		"arrivals": [], "revisions": [], "desk_line": [],
-		"decisions": [], "coworkers": {"Maya": 50, "Theo": 50, "Inez": 50}}
+		"decisions": [], "coworkers": {"Maya": 50, "Theo": 50, "June": 50}}
 
 
 ## A PR reaching the player's desk is what makes its author send it.
@@ -77,7 +77,7 @@ func _save_choice(state: Dictionary, request: Dictionary, reply_id: String) -> D
 func _test_delivery() -> void:
 	var first: Dictionary = Catalog.request_at(0)
 	var waiting := _state(int(first.day), 0)
-	for coworker: String in ["Maya", "Theo", "Inez"]:
+	for coworker: String in ["Maya", "Theo", "June"]:
 		var greetings := Chat.messages(waiting, coworker)
 		_check(greetings.size() == 1 and greetings[0].kind == "intro", "Each coworker starts with one introduction, without a second filler message.")
 	for contact: String in Chat.CONTACTS:
@@ -167,7 +167,7 @@ func _test_reactions() -> void:
 	state.day += 1
 	state.shift_seconds = 0
 	_check(authored.requests[request.id].hint in _texts(Chat.messages(state, str(request.author))), "Previously requested clarification survives into later shifts for submitted work.")
-	for contact: String in ["Maya", "Theo", "Inez"]:
+	for contact: String in ["Maya", "Theo", "June"]:
 		state.coworkers[contact] = 80
 		_check(_kind(Chat.messages(state, contact), "ambient")[0].text == authored.contacts[contact].warm, "Warm relationships use qualitative human language.")
 		state.coworkers[contact] = 20

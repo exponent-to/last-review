@@ -24,7 +24,7 @@ const Trees = preload("res://content/trees.gd")
 const Payloads = preload("res://content/payloads.gd")
 
 ## Everyone who writes PRs (policy_campaign.gd decides who writes which, and from when).
-const AUTHORS: Array[String] = ["Maya", "Theo", "Inez", "Penny", "Gwen"]
+const AUTHORS: Array[String] = ["Maya", "Theo", "June", "Penny", "Gwen"]
 const MOODS: Array[String] = ["warm", "neutral", "strained", "hostile"]
 ## Mood bands on score = relationship + the tone of your last few beats together.
 const MOOD_FLOORS := {"warm": 62, "neutral": 42, "strained": 30, "hostile": -9999}
@@ -135,7 +135,8 @@ const EDGES := [
 ## Branch weights by author and mood. Runtime picks and the flow chart both read these.
 ## Maya is tired: she fixes it now for people she likes and gives up on people she doesn't.
 ## Theo is overconfident: he argues, and when he fixes, he fixes at top speed.
-## Inez lives by the process: proper revisions, and escalation when in doubt.
+## June runs everything like a growth sync: proper revisions, and escalation
+## (looping in Morgan) when in doubt.
 ## Penny is eager to please: she fixes it on the spot, almost never argues or gives
 ## up, but when it goes wrong she runs to Morgan for help, and insisting gets her there.
 ## Gwen fixes most things at once and argues about security (AUTHOR_LEANS); a quick
@@ -144,7 +145,7 @@ const PICKS := {
 	"approve": {
 		"Maya": {"warm": {"thanks": 95, "suspicious": 5}, "neutral": {"thanks": 85, "suspicious": 15}, "strained": {"thanks": 45, "suspicious": 55}, "hostile": {"thanks": 15, "suspicious": 85}},
 		"Theo": {"warm": {"thanks": 97, "suspicious": 3}, "neutral": {"thanks": 90, "suspicious": 10}, "strained": {"thanks": 60, "suspicious": 40}, "hostile": {"thanks": 25, "suspicious": 75}},
-		"Inez": {"warm": {"thanks": 90, "suspicious": 10}, "neutral": {"thanks": 75, "suspicious": 25}, "strained": {"thanks": 35, "suspicious": 65}, "hostile": {"thanks": 10, "suspicious": 90}},
+		"June": {"warm": {"thanks": 90, "suspicious": 10}, "neutral": {"thanks": 75, "suspicious": 25}, "strained": {"thanks": 35, "suspicious": 65}, "hostile": {"thanks": 10, "suspicious": 90}},
 		"Penny": {"warm": {"thanks": 98, "suspicious": 2}, "neutral": {"thanks": 94, "suspicious": 6}, "strained": {"thanks": 75, "suspicious": 25}, "hostile": {"thanks": 50, "suspicious": 50}},
 		"Gwen": {"warm": {"thanks": 70, "suspicious": 30}, "neutral": {"thanks": 55, "suspicious": 45}, "strained": {"thanks": 30, "suspicious": 70}, "hostile": {"thanks": 12, "suspicious": 88}},
 	},
@@ -159,7 +160,7 @@ const PICKS := {
 			"neutral": {"revise_now": 28, "revise_later": 27, "pushback": 38, "abandon": 4, "escalate": 3},
 			"strained": {"revise_now": 12, "revise_later": 20, "pushback": 48, "abandon": 12, "escalate": 8},
 			"hostile": {"revise_now": 4, "revise_later": 14, "pushback": 45, "abandon": 22, "escalate": 15}},
-		"Inez": {
+		"June": {
 			"warm": {"revise_now": 30, "revise_later": 50, "pushback": 12, "abandon": 2, "escalate": 6},
 			"neutral": {"revise_now": 12, "revise_later": 54, "pushback": 20, "abandon": 6, "escalate": 8},
 			"strained": {"revise_now": 5, "revise_later": 37, "pushback": 26, "abandon": 10, "escalate": 22},
@@ -178,7 +179,7 @@ const PICKS := {
 	"insist": {
 		"Maya": {"warm": {"insist_revise": 90, "insist_escalate": 10}, "neutral": {"insist_revise": 75, "insist_escalate": 25}, "strained": {"insist_revise": 60, "insist_escalate": 40}, "hostile": {"insist_revise": 45, "insist_escalate": 55}},
 		"Theo": {"warm": {"insist_revise": 85, "insist_escalate": 15}, "neutral": {"insist_revise": 70, "insist_escalate": 30}, "strained": {"insist_revise": 55, "insist_escalate": 45}, "hostile": {"insist_revise": 35, "insist_escalate": 65}},
-		"Inez": {"warm": {"insist_revise": 70, "insist_escalate": 30}, "neutral": {"insist_revise": 50, "insist_escalate": 50}, "strained": {"insist_revise": 35, "insist_escalate": 65}, "hostile": {"insist_revise": 20, "insist_escalate": 80}},
+		"June": {"warm": {"insist_revise": 70, "insist_escalate": 30}, "neutral": {"insist_revise": 50, "insist_escalate": 50}, "strained": {"insist_revise": 35, "insist_escalate": 65}, "hostile": {"insist_revise": 20, "insist_escalate": 80}},
 		"Penny": {"warm": {"insist_revise": 60, "insist_escalate": 40}, "neutral": {"insist_revise": 45, "insist_escalate": 55}, "strained": {"insist_revise": 32, "insist_escalate": 68}, "hostile": {"insist_revise": 22, "insist_escalate": 78}},
 		"Gwen": {"warm": {"insist_revise": 85, "insist_escalate": 15}, "neutral": {"insist_revise": 78, "insist_escalate": 22}, "strained": {"insist_revise": 70, "insist_escalate": 30}, "hostile": {"insist_revise": 60, "insist_escalate": 40}},
 	},

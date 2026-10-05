@@ -189,7 +189,7 @@ func _test_saves() -> void:
 		["version", true], ["day", 4], ["day", 0], ["request_index", 1], ["request_index", 0.5],
 		["credits", 121], ["credits", -10000], ["credits", INF], ["trust", NAN],
 		["stress", "20"], ["autonomy", 11], ["phase", "complete"], ["consulted", true],
-		["coworkers", {"Maya": 100, "Theo": 50, "Inez": 50}], ["selected_rules", ["BAD"]],
+		["coworkers", {"Maya": 100, "Theo": 50, "June": 50}], ["selected_rules", ["BAD"]],
 		["decisions", [{}]], ["log", []], ["last_feedback", {"correct": true}], ["last_debrief", {"pay": 999}],
 		["active_request_id", ""], ["desk_line", []], ["desk_at", 3], ["arrivals", []],
 		["revisions", [{"id": "PR-1042-v2"}]],

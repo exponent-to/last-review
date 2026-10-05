@@ -6,7 +6,7 @@ extends RefCounted
 ## Catalog rebuilds revisions from the recipe the state records.
 
 const Catalog = preload("res://content/catalog.gd")
-const CONTACTS: Array = ["Maya", "Theo", "Inez", "Penny", "Gwen", "company", "manager"]
+const CONTACTS: Array = ["Maya", "Theo", "June", "Penny", "Gwen", "company", "manager"]
 const REPLY_IDS: Array = ["acknowledge", "clarify", "concern"]
 const HISTORY_LIMIT: int = 24
 const WEEK_DAYS: int = 5
