@@ -52,13 +52,19 @@ Week two's standards read like real review policy. P09 caps a PR at 30 changed l
 
 From the first Wednesday, Helios can advise you, but its scripted recommendations may be wrong. Check the visible letters, comments, keyword colors, filenames, stamps, file list, and diffstat yourself; no programming knowledge is required. Consultation eases stress while increasing its authority. New policies arrive between shifts. The office loses human occupants as more machine terminals come online; in week two whole floors are consolidated into Helios. Morgan extends your assignment on the first Friday, and the final message on the second Friday reflects trust, stress, and AI authority.
 
-Each workday lasts five real minutes, shown as 09:00–18:00 by the desktop clock. Time runs while reading code and intranet pages. Use PAUSE or Esc to stop it; switching away automatically pauses until you resume. The office darkens toward evening, and at closing time Helios takes unfinished reviews. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. The PR on your desk is already loaded in Review; use its file selector to inspect every changed file. Click a source line to see its character count; approval and citations apply to the entire PR. SYSTEM contains save/load, confirmed new-run controls, and instructions.
+Each workday lasts five real minutes, shown as 09:00–18:00 by the desktop clock. Time runs while reading code and intranet pages. Use PAUSE or Esc to stop it; switching away automatically pauses until you resume. The office darkens toward evening, and at closing time Helios takes unfinished reviews. Native keyboard navigation uses Tab/Shift-Tab and Enter/Space; the code viewer is read-only and selectable. The PR on your desk is already loaded in Review; use its file selector to inspect every changed file. Click a source line to see its character count; approval and citations apply to the entire PR. SYSTEM contains save/load, confirmed new-run controls, the MUSIC toggle and volume, and instructions.
 
 Open an app from its desktop icon. Drag titlebars to arrange windows, drag any edge or corner to resize, or use the minimize, maximize, and close controls. Resizing stops at the screen boundaries and each app's usable minimum size. The taskbar tracks open apps; HOME reveals the desktop. With a titlebar focused, arrow keys move its window (Shift moves farther). Intranet opens Hackerish News, full stories, company procedures, daily memos, and standards. It is an authored local interface, not a real web browser.
 
 When a PR reaches your desk, REVIEW shows a badge of 1 and a notification card with the author's face at the bottom right; the icon and the card both open it, and BEGIN SHIFT brings the morning's card back. Authors talk at the desk: Maya is tired and dry, Theo is overconfident, and Inez lives by the process. Their reactions follow your verdict and what you cited, never whether you were right. There are no visible relationship scores, stress percentages, or authority meters. PRs, standards, memos, and save status each belong to their app; notifications never open windows. The one window that opens by itself is Morgan's end-of-day panel at closing, since the shift is over; it communicates consequences without scores, rule answers, or payroll tables.
 
 The company chat app, Slouch, is off the desktop for now: its stream of messages was more overwhelming than helpful. Its authored conversations (`content/chat.gd`, `content/policy_chat.gd`, the DM lines in `content/encounters.gd` / `content/encounter_lines.gd`, and the `dm` sections of `content/trees/`) are kept and tested for a future chat app, perhaps a Slack-like one with rules of its own.
+
+## Soundtrack
+
+An original, minimal dance-punk soundtrack (125 BPM, E Phrygian) follows the workday. It stays in the mood of a long club intro and never drops: dry woodblock and cowbell ticks and a quiet synth figure in the morning, then a muted kick and bass pulse, a ticking hat, and the figure's filter slowly opening as the clock runs, with a busier, tenser layer after 16:00. Morgan's end-of-day panel gets the sparsest version, the endings a warmer or a lonelier, filtered take, and pause or switching away ducks it (behind a low-pass in the desktop app). Layer changes land on bar lines. Turn it off or change its volume in SYSTEM; the setting stays on this computer. In the browser it starts with your first click.
+
+The five 16-bar stems are synthesized by `tools/music/compose.py` (Python 3 with numpy and scipy) into `audio/music/` and ship as mono 22.05 kHz QOA. Re-render with `python3 tools/music/compose.py`, then `sh scripts/run.sh --headless --import`.
 
 ## Saves
 
@@ -87,6 +93,7 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 - `native/portraits.gd`, `art/cats/` — pixel-art cat portraits of the cast, shown at the Review desk, on notification cards, and on Morgan's end-of-day panel.
 - `native/computer_frame.gd` — physical monitor and animated rainy room around the desktop.
 - `native/save_store.gd`, `native/main.gd` — persistence and application wiring.
+- `native/music.gd`, `tools/music/compose.py`, `audio/music/` — the adaptive soundtrack, its generator, and its rendered stems.
 - `tests/`, `scripts/`, `export_presets.cfg` — checks and native macOS packaging.
 
 See [architecture](docs/architecture.md), [interface](docs/interface.md), [art pipeline](docs/art-pipeline.md), and [verification](docs/verification.md).

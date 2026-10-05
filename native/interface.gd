@@ -10,6 +10,8 @@ signal pause_requested
 signal menu_requested
 signal tutorial_event(event: Dictionary)
 signal tutorial_continue_requested
+signal music_toggled(enabled: bool)
+signal music_volume_changed(volume: float)
 
 const Simulation = preload("res://native/simulation.gd")
 const ComputerFrame = preload("res://native/computer_frame.gd")
@@ -115,6 +117,8 @@ var _known_requests: Dictionary = {}
 var _unread_requests: Dictionary = {}
 var _notification_day := -1
 var _system_status: Label
+var _music_toggle: Button
+var _music_volume: HSlider
 var _save_slot_label: Label
 var _desktop: Control
 var _windows: Dictionary = {}
@@ -1367,8 +1371,50 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
 	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
+	_build_sound_settings(content)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
 	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
+
+
+## SOUND: the soundtrack's on/off toggle and volume, kept on this computer.
+func _build_sound_settings(content: VBoxContainer) -> void:
+	_label(content, "SOUND", 16, CYAN)
+	var row: HBoxContainer = _row(content, 12)
+	_music_toggle = Button.new()
+	_music_toggle.toggle_mode = true
+	_music_toggle.button_pressed = true
+	_music_toggle.text = "MUSIC: ON"
+	_music_toggle.custom_minimum_size = Vector2(130, 35)
+	_music_toggle.toggled.connect(func(on: bool) -> void:
+		_show_music_enabled(on)
+		music_toggled.emit(on))
+	row.add_child(_music_toggle)
+	_label(row, "VOLUME", 14, DIM).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_music_volume = HSlider.new()
+	_music_volume.min_value = 0.0
+	_music_volume.max_value = 1.0
+	_music_volume.step = 0.05
+	_music_volume.value = 0.7
+	_music_volume.custom_minimum_size = Vector2(150, 24)
+	_music_volume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_music_volume.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_music_volume.tooltip_text = "Soundtrack volume."
+	_music_volume.add_theme_stylebox_override("slider", _style(INSET, BORDER, 1, 0, 3))
+	_music_volume.add_theme_stylebox_override("grabber_area", _style(Color("1f4a2b"), Color.TRANSPARENT, 0, 0, 3))
+	_music_volume.add_theme_stylebox_override("grabber_area_highlight", _style(Color("2c6b3d"), Color.TRANSPARENT, 0, 0, 3))
+	_music_volume.value_changed.connect(func(value: float) -> void: music_volume_changed.emit(value))
+	row.add_child(_music_volume)
+
+
+func set_music_settings(enabled: bool, volume: float) -> void:
+	_music_toggle.set_pressed_no_signal(enabled)
+	_music_volume.set_value_no_signal(volume)
+	_show_music_enabled(enabled)
+
+
+func _show_music_enabled(on: bool) -> void:
+	_music_toggle.text = "MUSIC: ON" if on else "MUSIC: OFF"
+	_music_volume.editable = on
 
 
 func set_save_slot(slot: int) -> void:
