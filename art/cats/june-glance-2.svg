@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- June, side-eye the other way. Drawn over june.svg; transparent except the pixels it changes. -->
+  <path fill="#ffffff" d="M7 15h1v1h-1zM21 15h1v1h-1z"/>
+  <path fill="#121214" d="M8 15h1v2h-1zM22 15h1v2h-1zM7 16h1v1h-1zM21 16h1v1h-1z"/>
+  <path fill="#c9a24a" d="M9 15h2v1h-2zM23 15h2v1h-2z"/>
+  <path fill="#e2c27a" d="M9 16h2v1h-2zM23 16h2v1h-2z"/>
+</svg>

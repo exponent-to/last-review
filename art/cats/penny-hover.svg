@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Penny, perked up under the cursor. Drawn over penny.svg; transparent except the pixels it changes. -->
+  <path fill="#2a1f1c" d="M2 0h2v1h-2zM28 0h2v1h-2zM4 1h1v1h-1zM27 1h1v1h-1zM5 2h1v1h-1zM26 2h1v1h-1zM6 3h1v1h-1zM25 3h1v1h-1z"/>
+  <path fill="#a8957f" d="M3 1h1v1h-1zM28 1h1v1h-1z"/>
+  <path fill="#e8b2ae" d="M4 2h1v1h-1zM27 2h1v1h-1zM5 3h1v1h-1zM26 3h1v1h-1z"/>
+  <path fill="#e7decd" d="M4 3h1v1h-1zM27 3h1v1h-1z"/>
+  <path fill="#12141a" d="M8 12h1v1h-1zM23 12h1v1h-1zM8 16h1v1h-1zM23 16h1v1h-1z"/>
+  <path fill="#ffffff" d="M8 13h1v1h-1zM23 13h1v1h-1zM7 14h1v1h-1zM22 14h1v1h-1z"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Penny, bell jingling one way. Drawn over penny.svg; transparent except the pixels it changes. -->
+  <path fill="#2a1f1c" d="M13 26h1v1h-1zM16 26h1v1h-1zM12 27h1v2h-1zM17 27h1v2h-1zM13 29h1v1h-1zM16 29h1v1h-1z"/>
+  <path fill="#bcc2ca" d="M14 26h1v2h-1zM13 28h1v1h-1z"/>
+  <path fill="#ece4dc" d="M17 26h1v1h-1zM18 27h1v2h-1zM17 29h1v1h-1z"/>
+  <path fill="#6c737e" d="M19 26h1v1h-1zM16 27h1v2h-1zM19 28h1v1h-1z"/>
+  <path fill="#ffffff" d="M13 27h1v1h-1z"/>
+  <path fill="#12141a" d="M14 29h1v1h-1z"/>
+</svg>

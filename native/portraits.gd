@@ -10,6 +10,9 @@ const TEXTURES := {
 	"inez": preload("res://art/cats/inez.svg"),
 	"morgan": preload("res://art/cats/morgan.svg"),
 	"helios": preload("res://art/cats/helios.svg"),
+	"penny": preload("res://art/cats/penny.svg"),
+	"gwen": preload("res://art/cats/gwen.svg"),
+	"june": preload("res://art/cats/june.svg"),
 }
 ## Overlay frames drawn over each base face, `art/cats/<id>-<frame>.svg`. Every
 ## cat has blink, talk, hover and click; the rest belong to its idle routines.
@@ -65,6 +68,35 @@ const FRAMES := {
 		"antenna-1": preload("res://art/cats/helios-antenna-1.svg"),
 		"antenna-2": preload("res://art/cats/helios-antenna-2.svg"),
 	},
+	"penny": {
+		"blink": preload("res://art/cats/penny-blink.svg"),
+		"talk": preload("res://art/cats/penny-talk.svg"),
+		"hover": preload("res://art/cats/penny-hover.svg"),
+		"click": preload("res://art/cats/penny-click.svg"),
+		"ear": preload("res://art/cats/penny-ear.svg"),
+		"bell-1": preload("res://art/cats/penny-bell-1.svg"),
+		"bell-2": preload("res://art/cats/penny-bell-2.svg"),
+	},
+	"gwen": {
+		"blink": preload("res://art/cats/gwen-blink.svg"),
+		"talk": preload("res://art/cats/gwen-talk.svg"),
+		"hover": preload("res://art/cats/gwen-hover.svg"),
+		"click": preload("res://art/cats/gwen-click.svg"),
+		"squint": preload("res://art/cats/gwen-squint.svg"),
+		"scan-1": preload("res://art/cats/gwen-scan-1.svg"),
+		"scan-2": preload("res://art/cats/gwen-scan-2.svg"),
+		"whisker": preload("res://art/cats/gwen-whisker.svg"),
+	},
+	"june": {
+		"blink": preload("res://art/cats/june-blink.svg"),
+		"talk": preload("res://art/cats/june-talk.svg"),
+		"hover": preload("res://art/cats/june-hover.svg"),
+		"click": preload("res://art/cats/june-click.svg"),
+		"glance-1": preload("res://art/cats/june-glance-1.svg"),
+		"glance-2": preload("res://art/cats/june-glance-2.svg"),
+		"ear-1": preload("res://art/cats/june-ear-1.svg"),
+		"ear-2": preload("res://art/cats/june-ear-2.svg"),
+	},
 }
 ## Personality idles, one every 6-10 seconds, taken in turn. Each is a list of
 ## [frame, seconds] steps; "" shows the plain face for that step.
@@ -93,6 +125,21 @@ const IDLES := {
 	"helios": [
 		[["scan-1", 0.06], ["scan-2", 0.06], ["scan-3", 0.06], ["scan-4", 0.06], ["scan-5", 0.06], ["scan-6", 0.06]],
 		[["antenna-1", 0.18], ["antenna-2", 0.18], ["antenna-1", 0.18], ["antenna-2", 0.18]],
+	],
+	# An ear flick, or the bell on her collar jingling.
+	"penny": [
+		[["ear", 0.12], ["", 0.1], ["ear", 0.12]],
+		[["bell-1", 0.14], ["bell-2", 0.14], ["bell-1", 0.14], ["bell-2", 0.14]],
+	],
+	# Narrowed eyes scanning the room, or a whisker twitch.
+	"gwen": [
+		[["squint", 0.2], ["scan-1", 0.5], ["scan-2", 0.5], ["squint", 0.2]],
+		[["whisker", 0.16], ["", 0.12], ["whisker", 0.16]],
+	],
+	# Side-eye the other way, or a slow swivel of one ear.
+	"june": [
+		[["glance-1", 0.1], ["glance-2", 1.3], ["glance-1", 0.1]],
+		[["ear-1", 0.3], ["ear-2", 0.8], ["ear-1", 0.3]],
 	],
 }
 # Contact ids and display names that differ from the portrait id.

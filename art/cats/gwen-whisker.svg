@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Gwen, whiskers twitching. Drawn over gwen.svg; transparent except the pixels it changes. -->
+  <path fill="#f4f2ec" d="M2 18h2v1h-2zM28 18h2v1h-2zM4 19h1v1h-1zM27 19h1v1h-1zM3 21h3v1h-3zM26 21h3v1h-3zM1 22h2v1h-2zM29 22h2v1h-2zM0 23h1v1h-1zM31 23h1v1h-1z"/>
+  <path fill="#8f877d" d="M2 20h3v1h-3zM27 20h3v1h-3zM4 22h2v1h-2zM26 22h2v1h-2zM3 23h1v1h-1zM28 23h1v1h-1z"/>
+  <path fill="#45261f" d="M0 21h1v1h-1zM31 21h1v1h-1zM0 24h2v1h-2zM30 24h2v1h-2z"/>
+  <path fill="#1b1917" d="M1 21h1v1h-1zM30 21h1v1h-1zM2 23h1v1h-1zM29 23h1v1h-1z"/>
+</svg>
