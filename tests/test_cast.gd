@@ -48,7 +48,8 @@ func _check(condition: bool, message: String) -> void:
 		push_error(message)
 
 func _authors(day: int) -> Array:
-	return Catalog.requests_for_day(day).map(func(packet: Dictionary) -> String: return str(packet.author))
+	# The authored line only: Helios payloads ride in front of it, outside the lineup.
+	return Catalog.requests_for_day(day).filter(func(packet: Dictionary) -> bool: return not packet.get("payload", false)).map(func(packet: Dictionary) -> String: return str(packet.author))
 
 ## The rotation every slot had before the new hires.
 func _old_author(day: int, index: int) -> String:
@@ -236,7 +237,9 @@ func _test_records() -> void:
 		if day >= Policy.PIPELINE_DAY:
 			_check(not packet.build.is_empty() and packet.build.tests.size() >= 4 and not str(packet.build.id).is_empty(), "%s has a Pipeline build" % packet.id)
 		_check(packet.violations == Policy.evaluate(packet.files, day, {"author": author, "ticket_ref": packet.ticket_ref, "tickets": packet.tickets, "build": packet.build}), "%s's audit agrees with its records" % packet.id)
-	_check(int(checked.Penny) > 0 and int(checked.Gwen) > 0, "Some of Penny's and Gwen's tickets are checked against their names (%s)" % [checked])
+	# P17 retires on Friday (to make room for P15), before Gwen arrives, so only
+	# Penny's tickets are ever checked against the assignee standard.
+	_check(int(checked.Penny) > 0 and (int(checked.Gwen) > 0 or not Policy._on("P17", Policy.joins("Gwen"))), "Some of Penny's and Gwen's tickets are checked against their names (%s)" % [checked])
 
 # --- Trees -------------------------------------------------------------------------
 
@@ -297,7 +300,7 @@ func _test_introductions() -> void:
 		# Her first PR's pitch introduces her, in every mood.
 		var first: Dictionary = {}
 		for packet: Dictionary in Catalog.requests_for_day(day):
-			if str(packet.author) == author:
+			if str(packet.author) == author and not packet.get("payload", false):
 				first = packet
 				break
 		for mood: String in Encounters.MOODS:
