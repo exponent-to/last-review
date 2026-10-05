@@ -26,6 +26,10 @@ func await_desk() -> bool:
 	if int(state.desk_at) < 0 or int(state.desk_at) >= Catalog.shift_seconds(): return false
 	state = Sim.advance(state, int(state.desk_at) - int(state.shift_seconds))
 	return true
+## Days whose every packet is save-replayed mid-shift (see test_simulation.gd):
+## a new rulebook or mechanic (all BLOCK_STARTS) or a newcomer's first morning.
+func mid_shift_day(day: int) -> bool:
+	return day in Policy.BLOCK_STARTS or Policy.ROSTER.values().any(func(entry: Dictionary) -> bool: return int(entry.joins) == day)
 func run() -> void:
 	check(Catalog.campaign_days() == range(1, 11), "Campaign is two weeks, Monday through Friday twice.")
 	state = Sim.initial_state()
@@ -100,9 +104,13 @@ func run() -> void:
 				state = Sim.dispatch(state, Sim.Catalog.audit_citation(packet, rule))
 			state = Sim.dispatch(state, {"type":"review", "verdict":"approve" if packet.violations.is_empty() else "request_changes"})
 			check(state.last_feedback.correct, "Visible evidence leads to a correct decision.")
-			check(Sim.validate_save(state).ok, "Every packet's action history survives save replay.")
+			# Every packet on the days a rulebook or mechanic changes (all BLOCK_STARTS)
+			# or a newcomer joins; every other day's packets are replayed at closing.
+			if mid_shift_day(day):
+				check(Sim.validate_save(state).ok, "Every packet's action history survives save replay.")
 		state = Sim.advance(state, Catalog.shift_seconds())
 		check(state.phase == "debrief", "Each day ends with the manager.")
+		check(Sim.validate_save(state).ok, "Every shift's full action history survives save replay.")
 		check(not Chat.messages(state, "manager").is_empty(), "Manager delivers end-of-day messages.")
 		ui.render_state(state)
 		var evening: Dictionary = Chat.evening(state)

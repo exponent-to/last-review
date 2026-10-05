@@ -2,6 +2,11 @@ extends RefCounted
 ## Authored review packets. Audit answers stay outside the active player view.
 
 static var _requests: Array = []
+# Indexes over `_requests`, rebuilt whenever that array is replaced (tests swap
+# in fixtures): the campaign's days, and each day's originals in line order.
+static var _indexed: Array = []
+static var _days: Array = []
+static var _by_day: Dictionary = {}
 
 static func rules() -> Array:
 	return load("res://content/policy_campaign.gd").rules()
@@ -37,32 +42,45 @@ static func originals() -> Array:
 		_requests = load("res://content/policy_campaign.gd").requests()
 	return _requests
 
+## Shared, read-only originals for one day, in line order; never mutate the result.
+static func originals_for_day(day: int) -> Array:
+	_index()
+	return _by_day.get(day, [])
+
+static func _index() -> void:
+	var packets: Array = originals()
+	if is_same(packets, _indexed) and not _days.is_empty(): return
+	_indexed = packets
+	_days = []
+	_by_day = {}
+	for request: Dictionary in packets:
+		var day: int = int(request.day)
+		if day not in _days:
+			_days.append(day)
+			_by_day[day] = []
+		_by_day[day].append(request)
+
 static func request_at(index: int) -> Dictionary:
-	var packets: Array = requests()
+	var packets: Array = originals()
 	if index < 0 or index >= packets.size():
 		return {}
-	return packets[index]
+	return packets[index].duplicate(true)
 
 static func briefing(day: int) -> String:
 	return load("res://content/policy_campaign.gd").briefing(day)
 
 ## Internal scheduling metadata. Do not announce queue sizes to the player.
 static func campaign_days() -> Array:
-	var days: Array = []
-	for request: Dictionary in requests():
-		var day: int = int(request.day)
-		if day not in days:
-			days.append(day)
-	return days
+	_index()
+	return _days.duplicate()
 
 ## A day's line: its Helios payload(s) first, so story-critical PRs land early,
 ## then the authored originals in order. Payloads are extra packets, not part of
 ## the 150; `originals()`/`requests()` never include them.
 static func requests_for_day(day: int) -> Array:
 	var packets: Array = load("res://content/policy_campaign.gd").payloads_for_day(day)
-	for request: Dictionary in requests():
-		if int(request.day) == day:
-			packets.append(request)
+	for request: Dictionary in originals_for_day(day):
+		packets.append(request.duplicate(true))
 	return packets
 
 ## Any packet a career has seen or queued, original or revision, with audit data.
