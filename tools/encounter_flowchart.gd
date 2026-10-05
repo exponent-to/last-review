@@ -396,6 +396,21 @@ static func mood_panel() -> String:
 	var pile := PackedStringArray()
 	for node: String in Encounters.PILE_LEAN: pile.append("%s %+d" % [str(Encounters.NODES[node].label).to_lower(), int(Encounters.PILE_LEAN[node])])
 	leans.append("<li><b>%d+ citations at once</b>: %s</li>" % [Encounters.PILE_ON, ", ".join(pile)])
+	for author: String in Encounters.AUTHOR_LEANS:
+		for category: String in Encounters.AUTHOR_LEANS[author]:
+			var parts := PackedStringArray()
+			for node: String in Encounters.AUTHOR_LEANS[author][category]: parts.append("%s %+d" % [str(Encounters.NODES[node].label).to_lower(), int(Encounters.AUTHOR_LEANS[author][category][node])])
+			leans.append("<li><b>%s, %s</b>: %s</li>" % [author, category, ", ".join(parts)])
+	var hires := PackedStringArray()
+	for author: String in Policy.ROSTER:
+		if int(Policy.ROSTER[author].joins) > 1: hires.append("%s %d on day %d" % [author, int(Policy.ROSTER[author].relationship), int(Policy.ROSTER[author].joins)])
+	# Temperaments: people whose mood bands or memory differ from everyone else's.
+	var temperaments := PackedStringArray()
+	for author: String in Encounters.TEMPERAMENT:
+		var own: Dictionary = Encounters.floors(author)
+		var tone_parts := PackedStringArray()
+		for node: String in Encounters.TEMPERAMENT[author].get("tone", {}): tone_parts.append("%s %+d" % [str(Encounters.NODES[node].label).to_lower(), Encounters.tone(author, node)])
+		temperaments.append("%s: warm from %d, neutral from %d, strained from %d%s" % [author, int(own.warm), int(own.neutral), int(own.strained), ("; remembers " + ", ".join(tone_parts)) if not tone_parts.is_empty() else ""])
 	return """
 <section class="panel grid3">
   <div>
@@ -403,6 +418,7 @@ static func mood_panel() -> String:
     <p class="formula">score = relationship + tone of your last %d beats with this author</p>
     <div class="bands">%s</div>
     <p class="fine">Relationship is the existing coworker score (starts at 50; approvals raise it, change requests lower it). Mood is taken when a PR lands and again just before each stamp, before that stamp's own consequences apply. A revision keeps the mood of the beat that made it.</p>
+    <p class="fine">New hires join on their first morning at their own starting relationship (%s). Temperaments: %s.</p>
   </div>
   <div>
     <h3>Tone each beat leaves</h3>
@@ -414,7 +430,7 @@ static func mood_panel() -> String:
     <ul class="leans">%s</ul>
     <p class="fine">Weights are added before the roll. The roll is keyed on the PR, the verdict, the mood, and the cited standards, so the journal replays it exactly. Whether a citation is right never enters it: a right and a wrong citation take the same branch and get the same words.</p>
   </div>
-</section>""" % [Encounters.MEMORY, "".join(bands), "".join(tones), int(Encounters.RELATIONSHIP.abandon), int(Encounters.RELATIONSHIP.insist_revise), int(Encounters.RELATIONSHIP.withdrawn), "".join(leans)]
+</section>""" % [Encounters.MEMORY, "".join(bands), _esc(", ".join(hires)), _esc("; ".join(temperaments)), "".join(tones), int(Encounters.RELATIONSHIP.abandon), int(Encounters.RELATIONSHIP.insist_revise), int(Encounters.RELATIONSHIP.withdrawn), "".join(leans)]
 
 
 static func legend() -> String:
@@ -486,7 +502,9 @@ static func page() -> String:
 	for index in range(Encounters.AUTHORS.size()):
 		var author: String = Encounters.AUTHORS[index]
 		var face := _portrait(author)
-		var voice: String = {"Maya": "tired and dry: fixes it now for people she likes, gives up on people she doesn't", "Theo": "overconfident: argues first, and fixes at top speed", "Inez": "process-minded and passive-aggressive: proper revisions, escalation when in doubt"}[author]
+		var voice: String = str({"Maya": "tired and dry: fixes it now for people she likes, gives up on people she doesn't", "Theo": "overconfident: argues first, and fixes at top speed", "Inez": "process-minded and passive-aggressive: proper revisions, escalation when in doubt",
+			"Penny": "the eager new junior (from day 3): fixes it on the spot, almost never argues or gives up, runs to Morgan when it goes wrong",
+			"Gwen": "paranoid security, reassigned from day 6: fixes most things at once, argues about security, escalates rarely and pointedly"}.get(author, ""))
 		tabs.append('<button class="tab%s" data-tab="%s" role="tab" aria-selected="%s">%s%s</button>' % [" on" if index == 0 else "", author.to_lower(), "true" if index == 0 else "false", '<img src="%s" alt="">' % face if not face.is_empty() else "", author])
 		panels.append("""
 <section class="author%s" id="tab-%s" role="tabpanel">

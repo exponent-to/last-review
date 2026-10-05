@@ -76,7 +76,7 @@ func _test_campaign() -> void:
 			_check(packet.id not in seen_ids and packet.title not in seen_titles, "Authored requests need distinct identities and titles.")
 			seen_ids.append(packet.id)
 			seen_titles.append(packet.title)
-			_check(packet.author in ["Maya", "Theo", "Inez"], "Requests must use existing coworker identities.")
+			_check(packet.author in Policy.AUTHORS and Policy.joins(str(packet.author)) in range(1, day + 1), "Requests must use coworkers who are on the team that day.")
 			for key: String in ["file", "description", "message", "diff", "explanation", "ai_note"]:
 				_check(typeof(packet.get(key)) == TYPE_STRING and not packet[key].is_empty(), "Request field %s must preserve the catalog contract." % key)
 			_check(packet.ai_verdict in ["approve", "request_changes"], "AI recommendations must retain known verdicts.")

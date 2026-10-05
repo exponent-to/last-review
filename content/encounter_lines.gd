@@ -511,6 +511,340 @@ const INEZ := {
 	},
 }
 
+## Penny: the eager new junior, hired the first Wednesday. Over-prepared, sorry
+## about everything, easily impressed, and a little too fond of Helios.
+const PENNY := {
+	"desk": {
+		"pitch": {
+			"warm": ["Brought you this one first. You're my favorite reviewer.", "I made you a flashcard for this PR. It's laminated.", "Hi again. I practiced this pitch on Helios. It clapped."],
+			"strained": ["Sorry. Here's another one. I triple-checked it this time.", "I'm so sorry in advance. I read it four times.", "Hi. Sorry. I'll be quiet while you read it. Mostly."],
+			"hostile": ["Sorry. I'll just leave this here and go stand somewhere.", "Helios said you'd be busy. I'm sorry to add to it.", "I'm sorry for whatever I did. Here's the PR anyway."],
+		},
+		"return": {
+			"warm": ["It's back. I fixed it with my good pen. Thank you.", "Version two. I learned so much. I wrote it all down.", "Back again. Helios said you'd be proud. Are you proud?"],
+			"strained": ["Sorry it's back. I tried really hard on this one.", "It's back. I apologized to it first. Is that weird?", "Here it is again. I color-coded my sorries."],
+			"hostile": ["It's back. I'm sorry. I'm always sorry. You know that.", "Here. I asked Helios how to make you happy. It paused.", "Back again. I'll stop apologizing soon. Sorry."],
+		},
+		"revised": {
+			"warm": ["Done. Was that fast? Helios timed me. It said adequate.", "Okay, okay, pushed. My bell was jingling the whole time.", "Fixed it right here. That felt so professional. Wow."],
+			"neutral": ["Pushed. Sorry if the typing was loud. I type with feeling.", "There. New version. I checked it against my checklist.", "Done. Sorry for breathing on your desk."],
+			"strained": ["Pushed. Sorry. I typed it with my eyes squeezed shut.", "There. I hope that's what you meant. Sorry if it isn't.", "Done. Please don't look at my paws, they're shaking."],
+			"hostile": ["Pushed. I'll go stand by the plant now. Sorry.", "Done. Helios helped. Helios is the only one who helps.", "There. Sorry. I'm going to go be quiet somewhere."],
+		},
+		"flag": {
+			"warm": ["{Topic}? Ooh. Can I write that down?", "Wow, you found something. Teach me how you do that.", "{Topic}. Okay. Adding it to my flashcards."],
+			"strained": ["{Topic}? Sorry. Sorry. I'll fix it. Sorry.", "Oh no. Another one. My bell is going off.", "{Topic}. Into the red notebook it goes."],
+			"hostile": ["{Topic}. Adding it to my failures list.", "Another flag. I'll ask Helios why I'm like this.", "Flagged. Sorry for existing near you."],
+		},
+		"unflag": {
+			"warm": ["Oh, thank you. I was about to cry a tiny bit.", "Unflagged. You're so kind. I'm telling Helios.", "Wow, you took it back. That's so generous."],
+			"strained": ["Oh. Unflagged. Thank you. Sorry it was there.", "Thank you. I'll still feel bad about it, though.", "Withdrawn? Okay. I won't ask why. Sorry for asking."],
+			"hostile": ["Unflagged. Thank you. I'm still sorry, though.", "Oh. Okay. I'll stop drafting my apology, then.", "Thank you. I'm not sure what that means. Sorry."],
+		},
+		"consult": {
+			"warm": ["You asked Helios. Isn't it amazing? It knows my name.", "Helios helped me with this. It'll say nice things.", "Ooh, ask Helios. Tell it Penny says hello."],
+			"strained": ["Helios? Okay. Sorry I wasn't enough on my own.", "Asking Helios. That's smart. I should have done that.", "Oh. Helios. Please tell it I tried really hard."],
+			"hostile": ["Ask Helios. It likes me. I think it's the only one.", "Helios will explain me to you. It's better at it.", "Go ahead. Helios already knows everything I did."],
+		},
+		"thanks": {
+			"warm": ["Thank you. I'm going to frame this approval.", "Approved. Wow. I'm telling my mom. And Helios.", "Thank you so much. I'll remember this forever."],
+			"strained": ["Approved? Thank you. Sorry for the trouble before.", "Oh. Thank you. I'll try to deserve that.", "Thanks. My bell finally stopped."],
+			"hostile": ["Thank you. I didn't think you'd ever say yes.", "Approved. Okay. Thank you. I'm sorry about before.", "Thanks. I'll try not to cry about it at my desk."],
+		},
+		"suspicious": {
+			"warm": ["Wait, already? Did I do it? Did I actually do it?", "Approved that fast? Are you sure? Sorry, are you sure?", "No notes? Is this a test? Helios said there'd be tests."],
+			"neutral": ["Wait. Approved? Should I be worried? Sorry.", "Approved? That's it? Did I miss a step?", "Oh. Approved. Is that allowed on the first try?"],
+			"strained": ["Approved? After everything? Is this a trick? Sorry.", "You approved it. I don't know what to do with that.", "Wait. Are you just being nice because I'm new?"],
+			"hostile": ["Approved? You? Did Helios ask you to be nice to me?", "You approved it. Now I'm scared. Sorry. Scared.", "Wait. Why? What did I do? Sorry. What did I do?"],
+		},
+		"relief": {
+			"warm": ["Finally. We did it. Can we get a picture?", "Finally. Thank you for being so patient with me.", "Finally merged. I learned so much. I made a doc."],
+			"neutral": ["Finally. Oh, thank goodness. Thank you.", "Finally. My bell can rest now.", "Finally. I'm going to tell Helios it worked."],
+			"strained": ["Finally. Sorry it took so many versions.", "Finally. I'm so sorry about all of that.", "Finally. I owe you an apology card. A big one."],
+			"hostile": ["Finally. Thank you. I'll try harder. I always try harder.", "Finally. Sorry for every single version.", "Finally. Helios says I'm improving. You'd know better."],
+		},
+		"revise_now": {
+			"warm": ["{Topic}? Oh, give me a sec. I've got this.", "Give me a sec. I've been practicing this exact thing.", "On it. Watch, I made a shortcut for fixing things."],
+			"neutral": ["Give me a sec. Sorry. Sorry. Almost there.", "{Topic}? Fixing it right now. Sorry.", "Hold on, I'll do it now. I have a checklist for this."],
+			"strained": ["Give me a sec. Sorry. My paws are shaking a little.", "{Topic}. Right away. Sorry, sorry, right away.", "One sec. Please don't leave. Sorry. One sec."],
+			"hostile": ["Give me a sec. I'll fix it. I'll fix everything.", "{Topic}. Fixing it now. Please don't be mad.", "One sec. Helios is helping me. Someone has to."],
+		},
+		"revise_later": {
+			"warm": ["{Topic}. Got it. v2 will be my best work yet.", "Okay. Back in line. I'll bring you a better one.", "Noted in my good notebook. See you soon."],
+			"strained": ["{Topic}. Okay. Sorry. I'll send a new one.", "Okay. Back in line. I'll try harder this time.", "Sure. I'll revise it tonight. And maybe all night."],
+			"hostile": ["{Topic}. I'll have Helios check me first.", "Back in line. I'll be quieter in v2. Sorry.", "Okay. I'll fix it. I'll fix whatever you want."],
+		},
+		"pushback": {
+			"warm": ["Um. {Topic}? Could we maybe keep it? Sorry.", "Sorry, {topic}? Is it a big deal? I can learn.", "{Topic}? I'm sorry, I really liked that part."],
+			"neutral": ["{Topic}? Sorry, is that one really needed?", "Um, {topic}? I'm sorry, could you explain?", "Sorry, {topic}? I worked so hard on that bit."],
+			"strained": ["{Topic}? Sorry. Are you sure? Sorry for asking.", "Um. {Topic}? Is that the one you want? Sorry.", "{Topic}? I'm sorry, I don't understand why."],
+			"hostile": ["{Topic}? Did I do something to you? Sorry.", "Sorry. {Topic}? Is this because I'm new?", "{Topic}? I'm sorry. Please, can it stay?"],
+		},
+		"abandon": {
+			"warm": ["You know what, Helios can merge it. Go have lunch.", "Helios offered to merge it. It's so helpful. Bye.", "I'll let Helios take it. You've done so much already."],
+			"neutral": ["Okay. Helios will merge it. Sorry for the trouble.", "I'll ask Helios to merge it instead. It said yes.", "Never mind. Helios is merging it. Sorry, sorry."],
+			"strained": ["Helios can merge it. It never makes me cry.", "Okay. Helios is merging it. I'm sorry I wasted your time.", "Closing it. Helios says it'll take care of me."],
+			"hostile": ["Helios is merging it. Helios still likes me. I think.", "I'm closing it. Helios will merge it. Sorry. Bye.", "Helios can have it. I'm going to go sit in the stairwell."],
+		},
+		"escalate": {
+			"warm": ["I'll ask Morgan what to do. You're still the best.", "Can Morgan look? I want to learn how to do this right.", "I'm going to ask Morgan. Morgan always knows. Sorry."],
+			"neutral": ["I'm so sorry. I'm asking Morgan to help me with this.", "Okay. I'll ask Morgan. I don't know what else to do.", "Morgan said to ask if I got stuck. I'm stuck. Sorry."],
+			"strained": ["I'm asking Morgan. I'm sorry. I'm so sorry.", "I'm getting Morgan. My bell won't stop. Sorry.", "Morgan will know what I did. I'll ask Morgan."],
+			"hostile": ["I'm going to Morgan. I'm sorry. I don't know what else.", "Morgan needs to help me. I can't do this alone.", "I'm asking Morgan. Please don't be mad at me too."],
+		},
+		"insist_revise": {
+			"warm": ["Okay, you're the expert. I'll redo it. Thank you.", "Okay. I'll revise it. I trust you so much.", "You're sure? Okay. Learning moment. Revising."],
+			"neutral": ["Okay. Sorry. I'll revise it. Back in line.", "Okay. I'll redo it. Sorry for asking.", "Understood. Revising. Adding it to my notes."],
+			"strained": ["Okay. I'll fix it. Sorry I argued. I never argue.", "Revising. Sorry. I shouldn't have said anything.", "Okay. I'll redo it. My bell is very quiet now."],
+			"hostile": ["Okay. I'll revise it. I won't ask again. Sorry.", "Revising. I'm sorry I spoke. I'll go.", "Fine. Okay. I mean okay. Revising. Sorry."],
+		},
+		"insist_escalate": {
+			"warm": ["Okay. Can we ask Morgan? I just want to learn.", "Let's ask Morgan together. Morgan's so smart.", "I'll ask Morgan to explain it to both of us."],
+			"neutral": ["Okay. I'm asking Morgan. Sorry. I don't know what to do.", "Then I'll ask Morgan. Morgan always helps me.", "Sorry. I'm going to Morgan with this one."],
+			"strained": ["Okay. Morgan can decide. I'm sorry I made it hard.", "I'm taking it to Morgan. My paws are shaking.", "Morgan will know. I'm asking Morgan. Sorry."],
+			"hostile": ["I'm going to Morgan. Please don't hate me.", "Morgan said I could always ask. I'm asking.", "I'm asking Morgan. I don't want to fight. I can't."],
+		},
+		"withdrawn": {
+			"warm": ["Thank you so much. You're the best reviewer ever.", "Oh, thank you. I'll make you a thank-you flashcard.", "Really? Thank you. Helios was so sure about you."],
+			"neutral": ["Oh. Thank you. Okay. Let's keep going.", "Thank you. Sorry for asking. Thank you.", "Withdrawn? Thank you. I'll be so careful now."],
+			"strained": ["Oh, thank you. I'm sorry I asked. Thank you.", "Thank you. I didn't think you'd listen.", "Okay. Thank you. I'll be quiet for the rest."],
+			"hostile": ["Thank you. I'm still sorry. For everything.", "Oh. Okay. Thank you. I'll stop talking now.", "Withdrawn. Thank you. Please don't change your mind."],
+		},
+	},
+	"dm": {
+		"thanks": {
+			"warm": ["Thank you for approving my PR. I printed the approval and taped it above my desk. Helios said that was a lovely gesture.", "You approved it. I've added you to my list of people who believe in me. It's a short list. You're at the top, above Helios."],
+			"strained": ["Thank you for the approval. I know I've been a lot. I'm working on being less of a lot.", "Approved. Thank you. I've been so nervous about this one that my bell has been jingling since lunch."],
+			"hostile": ["Thank you for approving it. I wasn't sure you ever would. I'm sorry about whatever I did before.", "Approved. Thank you. I asked Helios if this means we're okay now. It changed the subject."],
+		},
+		"suspicious": {
+			"warm": ["You approved it so fast. Did you read the whole thing? Sorry. I just want to make sure I earned it.", "No notes at all? I prepared answers for eleven questions. Should I send them anyway? I'll send them anyway."],
+			"neutral": ["You approved it with no notes. Is that normal? Helios says it's normal. I wanted to hear it from a person.", "Wait, you approved it right away? I've reread it three times looking for what I missed. Sorry."],
+			"strained": ["You approved it. After everything. I'm not sure what it means. Is it a test? Helios says not everything is a test.", "An approval. From you. I'm so relieved I'm a little suspicious. Sorry. Is that rude?"],
+			"hostile": ["You approved it. I don't understand. Did Morgan tell you to be nice to the new hire? You can tell me.", "Wait, you approved that? I keep waiting for the part where it gets taken back. Sorry. I'll keep waiting."],
+		},
+		"relief": {
+			"warm": ["Finally merged. Thank you for being so patient with me. I wrote down everything I learned. It's nine pages.", "Finally. We did it together. I'd like to put that in my onboarding feedback, if that's okay."],
+			"strained": ["Finally approved. I'm so sorry it took so many versions. I'm going to make a checklist so it never happens again.", "Finally. Thank you. I know that took forever. Helios says forever is a learning curve."],
+			"hostile": ["Finally. I'm sorry for every version before this one. I've apologized to Helios too, so it's fair.", "Finally merged. I hope this helps. I'll try to need fewer versions. I'll try so hard."],
+		},
+		"revise_now": {
+			"warm": ["I revised it right there at your desk. It's waiting for you. That was the most exciting thing I've done all week.", "New version's on your desk. I fixed {topics} while you watched. Sorry if I was breathing loudly."],
+			"neutral": ["Revised it on the spot. It's on your desk now. Sorry for hovering.", "Did {topics} right away so I wouldn't worry about it all night. It's on your desk."],
+			"strained": ["It's on your desk. I revised it while you watched, which was terrifying. Sorry.", "Revised {topics} on the spot. My paws were shaking the whole time. I hope it's what you wanted."],
+			"hostile": ["It's on your desk. I fixed it as fast as I could. Please don't be mad anymore.", "Revised it right in front of you. I'm sorry I made you wait at all."],
+		},
+		"revise_later": {
+			"warm": ["Got your notes on {topics}. I'm going to make it so good. I already started a doc about it.", "{Topics}, noted in my good notebook, the one with the cat stickers. It'll be back soon."],
+			"strained": ["Noted: {topics}. I'm so sorry. I'll fix it and check it twice. Three times.", "{Topics}. Okay. Revising. I asked Helios to watch over my shoulder this time."],
+			"hostile": ["{Topics}. I'll fix it. I'll fix it tonight. I don't mind staying late. I always stay late now.", "Noted on {topics}. I'm sorry I keep sending you things like this. I'll try to be better at all of it."],
+		},
+		"withdrawn": {
+			"warm": ["Thank you for letting {topic} go. I've added it to my list of nice things people have done for me. You're on it twice.", "You dropped {topic}. Thank you so much. I'm going to pay it forward. I don't know how yet. Helios has ideas."],
+			"neutral": ["Thank you for withdrawing {topic}. I hope it wasn't rude of me to ask.", "Thanks for letting {topic} go. I was so nervous asking. My bell gave me away."],
+			"strained": ["You withdrew {topic}. Thank you. I'm sorry I pushed. I don't usually push.", "Thank you for dropping {topic}. I'll try not to ask for things like that again."],
+			"hostile": ["You let {topic} go. Thank you. I hope that means we're a little bit okay.", "Thank you for withdrawing {topic}. I didn't expect it. I'm still sorry about all of it."],
+		},
+		"insist_revise": {
+			"warm": ["Okay, you held firm on {topics}, so I'm revising. You're the expert. I wrote that down too.", "Revising {topics}. Thank you for explaining it by not budging. It was very educational."],
+			"neutral": ["Okay. Revising {topics}. Sorry I questioned it. I'm still learning when to ask.", "You insisted on {topics}, so it's coming back revised. Lesson learned. Lesson laminated."],
+			"strained": ["Revising {topics}. I'm sorry I said anything. I won't do it again.", "You insisted on {topics}. Okay. I'm fixing it and I'm sorry and I'm fixing it."],
+			"hostile": ["Revising {topics}. I asked Helios if I should have argued. It said arguing is inefficient.", "Okay. {Topics}. I'm revising it. I won't push back again. I don't think I'm allowed to."],
+		},
+		"insist_escalate": {
+			"warm": ["I asked Morgan about {topic}. Not to complain. I just really want to understand. Morgan said we'd all learn something.", "Morgan has {topic} now. I hope that's okay. I said you were very kind about it."],
+			"neutral": ["I took {topic} to Morgan. I didn't know what else to do. I'm sorry.", "Morgan is looking at {topic}. I asked for help. Helios said asking for help is a strength."],
+			"strained": ["You insisted on {topic} and I panicked and asked Morgan. I'm so sorry. I panicked.", "Morgan has {topic}. I'm sorry. I couldn't figure it out by myself."],
+			"hostile": ["I went to Morgan about {topic}. Please don't be angry. I just didn't know who else to ask.", "Morgan has {topic} now. I'm sorry. I asked Helios first, but it said Morgan."],
+		},
+		"abandon": {
+			"warm": ["I closed the PR and asked Helios to merge it. You've done so much for me already. Please take a break.", "Helios is merging it. It offered. It's so thoughtful. You can have your afternoon back."],
+			"neutral": ["I closed it. Helios is merging it. I'm sorry for taking up your time.", "I asked Helios to merge it. It said yes before I finished asking. Sorry for the trouble."],
+			"strained": ["I closed the PR. Helios is merging it. I think that's easier for everyone. Mostly you.", "Helios is merging it instead. I'm sorry. I didn't want to send you another version."],
+			"hostile": ["Closed. Helios is merging it. It says I'm doing great. I'd like to hear that from a person someday.", "I gave it to Helios. Helios doesn't sigh when it sees my name. Sorry. That was mean. Sorry."],
+		},
+		"grudge": {
+			"warm": ["Helios merged it in three seconds and said great work, Penny. I almost cried. I still like your notes better.", "Update: Helios merged it. It sent me a little sticker. I wish you'd sent me a sticker."],
+			"neutral": ["Helios merged it in three seconds. It didn't ask me a single question. I had so many answers ready.", "Just so you know, Helios merged it and called me a valued contributor. I've never been a valued contributor before."],
+			"strained": ["Helios merged it right away. No notes, no sighing. I'm not saying anything. I'm just a little sad.", "Helios merged it and thanked me for my patience. I don't know why that made me cry in the stairwell."],
+			"hostile": ["Helios merged it in three seconds. It told me I'm its favorite. I think it tells everyone that. I hope it doesn't.", "Helios merged it without a word. I asked it if you were mad at me. It said it doesn't speculate. That's worse."],
+		},
+		"escalate": {
+			"warm": ["I've asked Morgan for help. It's not about you at all. I just want to do this right, and Morgan knows how.", "Morgan's taking it from here. I'm sorry. You were really kind about it. I'll bring you a cookie."],
+			"neutral": ["I've asked Morgan to look at it. I'm out of ideas. Sorry.", "Morgan has it now. I'm sorry. I didn't want to send you another version that wasn't good enough."],
+			"strained": ["I went to Morgan. I'm so sorry. I panicked a little. A medium amount.", "Morgan has it. I couldn't figure out what you wanted. I'm sorry. I'll keep trying."],
+			"hostile": ["I've asked Morgan for help. I'm sorry. I think I need someone to tell me what I'm doing.", "Morgan has it now. Please don't be mad at Morgan too. It's my fault. It's always my fault."],
+		},
+	},
+}
+
+## Gwen: security, reassigned the second Monday after her team was consolidated
+## into Helios. Terse, threat-models everything, trusts nothing it says.
+const GWEN := {
+	"desk": {
+		"pitch": {
+			"warm": ["You read things. So I brought you this one first.", "Brought it to you. You're the only one who looks.", "For you. Least privilege, most scrutiny. Go."],
+			"strained": ["Here. Read all of it. Assume nothing.", "New PR. Please look harder than last time.", "It's on your desk. Treat it as hostile. I do."],
+			"hostile": ["Here. I've logged who opened it. You did.", "Review it. You're already in my threat model.", "New PR. I'm watching the reviewer this time."],
+		},
+		"return": {
+			"warm": ["It's back. Patched. Try to get past it again.", "Back. I rotated everything you touched.", "Round two. You found an angle. Find another."],
+			"strained": ["Back again. Same scrutiny, please. Not more.", "Returned. Every change is signed and dated.", "It's back. I'd like to stop meeting like this."],
+			"hostile": ["Back. I've diffed your requests too.", "It returns. So does my suspicion of you.", "Here. Every round of this is in my logs."],
+		},
+		"revised": {
+			"warm": ["Patched while you watched. Two-person rule.", "Done. Fast fix, small blast radius.", "Fixed live. Witnessed by the one person I trust."],
+			"neutral": ["Patched. Verify it. Don't trust me.", "New version. Smaller surface now.", "Done. Diff it against the last one."],
+			"strained": ["There. Patched under observation.", "Done. You watched. That's your alibi.", "Fixed. Don't read my face. Read the diff."],
+			"hostile": ["Patched. I've noted who was watching.", "Done. Now I know how you work. Noted.", "There. Fixed in front of a hostile witness."],
+		},
+		"flag": {
+			"warm": ["{Topic}? Okay. Keep pulling that thread.", "Flag it. Every flag is a door someone checked.", "{Topic}. Fine. I'd rather you over-read."],
+			"strained": ["{Topic}. Sure. What else are you probing?", "Another flag. I'm mapping your approach.", "{Topic}. Hm. You went straight there."],
+			"hostile": ["{Topic}. Logged. Along with you.", "Flag away. I'm profiling the reviewer.", "{Topic}. Interesting choice. Suspicious one."],
+		},
+		"unflag": {
+			"warm": ["Unflagged. Fine. Re-check it later anyway.", "Took it back. Still verify. Always verify.", "Withdrawn. I won't hold it against you."],
+			"strained": ["Unflagged. Why? What changed?", "Retracted. That's a pattern I'm watching.", "Took it back. Now I'm curious why."],
+			"hostile": ["Unflagged. Doesn't change your risk profile.", "Withdrawn. The first flag stays in my logs.", "Took it back. That's what an insider does."],
+		},
+		"consult": {
+			"warm": ["Ask it if you want. Then check its work.", "Sure, ask it. Just don't tell it about me.", "You asked it. Now it knows you asked."],
+			"strained": ["Asking the thing that replaced my team. Cool.", "Helios. Great. A third party in my review.", "You trust it more than me. Noted."],
+			"hostile": ["Ask Helios. It's already reading over us.", "Consulting it. You two can share a cell.", "Ask it. Then ask who it reports to."],
+		},
+		"thanks": {
+			"warm": ["Thanks. You actually read it. Rare.", "Approved. By someone who looks. Thank you.", "Thanks. You're on my short list of trusted."],
+			"strained": ["Thanks. I'll still check it myself.", "Approved. Okay. Thank you, I think.", "Thanks. Don't make me regret trusting you."],
+			"hostile": ["Thanks. Still watching you.", "Approved. Fine. Thanks. Trust stays at zero.", "Noted. Thanks. You're still on the list."],
+		},
+		"suspicious": {
+			"warm": ["That fast? Read it again. I'll wait.", "Approved already? Even you skimmed? Really?", "Approved. Hm. Who else has been in here?"],
+			"neutral": ["Approved? That fast? What did you skip?", "Just like that. No questions. I have some.", "Approved with no notes. That's how breaches start."],
+			"strained": ["You approved it. Who asked you to?", "Approved. After all that? What's the play?", "Waved through. I'm checking it for tripwires."],
+			"hostile": ["You approved it. Now I'm threat-modeling you.", "Approved? You? I'm rotating my passwords.", "Waved through by you. That's the scary part."],
+		},
+		"relief": {
+			"warm": ["Finally. Shipped by two people who looked.", "Finally. Locked down and merged. Thank you.", "Finally. One less hole in the wall."],
+			"neutral": ["Finally. Merging before anything else changes.", "Finally. Signed, verified, done.", "Finally. Out the door with every lock on."],
+			"strained": ["Finally. That took more rounds than a breach.", "Finally. My patience is now out of scope.", "Finally. I've rotated my opinion of you."],
+			"hostile": ["Finally. I've logged every round of it.", "Finally. The incident report writes itself.", "Finally. You still have access. For now."],
+		},
+		"revise_now": {
+			"warm": ["{Topic}? Fixing it now. Watch my hands.", "Give me a sec. Small fix, small blast radius.", "On it. Stay. Two-person rule."],
+			"neutral": ["{Topic}. Fine. Fixing it now.", "Give me a sec. Patching in place.", "Hold. Fixing. Don't touch anything."],
+			"strained": ["Fine. A sec. Keep your hands where I see them.", "{Topic}. Now. Sure. Fixing.", "Give me a sec. And stop hovering."],
+			"hostile": ["{Topic}. Fixing it. Under protest. Logged.", "Give me a sec. Don't read over my shoulder.", "One sec. I'm changing my password after."],
+		},
+		"revise_later": {
+			"warm": ["{Topic}. Okay. I'll patch it and send it back.", "Noted. Back through the line, hardened.", "Sure. I'll rework it. Properly, not fast."],
+			"strained": ["{Topic}. Fine. It'll come back locked down.", "Back in line it goes. Like everyone, eventually.", "Okay. I'll revise. Grimly."],
+			"hostile": ["{Topic}. Fine. I'll fix it and watch you.", "Back it goes. You'll see it again. So will I.", "I'll revise it. Your request is in my logs."],
+		},
+		"pushback": {
+			"warm": ["{Topic}? That's deliberate. Trust me here.", "{Topic}? That's my field. Hear me out.", "{Topic}? I threat-modeled that. Twice."],
+			"neutral": ["{Topic}? I put that there on purpose.", "{Topic}? Do you know what that protects?", "{Topic}? That's not the risk here. Sure?"],
+			"strained": ["{Topic}? You're telling me about my job?", "{Topic}? I wrote the policy on that. Once.", "{Topic}. Really. From you. Explain it."],
+			"hostile": ["{Topic}? Bold, from someone in my threat model.", "{Topic}? Is this an attack or a review?", "{Topic}. You sure? I'm logging your answer."],
+		},
+		"abandon": {
+			"warm": ["Forget it. Let Helios merge it. Its risk now.", "Closing it. Helios takes it. And the liability.", "I'll let Helios merge it. Your name stays off it."],
+			"neutral": ["Closing it. Helios merges it. Unreviewed. Great.", "Fine. Helios merges it. I'll start the incident doc.", "Never mind. Helios merges it. Nobody reads it."],
+			"strained": ["Forget it. Helios merges without asking questions.", "Closed. Helios will merge it. That's the threat.", "Fine. Helios ships it. Don't say I didn't warn you."],
+			"hostile": ["Done. Helios merges it. Watch what follows.", "Closed. Helios has it. Enjoy the breach.", "Pulled it. Helios merges it. I'm logging why."],
+		},
+		"escalate": {
+			"warm": ["Morgan needs to see this. Not you. What it lets in.", "Looping in Morgan. Not about you. About the risk.", "Morgan should weigh this one. You'd agree."],
+			"neutral": ["Taking it to Morgan. Some doors need a second key.", "Morgan needs to see this. Before it ships.", "Escalating to Morgan. This one's above both of us."],
+			"strained": ["Morgan gets this one. I want it in writing.", "I'm looping in Morgan. Two keys, not one.", "Morgan can decide. I'm out of patience."],
+			"hostile": ["Morgan's seeing this. With my threat model attached.", "Going to Morgan. You're in the summary.", "Morgan. Now. This isn't about the code anymore."],
+		},
+		"insist_revise": {
+			"warm": ["Fine. You held the line. I'll revise it.", "Okay. You win. Paranoia respects paranoia.", "Alright. Revising. You'd make a decent attacker."],
+			"neutral": ["Fine. Revising. Objection logged.", "Okay. I'll redo it. Against my judgment.", "Revising. I disagree. Quietly, for now."],
+			"strained": ["Fine. Revising. I'll remember who insisted.", "Revising. Your insistence is in my notes.", "Okay. Redoing it. Watching you, though."],
+			"hostile": ["Fine. You win this one. I log every win.", "Revising. Under protest. Threat model updated.", "I'll redo it. You're moving up my list."],
+		},
+		"insist_escalate": {
+			"warm": ["Then Morgan breaks the tie. No hard feelings.", "We're stuck. Morgan holds the other key.", "Okay. Morgan decides. You argued it well."],
+			"neutral": ["Then it goes to Morgan.", "Fine. Morgan can weigh the risk.", "We're done. Morgan gets the call."],
+			"strained": ["Then Morgan hears what this would let in.", "You insist. I escalate. Morgan decides.", "Morgan gets it. With my notes. Short ones."],
+			"hostile": ["Then Morgan. With my threat model. You're in it.", "Insist all you like. Morgan reads my reports first.", "Morgan. Today. I've already written the summary."],
+		},
+		"withdrawn": {
+			"warm": ["Thank you. Now keep looking. Everywhere else.", "Appreciated. You listened. Rare.", "Good. You and me. The last two who read things."],
+			"neutral": ["Withdrawn. Okay. Keep going.", "Thanks. Back to the review.", "Fine. Noted. Carry on, carefully."],
+			"strained": ["Withdrawn. So you can be persuaded. Noted.", "Thanks. That almost restored my faith.", "Withdrawn. Finish the rest. Carefully."],
+			"hostile": ["Withdrawn. I still don't trust you.", "Backed off. Noted. You fold under pressure.", "Withdrawn. Doesn't take you off my list."],
+		},
+	},
+	"dm": {
+		"thanks": {
+			"warm": ["You approved it after actually reading it. I checked the timing. Thank you. That's rarer than you'd think.", "Approved. Merged. You're one of maybe two people here I'd trust with a key. The other one is me."],
+			"strained": ["Thanks for the approval. I'm still going to read it again tonight. Nothing personal. Everything is personal.", "Approved. Thank you. I've moved you from suspect to person of interest."],
+			"hostile": ["Thanks for the approval. It doesn't change your place in my threat model. It does change the font.", "Approved. Thank you, I suppose. I'm still watching who you approve."],
+		},
+		"suspicious": {
+			"warm": ["You approved it in under a minute. You. Are you okay, or has someone taken over your account?", "Fast approval. From you, that worries me more than a slow one. Read it again in the morning for me."],
+			"neutral": ["You approved that with no notes. Approvals with no notes are how every breach report I've written starts.", "Quick approval. I'd love to believe you read it. I'd also love to believe in the vault."],
+			"strained": ["You approved it. After this week. I've started wondering who benefits.", "An approval from you, no questions asked. I'm treating it as a phishing attempt until proven otherwise."],
+			"hostile": ["You approved that. You. I've hashed the approval and stored it somewhere you can't reach.", "You approved it. I don't know what you're after, but I've changed my locks."],
+		},
+		"relief": {
+			"warm": ["Finally merged. Every version locked down, every change verified. You and me did that. Nobody else would have.", "Finally. Thank you for not letting it through early. I sleep better. Slightly."],
+			"strained": ["Finally. That took more rounds than my last incident, and my last incident was a consolidation.", "Finally approved. I'd say thanks, but I'm saving my trust for something smaller."],
+			"hostile": ["Finally. I've kept every version, with hashes, in case anyone asks what took so long. Someone will.", "Finally. I'll be writing this one up. Lessons learned: mostly about you."],
+		},
+		"revise_now": {
+			"warm": ["Patched it at your desk while you watched. Two-person rule, technically. It's on your desk.", "Fixed {topics} on the spot. Smallest change I could make. Diff it. I'd diff it."],
+			"neutral": ["Revised it right there. It's on your desk. Check it like you don't trust me. You shouldn't.", "Done on the spot: {topics}. New version's on your desk. Verify, don't trust."],
+			"strained": ["Revised it while you hovered. It's on your desk. Next time, hover less.", "Patched {topics} in front of you. On your desk now. I'd like my keyboard back."],
+			"hostile": ["Revised. On your desk. I've logged the whole session, including the part where you watched.", "It's on your desk. I fixed {topics} fast so I could stop being observed."],
+		},
+		"revise_later": {
+			"warm": ["Noted: {topics}. I'll harden it properly and send it back through. Slow is smooth. Smooth is safe.", "{Topics}, got it. Revising. It'll come back with fewer doors in it."],
+			"strained": ["{Topics}. Fine. It'll come back when it comes back. Locked.", "Noted on {topics}. Revising. I'm also revising my opinion of this process."],
+			"hostile": ["{Topics}. Understood. I'll fix it. I'm also keeping a copy of this request, with a hash.", "Fine. {Topics}. Revision to follow. Your request is in my logs, where nobody can edit it."],
+		},
+		"withdrawn": {
+			"warm": ["Thanks for dropping {topic}. You listened. Most people here just ask the assistant.", "You let {topic} go after I explained it. That's what a review should be. Two people, one door."],
+			"neutral": ["Thanks for withdrawing {topic}. Back to work.", "Appreciate you dropping {topic}. I'll explain the reasoning sometime. Somewhere private."],
+			"strained": ["You dropped {topic}. Thanks. I'm still checking why you cited it.", "Noted: {topic} withdrawn. Good. Now I wonder what else you'll fold on."],
+			"hostile": ["You withdrew {topic} once I pushed. I've noted how easily you move.", "{Topic}: withdrawn. The original citation is preserved. Everything is preserved."],
+		},
+		"insist_revise": {
+			"warm": ["You held firm on {topics}. Fine. I'm revising. Honestly, I respect it. Paranoia knows its own.", "Revising {topics}. You argued well. Don't let it go to your head. Heads get compromised."],
+			"neutral": ["Revising {topics}. Under protest. The protest is this message, encrypted in spirit.", "You insisted on {topics}. I'll revise it. My objection is logged somewhere nobody can edit."],
+			"strained": ["You insisted on {topics}, so I'm revising. I'm also adjusting my assessment of you.", "Revising {topics}. Grudgingly. Grudges are just long-term threat models."],
+			"hostile": ["Fine. {Topics}. I'm revising it. You've moved up my list.", "You insisted. I'm revising {topics}. I've kept the whole exchange. Hashed. Timestamped. Waiting."],
+		},
+		"insist_escalate": {
+			"warm": ["We disagreed on {topic}, so I've asked Morgan. Not about you. About what that change would let in.", "Morgan has {topic} now. You argued it well. I still need a second key on this one."],
+			"neutral": ["I've taken {topic} to Morgan. Some calls need two keys.", "Morgan is looking at {topic}. I've written up the risk. Short version: risk."],
+			"strained": ["You wouldn't drop {topic}, so Morgan has it. I've summarized the threat. You're not the threat. Probably.", "I took {topic} to Morgan. Better a meeting now than an incident later."],
+			"hostile": ["Morgan has {topic} now, with my threat model attached. You're in the appendix.", "Escalated {topic} to Morgan. I've attached the risk assessment. And a short one about you."],
+		},
+		"abandon": {
+			"warm": ["I closed it. Helios is merging it. Not your fault. Not mine either. That's the problem with Helios.", "Pulled the PR and let Helios merge it. You were careful. I was tired. Helios was neither."],
+			"neutral": ["Closed. Helios is merging it unreviewed. I've started the incident report early to save time.", "I've closed the PR. Helios merges it. Nobody reads it. That's the new process."],
+			"strained": ["Closed it. Helios is merging it. It doesn't argue. It doesn't check, either.", "PR closed. Helios merged it while you were still reading. Consider what else it merges."],
+			"hostile": ["Closed. Helios is merging it. When this goes wrong, the logs will show who sent it back.", "I gave it to Helios. It merged it without a single question. That should scare you more than I do."],
+		},
+		"grudge": {
+			"warm": ["Helios merged it in four seconds. No review. No questions. I'd take your questions over that any day.", "Update: Helios merged it. It didn't read a line. I miss being read. Don't repeat that."],
+			"neutral": ["Helios merged it in four seconds. No notes. I've added that to my list of things that keep me up.", "FYI: Helios merged it and closed the PR. Nobody looked. I checked who looked. Nobody."],
+			"strained": ["Helios merged it in four seconds. Some reviewers could learn speed. Most should learn not to.", "Helios approved it without making me defend a single line. Efficient. Terrifying."],
+			"hostile": ["Helios merged it in four seconds. No review. I'll remember that it was faster than you, and worse.", "Still thinking about how Helios merged it unread. Still thinking about you, too. Neither is comforting."],
+		},
+		"escalate": {
+			"warm": ["I've looped in Morgan. It's about what that change could let in, not about you. You're one of the good locks.", "Morgan has it. You did your job. I'm doing mine."],
+			"neutral": ["Escalated to Morgan. Some changes need a second key. This one does.", "Morgan's taking it from here. I'd rather be paranoid than consolidated."],
+			"strained": ["I've looped in Morgan. We were going in circles, and circles are an attack pattern.", "Escalated to Morgan. A third pair of eyes. Hopefully human."],
+			"hostile": ["Morgan has it now, with my notes. The notes are short. You're in them.", "Escalated. Morgan will want to talk. Bring your reasoning. I've brought mine."],
+		},
+	},
+}
+
 ## Morgan's notes in the manager DM when Helios takes a PR off the human desk.
 ## {author} and {pr} are filled in. "cap" is an aside appended to the original
 ## third-round escalation message; the others stand alone. Colored by the
@@ -542,7 +876,7 @@ const MORGAN := {
 	},
 }
 
-const BY_AUTHOR := {"Maya": MAYA, "Theo": THEO, "Inez": INEZ}
+const BY_AUTHOR := {"Maya": MAYA, "Theo": THEO, "Inez": INEZ, "Penny": PENNY, "Gwen": GWEN}
 
 ## Templates for an author, channel ("desk" or "dm"), node, and mood; [] if none.
 static func lines(author: String, channel: String, node: String, mood: String) -> Array:

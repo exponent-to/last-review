@@ -14,6 +14,27 @@ The application owns real-time accumulation and pause controls. While paused, it
 
 The desk holds exactly one PR, like the booth in Papers, Please. Each morning the day's line is its fifteen authored packets in order (`state.desk_line`), and the first is put on the desk at 0 seconds (`active_request_id`); nobody picks it. When the player stamps a verdict, the desk empties and the next PR in line lands `DESK_BEAT = 3` game seconds later (`state.desk_at`), becoming active by itself. `advance` delivers it at its scheduled second, so batched and single-second clocks agree. A PR due at or after the bell never lands. Every landing is recorded in `state.arrivals` as `{pr_id, day, shift_seconds}`; the archived chat content (`content/chat.gd`) uses that log to date each PR's message. The line length is internal scheduling data and must never be shown.
 
+## Authors and the team
+
+Five coworkers write PRs (`Policy.AUTHORS`). Maya, Theo, and Inez are there from day 1. Penny, the eager new junior, joins on day 3; Gwen, reassigned from Security after it was consolidated into Helios, joins on day 6 (`Policy.ROSTER`: first morning and starting relationship, Penny 56 and Gwen 48). Nobody is in `state.coworkers` before their first morning: `_staff` adds each newcomer when her day begins, before the line opens, so an earlier dinner with the team doesn't count for her, and a save that lists her early is rejected by replay.
+
+Who wrote each slot is the explicit per-day table `Policy.LINEUP`, one initial per slot (M, T, I, P, G):
+
+| Day | Lineup | Penny | Gwen |
+| --- | --- | --- | --- |
+| 1 | `MTIMTIMTIMTIMTI` | | |
+| 2 | `TIMTIMTIMTIMTIM` | | |
+| 3 | `IPTIMPIMTPMTIPT` | 2, 6, 10, 14 | |
+| 4 | `MTPMPIMTIPTIMPI` | 3, 5, 10, 14 | |
+| 5 | `PIMPIMTIPTPMTIM` | 1, 4, 9, 11 | |
+| 6 | `IPGIMTGMTIPTGMP` | 2, 11, 15 | 3, 7, 13 |
+| 7 | `GTIMPIMGIPTPMTG` | 5, 10, 12 | 1, 8, 15 |
+| 8 | `TIMGIPGIMTPMTPG` | 6, 11, 14 | 4, 7, 15 |
+| 9 | `IMGIMPIMTPPTGGT` | 6, 10, 11 | 3, 13, 14 |
+| 10 | `MTIGPIGTPMTGMPI` | 5, 9, 14 | 4, 7, 12 |
+
+Every slot the newcomers didn't take keeps its old author from the original three-way rotation, so those PRs' dialogue trees are unchanged. Each newcomer has a slot in the first six of every day she works, since a shift rarely gets further than that, and the original three keep at least four of those six. `Policy.slot_author(day, index, away)` reads the table; anyone listed in `away` (someone who has stopped writing PRs) hands their slots to the day's rotation over whoever is left, deterministically, and with only the original three left that is exactly their old rotation.
+
 `active_request(state)` returns the PR on the desk, or an empty dictionary between PRs and after closing. `available_requests(state)` returns that PR in a list of at most one. Neither includes hidden audit violations, findings, explanations, or the generation recipe; AI verdict/note fields appear only after that PR has been consulted. There is no `select-request` command: the player cannot choose among PRs.
 
 ## Revisions
@@ -33,7 +54,8 @@ Whether a change request produces a revision at all, and where it goes, is the a
 
 `content/encounters.gd` is a data-driven flow chart of how a PR's author responds: `NODES`, `EDGES`, and per-author, per-mood branch weights in `PICKS`. `content/encounter_lines.gd` holds the words (desk bubble and DM, per author, node, and mood) and Morgan's notes. The DM lines are kept for a future chat app; Morgan's notes reach her end-of-day panel. `sh scripts/run.sh --headless --script res://tools/encounter_flowchart.gd -- <out.html>` exports the charts, every line, and a sample day to one self-contained HTML page.
 
-- **Mood** is `warm`, `neutral`, `strained`, or `hostile`, from the coworker relationship score plus the tone of the author's last three beats (`TONE`: approvals and withdrawn citations warm; change requests, abandons, escalations, and insisting cool). Bands: warm 62+, neutral 42–61, strained 30–41, hostile below 30.
+- **Mood** is `warm`, `neutral`, `strained`, or `hostile`, from the coworker relationship score plus the tone of the author's last three beats (`TONE`: approvals and withdrawn citations warm; change requests, abandons, escalations, and insisting cool). Bands: warm 62+, neutral 42–61, strained 30–41, hostile below 30. `TEMPERAMENT` adjusts them per person: Penny is easily impressed and slow to give up on anyone (warm from 58, strained below 38, hostile below 24); Gwen is hard to win over but respects scrutiny (warm from 66, strained below 36, hostile below 26, and a change request leaves only −2 in her memory).
+- **Personalities** live in `PICKS`. Penny revises on the spot most of the time, almost never pushes back (≤6) or abandons (≤3), but escalates to Morgan more as things go wrong, and insisting usually sends her there. Gwen fixes most things at once, is suspicious of quick approvals, and escalates rarely (≤8); `AUTHOR_LEANS` makes her push back on her own field (credentials, debug output, crediting Helios), and when she does she disputes one of those citations.
 - **Branches** are rolled with `Policy.roll` keyed on the PR, verdict, mood, and cited rules, so the journal replays them. Weights lean by the categories of what was cited, and citing three or more standards at once makes abandoning likelier. Nothing in the encounter reads audit data: a right and a wrong citation take the same branch and get the same words.
 - **Approve:** thanks or a suspicious "wait, you approved that?" by mood (v1), or relief (v2/v3).
 - **Request changes:** revise now, revise later, push back (at most once per desk visit), abandon, or escalate. The career's first PR always revises later, so orientation stays scripted; v3 always escalates.
@@ -70,7 +92,7 @@ Pay is the existing base of 80 plus ten for each correct, actually submitted rev
 
 ## Saved state and replay
 
-Current state (version 12) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores.
+Current state (version 13) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores.
 
 The semantic action journal records consultations, reviews with their citations, pushback answers, accepted replies, deadline closure, and evening choices. Each event records its day and shift time. Clock ticks, temporary selection, and citation toggles are not individually persisted. This keeps the journal naturally bounded by available work and reply options rather than time spent reading.
 

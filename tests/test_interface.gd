@@ -155,7 +155,10 @@ func _run() -> void:
 			for message: Dictionary in Chat.messages(state, str(packet.author)):
 				if str(message.get("kind", "")) == "reaction":
 					has_reaction = true
-			check(has_reaction, "Coworker conversation content must contain a review reaction")
+			# A revise-now note waits until v2 is on the desk, so an author whose very
+			# first stamp is being revised right now has nothing in the thread yet.
+			var revising: Dictionary = Encounters.typing(state)
+			check(has_reaction or str(revising.get("author", "")) == str(packet.author), "Coworker conversation content must contain a review reaction")
 			check(not ui._notifications._items.any(func(item: Dictionary) -> bool: return item.app not in ["review", "browser", "system"]), "Coworker messages never reach the ticker")
 		if state.phase == "debrief":
 			check(not ui._windows.has("shift") and not ui._windows.has("chat"), "Closing opens no results window and no chat")

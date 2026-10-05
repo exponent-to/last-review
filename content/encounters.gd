@@ -22,7 +22,8 @@ const Lines = preload("res://content/encounter_lines.gd")
 const Bank = preload("res://content/pr_bank.gd")
 const Trees = preload("res://content/trees.gd")
 
-const AUTHORS: Array[String] = ["Maya", "Theo", "Inez"]
+## Everyone who writes PRs (policy_campaign.gd decides who writes which, and from when).
+const AUTHORS: Array[String] = ["Maya", "Theo", "Inez", "Penny", "Gwen"]
 const MOODS: Array[String] = ["warm", "neutral", "strained", "hostile"]
 ## Mood bands on score = relationship + the tone of your last few beats together.
 const MOOD_FLOORS := {"warm": 62, "neutral": 42, "strained": 30, "hostile": -9999}
@@ -33,6 +34,14 @@ const TONE := {
 	"thanks": 4, "suspicious": 4, "relief": 4, "withdrawn": 4,
 	"revise_now": -5, "revise_later": -5, "escalate": -6, "abandon": -6,
 	"insist_revise": -8, "insist_escalate": -9,
+}
+## People who don't fit the bands above. Penny is easily impressed and slow to
+## give up on anyone: she warms sooner and cools later. Gwen is hard to win over,
+## but a change request barely stings: scrutiny is the job, and she respects it.
+## Missing entries use MOOD_FLOORS and TONE.
+const TEMPERAMENT := {
+	"Penny": {"floors": {"warm": 58, "neutral": 38, "strained": 24}},
+	"Gwen": {"floors": {"warm": 66, "neutral": 36, "strained": 26}, "tone": {"revise_now": -2, "revise_later": -2}},
 }
 ## Relationship changes from encounter choices, on top of the review's own deltas.
 const RELATIONSHIP := {"abandon": -3, "insist_revise": -2, "insist_escalate": -2, "withdrawn": 2}
@@ -120,11 +129,17 @@ const EDGES := [
 ## Maya is tired: she fixes it now for people she likes and gives up on people she doesn't.
 ## Theo is overconfident: he argues, and when he fixes, he fixes at top speed.
 ## Inez lives by the process: proper revisions, and escalation when in doubt.
+## Penny is eager to please: she fixes it on the spot, almost never argues or gives
+## up, but when it goes wrong she runs to Morgan for help, and insisting gets her there.
+## Gwen fixes most things at once and argues about security (AUTHOR_LEANS); a quick
+## approval makes her suspicious. She takes things to Morgan rarely, and on purpose.
 const PICKS := {
 	"approve": {
 		"Maya": {"warm": {"thanks": 95, "suspicious": 5}, "neutral": {"thanks": 85, "suspicious": 15}, "strained": {"thanks": 45, "suspicious": 55}, "hostile": {"thanks": 15, "suspicious": 85}},
 		"Theo": {"warm": {"thanks": 97, "suspicious": 3}, "neutral": {"thanks": 90, "suspicious": 10}, "strained": {"thanks": 60, "suspicious": 40}, "hostile": {"thanks": 25, "suspicious": 75}},
 		"Inez": {"warm": {"thanks": 90, "suspicious": 10}, "neutral": {"thanks": 75, "suspicious": 25}, "strained": {"thanks": 35, "suspicious": 65}, "hostile": {"thanks": 10, "suspicious": 90}},
+		"Penny": {"warm": {"thanks": 98, "suspicious": 2}, "neutral": {"thanks": 94, "suspicious": 6}, "strained": {"thanks": 75, "suspicious": 25}, "hostile": {"thanks": 50, "suspicious": 50}},
+		"Gwen": {"warm": {"thanks": 70, "suspicious": 30}, "neutral": {"thanks": 55, "suspicious": 45}, "strained": {"thanks": 30, "suspicious": 70}, "hostile": {"thanks": 12, "suspicious": 88}},
 	},
 	"changes": {
 		"Maya": {
@@ -142,11 +157,33 @@ const PICKS := {
 			"neutral": {"revise_now": 12, "revise_later": 54, "pushback": 20, "abandon": 6, "escalate": 8},
 			"strained": {"revise_now": 5, "revise_later": 37, "pushback": 26, "abandon": 10, "escalate": 22},
 			"hostile": {"revise_now": 2, "revise_later": 25, "pushback": 28, "abandon": 15, "escalate": 30}},
+		"Penny": {
+			"warm": {"revise_now": 62, "revise_later": 26, "pushback": 3, "abandon": 1, "escalate": 8},
+			"neutral": {"revise_now": 54, "revise_later": 26, "pushback": 4, "abandon": 1, "escalate": 15},
+			"strained": {"revise_now": 42, "revise_later": 24, "pushback": 5, "abandon": 2, "escalate": 27},
+			"hostile": {"revise_now": 32, "revise_later": 20, "pushback": 6, "abandon": 3, "escalate": 39}},
+		"Gwen": {
+			"warm": {"revise_now": 62, "revise_later": 22, "pushback": 10, "abandon": 3, "escalate": 3},
+			"neutral": {"revise_now": 52, "revise_later": 24, "pushback": 14, "abandon": 5, "escalate": 5},
+			"strained": {"revise_now": 40, "revise_later": 26, "pushback": 19, "abandon": 9, "escalate": 6},
+			"hostile": {"revise_now": 30, "revise_later": 26, "pushback": 24, "abandon": 12, "escalate": 8}},
 	},
 	"insist": {
 		"Maya": {"warm": {"insist_revise": 90, "insist_escalate": 10}, "neutral": {"insist_revise": 75, "insist_escalate": 25}, "strained": {"insist_revise": 60, "insist_escalate": 40}, "hostile": {"insist_revise": 45, "insist_escalate": 55}},
 		"Theo": {"warm": {"insist_revise": 85, "insist_escalate": 15}, "neutral": {"insist_revise": 70, "insist_escalate": 30}, "strained": {"insist_revise": 55, "insist_escalate": 45}, "hostile": {"insist_revise": 35, "insist_escalate": 65}},
 		"Inez": {"warm": {"insist_revise": 70, "insist_escalate": 30}, "neutral": {"insist_revise": 50, "insist_escalate": 50}, "strained": {"insist_revise": 35, "insist_escalate": 65}, "hostile": {"insist_revise": 20, "insist_escalate": 80}},
+		"Penny": {"warm": {"insist_revise": 60, "insist_escalate": 40}, "neutral": {"insist_revise": 45, "insist_escalate": 55}, "strained": {"insist_revise": 32, "insist_escalate": 68}, "hostile": {"insist_revise": 22, "insist_escalate": 78}},
+		"Gwen": {"warm": {"insist_revise": 85, "insist_escalate": 15}, "neutral": {"insist_revise": 78, "insist_escalate": 22}, "strained": {"insist_revise": 70, "insist_escalate": 30}, "hostile": {"insist_revise": 60, "insist_escalate": 40}},
+	},
+}
+## Some people lean harder on what was cited, by category, on top of LEANS. Gwen
+## argues about her own field (credentials, debug output, crediting Helios) and
+## would rather fix anything else at once than talk about it.
+const AUTHOR_LEANS := {
+	"Gwen": {
+		"Security": {"pushback": 34, "revise_now": -16},
+		"Hygiene": {"pushback": 24, "revise_now": -10},
+		"Disclosure": {"pushback": 18},
 	},
 }
 ## What you cited leans the change-request branch, by standard category.
@@ -200,6 +237,11 @@ static func last_beat(state: Dictionary, pr_id: String) -> Dictionary:
 		if encounters[index].get("pr_id") == pr_id: return encounters[index]
 	return {}
 
+## What a beat leaves in this author's memory (TONE, adjusted by TEMPERAMENT).
+static func tone(author: String, node: String) -> int:
+	var own: Dictionary = TEMPERAMENT.get(author, {}).get("tone", {})
+	return int(own.get(node, TONE.get(node, 0)))
+
 ## Relationship plus the tone of the last MEMORY beats with this author.
 static func mood_score(state: Dictionary, author: String) -> int:
 	var score := int(state.get("coworkers", {}).get(author, 50))
@@ -208,18 +250,25 @@ static func mood_score(state: Dictionary, author: String) -> int:
 	for index in range(encounters.size() - 1, -1, -1):
 		var beat: Dictionary = encounters[index]
 		if beat.get("author") != author or not TONE.has(beat.get("node")): continue
-		score += int(TONE[beat.node])
+		score += tone(author, str(beat.node))
 		remembered += 1
 		if remembered >= MEMORY: break
 	return score
 
-static func mood_for(score: int) -> String:
+## Mood bands for an author: MOOD_FLOORS, with their TEMPERAMENT's floors on top.
+static func floors(author: String = "") -> Dictionary:
+	var result: Dictionary = MOOD_FLOORS.duplicate()
+	result.merge(TEMPERAMENT.get(author, {}).get("floors", {}), true)
+	return result
+
+static func mood_for(score: int, author: String = "") -> String:
+	var bands := floors(author)
 	for mood: String in MOODS:
-		if score >= int(MOOD_FLOORS[mood]): return mood
+		if score >= int(bands[mood]): return mood
 	return "hostile"
 
 static func mood(state: Dictionary, author: String) -> String:
-	return mood_for(mood_score(state, author))
+	return mood_for(mood_score(state, author), author)
 
 ## The standing tone of an author's Slouch thread ("warm", "distant", "neutral"):
 ## the mood at their latest beat, which was taken before that verdict's own
@@ -256,8 +305,8 @@ static func weights(pick: String, author: String, mood: String, cited: Array = [
 	var result: Dictionary = person.get(mood, person.get("neutral", {})).duplicate()
 	if pick == "changes":
 		for category: String in categories(cited):
-			var lean: Dictionary = LEANS.get(category, {})
-			for node: String in lean: result[node] = int(result.get(node, 0)) + int(lean[node])
+			for lean: Dictionary in [LEANS.get(category, {}), AUTHOR_LEANS.get(author, {}).get(category, {})]:
+				for node: String in lean: result[node] = int(result.get(node, 0)) + int(lean[node])
 		if cited.size() >= PILE_ON:
 			for node: String in PILE_LEAN: result[node] = int(result.get(node, 0)) + int(PILE_LEAN[node])
 	# Each PR's own tree leans its branches: some people argue about this one.
@@ -331,11 +380,18 @@ static func insist_node(context: Dictionary) -> String:
 	var key := "%s|insist|%s|%s" % [context.pr_id, context.mood, ",".join(_sorted(context.get("cited", [])))]
 	return roll_pick(weights("insist", str(context.author), str(context.mood), [], title_for(str(context.pr_id))), key)
 
-## Which citation the author disputes when they push back.
-static func disputed(cited: Array, pr_id: String) -> String:
+## Which citation the author disputes when they push back: one they argue about
+## by temperament (AUTHOR_LEANS toward pushback) when you cited any, else any.
+static func disputed(cited: Array, pr_id: String, author: String = "") -> String:
 	var sorted := _sorted(cited)
 	if sorted.is_empty(): return ""
-	return str(sorted[Policy.roll(pr_id + "|dispute|" + ",".join(sorted)) % sorted.size()])
+	var touchy: Array = []
+	var own: Dictionary = AUTHOR_LEANS.get(author, {})
+	for rule_id: String in sorted:
+		for category: String in categories([rule_id]):
+			if int(own.get(category, {}).get("pushback", 0)) > 0 and rule_id not in touchy: touchy.append(rule_id)
+	var pool: Array = touchy if not touchy.is_empty() else sorted
+	return str(pool[Policy.roll(pr_id + "|dispute|" + ",".join(sorted)) % pool.size()])
 
 ## A beat for the journal-derived record in `state.encounters`.
 static func beat(state: Dictionary, context: Dictionary, node: String, extra: Dictionary = {}) -> Dictionary:
@@ -540,8 +596,8 @@ static func morgan(state: Dictionary) -> Array:
 ## The whole graph as data, for tools/encounter_flowchart.gd.
 static func graph() -> Dictionary:
 	return {"nodes": NODES.duplicate(true), "edges": EDGES.duplicate(true), "picks": PICKS.duplicate(true),
-		"leans": LEANS.duplicate(true), "pile_on": PILE_ON, "pile_lean": PILE_LEAN.duplicate(),
-		"moods": MOODS.duplicate(), "floors": MOOD_FLOORS.duplicate(), "tone": TONE.duplicate(),
+		"leans": LEANS.duplicate(true), "author_leans": AUTHOR_LEANS.duplicate(true), "pile_on": PILE_ON, "pile_lean": PILE_LEAN.duplicate(),
+		"moods": MOODS.duplicate(), "floors": MOOD_FLOORS.duplicate(), "tone": TONE.duplicate(), "temperament": TEMPERAMENT.duplicate(true),
 		"memory": MEMORY, "relationship": RELATIONSHIP.duplicate(), "revise_now_seconds": REVISE_NOW_SECONDS}
 
 ## Probability (0-100) of each branch of a pick for an author and mood, before leans.
