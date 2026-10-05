@@ -92,7 +92,7 @@ func _return_to_menu() -> void:
 
 func _tutorial_continue() -> void:
 	if tutorial.is_empty(): return
-	if int(tutorial.stage) == 7:
+	if int(tutorial.stage) == Tutorial.STAGE_READY:
 		tutorial = {}
 		state = Simulation.initial_state()
 		_clock_fraction = 0.0
@@ -157,14 +157,14 @@ func _render() -> void:
 	interface.render_tutorial(tutorial, {} if tutorial.is_empty() else Tutorial.prompt(tutorial))
 
 func _on_command(command: Dictionary) -> void:
-	# Historical replies remain replayable in saves, but Slouch no longer sends messages.
+	# Historical chat replies remain replayable in saves, but nothing sends them anymore.
 	if command.get("type") == "chat-reply": return
 	if paused:
 		return
 	if interface.morning_active:
 		interface.notify("Read today's memo in INTRANET, then choose BEGIN SHIFT.")
 		return
-	if not tutorial.is_empty() and command.get("type") == "review" and int(tutorial.stage) != 6:
+	if not tutorial.is_empty() and command.get("type") == "review" and int(tutorial.stage) != Tutorial.STAGE_CITE:
 		interface.notify("Finish the orientation steps before sending this practice review.")
 		return
 	var previous_day: int = int(state.day)

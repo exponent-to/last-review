@@ -1,6 +1,6 @@
 extends SceneTree
-## Cat portraits: every character has one; Slouch, the Review seat and the ticker
-## show them, and they blink, idle, talk, and react to hover and pokes.
+## Cat portraits: every character has one; the Review seat, the ticker, and Morgan's
+## end-of-day panel show them, and they blink, idle, talk, and react to hover and pokes.
 const Portraits = preload("res://native/portraits.gd")
 const CatPortrait = preload("res://native/cat_portrait.gd")
 const Interface = preload("res://native/interface.gd")
@@ -300,32 +300,11 @@ func _test_interface() -> void:
 	var ui: Interface = Interface.new()
 	root.add_child(ui)
 	var state: Dictionary = Simulation.advance(Simulation.initial_state(), 20)
-	# A historical reply puts one of the player's own lines in Maya's thread.
-	state = Simulation.dispatch(state, {"type": "chat-reply", "contact": "Maya", "pr_id": str(Catalog.request_at(0).id), "reply_id": "clarify"})
 	ui.render_state(state)
-	ui._open_app("chat")
-	ui._select_chat_contact("Maya")
 	for frame in range(3): await process_frame
-	var incoming := 0
-	var outgoing := 0
-	for row: Node in ui._chat_messages.get_children():
-		var panels: Array = row.find_children("*", "PanelContainer", false, false)
-		if panels.is_empty() or not panels[0].has_meta("outgoing"): continue
-		var faces := _faces(row)
-		if panels[0].get_meta("outgoing"):
-			outgoing += 1
-			check(faces.is_empty(), "The player's own Slouch messages carry no avatar")
-		else:
-			incoming += 1
-			check(faces.size() == 1 and faces[0].texture == Portraits.texture_for("Maya"), "A Slouch message from Maya renders her avatar")
-			check(faces[0].get_global_rect().end.x <= panels[0].get_global_rect().position.x, "The avatar sits left of the message bubble")
-			check(faces[0] is CatPortrait and faces[0].mouse_filter == Control.MOUSE_FILTER_PASS, "Slouch avatars are live cats that leave clicks to the message")
-	check(incoming > 0 and outgoing > 0, "Maya's thread has messages from both sides")
-	for contact: String in ["Maya", "Theo", "Inez", "manager"]:
-		check(ui._chat_contacts[contact].icon == Portraits.texture_for(contact), "The %s DM button shows their portrait" % contact)
-	check(ui._chat_contacts.company.icon == null, "The #engineering channel has no portrait")
+	check(not ui._windows.has("chat"), "There is no chat app with avatars")
 	var request: Dictionary = Catalog.request_at(0)
-	ui._open_pr_link(str(request.id))
+	ui._open_app("review")
 	state = Simulation.dispatch(state, {"type": "select-request", "pr_id": str(request.id)})
 	ui.render_state(state)
 	var seat := _faces(ui._banter._seat)
@@ -347,15 +326,19 @@ func _test_interface() -> void:
 	ui.set_paused(false)
 	check(not CatPortrait.is_paused(), "Resuming the shift resumes them")
 	check(_faces(ui._paper).is_empty(), "The form itself does not repeat the author's portrait")
-	ui._notifications.push("chat", "Maya: one more thing", "Maya", false, "Maya")
+	ui._notifications.push("review", "PR-1042 from Maya: one more thing", "PR-1042", false, "Maya")
 	var card: Control = ui._notifications._items[-1].card
-	check(str(card.get_meta("person", "")) == "maya" and _faces(card).size() == 1, "A Slouch ticker card from Maya carries her face")
+	check(str(card.get_meta("person", "")) == "maya" and _faces(card).size() == 1, "A review ticker card for Maya's PR carries her face")
 	check(_faces(card)[0].mouse_filter == Control.MOUSE_FILTER_PASS, "A face on a ticker card leaves the click to the card")
-	ui._notifications.push("chat", "#engineering: notice", "company", false, "Operations")
-	check(_faces(ui._notifications._items[-1].card).is_empty(), "Faceless senders keep the plain ticker card")
+	ui._notifications.push("system", "Saved to Slot 1 on this computer.")
+	check(_faces(ui._notifications._items[-1].card).is_empty(), "Cards about no one keep the plain ticker card")
 	for frame in range(8): await process_frame
 	var stack: Control = ui._notifications._stack
 	check(stack.position.y >= ui._monitor_screen.size.y - 48, "Ticker cards with a face still ride in the taskbar")
+	# At closing, Morgan's end-of-day panel carries her face.
+	ui.render_state(Simulation.advance(state, Catalog.shift_seconds()))
+	var morgan := _faces(ui._windows.evening)
+	check(morgan.size() == 1 and morgan[0] is CatPortrait and morgan[0].texture == Portraits.texture_for("Morgan") and morgan[0].is_visible_in_tree(), "Morgan's end-of-day panel shows her live cat portrait")
 	ui.set_paused(true)
 	ui.free()
 	check(not CatPortrait.is_paused(), "A freed interface leaves no pause behind")

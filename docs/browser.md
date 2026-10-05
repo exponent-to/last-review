@@ -44,7 +44,7 @@ For a public deployment, upload the entire `build/web` directory to a static HTT
 
 The Godot 4.7.2 release export completed successfully with `GODOT_THREADS_ENABLED=false`. The generated WebAssembly header and HTML configuration were checked. A loopback HTTP smoke check returned the expected HTML, JavaScript, WebAssembly, and asset-pack MIME types, while a repository file outside the export directory returned 404. Shell syntax checks passed.
 
-The integrated browser build was playtested at 1280×900: intro handoff, advancing clock, manual pause/resume, timed Slouch arrival, contextual question and coworker response, PR link navigation, multi-file dropdown and helper diff, and Save → reload → Load. The loaded clock and conversation were preserved. In-game popup menus no longer trigger focus-loss pause; only application focus loss does.
+The integrated browser build was playtested at 1280×900: intro handoff, advancing clock, manual pause/resume, timed Slouch arrival, contextual question and coworker response, PR link navigation, multi-file dropdown and helper diff, and Save → reload → Load. (That playtest predates the removal of Slouch; PRs now open from REVIEW and its notification card.) The loaded clock and conversation were preserved. In-game popup menus no longer trigger focus-loss pause; only application focus loss does.
 
 Implementation references: [Godot Web export documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html) and the [Godot 4.7.2 Web template selection code](https://github.com/godotengine/godot/blob/4.7.2-stable/platform/web/export/export_plugin.h).
 

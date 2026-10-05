@@ -1,5 +1,7 @@
 extends RefCounted
 ## Authored conversation derived from desk arrivals, decisions, and saved reply choices.
+## The Slouch chat app is off the desktop for now; these conversations stay authored
+## and tested for a future chat app. Morgan's end-of-day panel reads `evening(state)`.
 ## Does not import Simulation: state records when each PR reached the desk, and
 ## Catalog rebuilds revisions from the recipe the state records.
 
@@ -224,58 +226,101 @@ static func _manager_messages(state: Dictionary) -> Array:
 	var copy: Dictionary = _authored().get("manager", {})
 	_append(history, "Morgan / Engineering Manager", str(copy.get("intro", "")), "intro")
 	# Escalations and abandoned PRs reach Morgan as soon as they happen.
-	var encountered: bool = not state.get("encounters", []).is_empty()
-	if encountered:
-		for note: Dictionary in _encounters().morgan(state):
-			_append(history, "Morgan", str(note.text), "notice", "", int(note.day), float(note.seconds), int(note.order))
-	# Records without encounters: a PR sent back three times escalates.
-	var legacy: Array = [] if encountered else state.get("decisions", [])
-	for decision: Dictionary in legacy:
-		if decision.get("verdict") != "request_changes": continue
-		var escalated := Catalog.packet(state, str(decision.get("pr_id", "")), false)
-		if int(escalated.get("revision", 1)) < _lines().MAX_REVISION: continue
-		_append(history, "Morgan", _lines().escalation(str(escalated.author), str(escalated.origin_id)), "notice", "", int(escalated.day), float(decision.get("shift_seconds", 0)), _event_order(state, "review", str(escalated.id)))
+	for note: Dictionary in _morgan_notes(state):
+		_append(history, "Morgan", str(note.text), "notice", "", int(note.day), float(note.seconds), int(note.order))
 	for shift: Dictionary in state.get("shift_history", []):
 		var first := history.size()
-		var had_incident := false
-		var had_friction := false
-		var held := false
-		for request: Dictionary in Catalog.day_packets(state, int(shift.day)):
-			var decision := _decision_for(state, str(request.id))
-			if decision.is_empty(): continue
-			if decision.verdict == "approve" and not bool(decision.get("correct", true)):
-				var origin := str(request.get("origin_id", request.id))
-				var incident: String = str(_authored().get("requests", {}).get(origin, {}).get("incident", ""))
-				if not incident.is_empty() and not had_incident:
-					# One concrete example, rather than an identical warning per bad approval.
-					incident = Catalog.display_id(str(request.id)) + ": " + incident
-					_append(history, "Morgan", incident, "notice", str(request.id))
-					had_incident = true
-			elif decision.verdict == "request_changes":
-				held = true
-				if not bool(decision.get("correct", true)): had_friction = true
-		if had_friction: _append(history, "Morgan", str(copy.friction), "notice")
-		if int(shift.get("handed_off", 0)) > 0:
-			_append(history, "Morgan", str(copy.handoff), "notice")
-		elif not had_incident and not had_friction:
-			_append(history, "Morgan", str(copy.held if held else copy.quiet), "notice")
-		_append(history, "Morgan", str(copy.get("closings", {}).get(int(shift.day), copy.closing)), "notice")
-		# The first Friday was supposed to be the last day.
-		if int(shift.day) == WEEK_DAYS and int(shift.day) < int(Catalog.campaign_days()[-1]):
-			_append(history, "Morgan", str(copy.get("extension", "")), "notice")
+		for line: Dictionary in _shift_report(state, shift):
+			_append(history, "Morgan", str(line.text), "notice", str(line.get("pr_id", "")))
 		for index in range(first, history.size()):
 			history[index].sent_day = int(shift.day)
 			history[index].sent_seconds = float(Catalog.shift_seconds())
 			history[index].sent_order = index - first
 			history[index].id = str(shift.day) + "|" + history[index].id
 	if state.get("phase") == "complete":
-		# Two weeks in, Helios's authority has a floor of about fifty; the gate
-		# falls to it only when the reviewer leaned on it, or let work slide to it.
-		var ending := "Two weeks. Leadership is keeping a human signature on the review gate, for now. They're calling it the exception path. You're the exception. I'll be in touch about the next rotation."
-		if int(state.get("autonomy", 0)) >= 90:
-			ending = "Leadership has made Helios the default review gate, effective Monday. Human sign-off is an exception now, and Helios decides when to ask for one. I wanted you to hear it from me before the memo lands. Helios wrote the memo."
-		elif int(state.get("trust", 0)) < 40:
-			ending = "I'm moving you to the incident queue for the next rotation. Helios will sit with you on reviews for a while. I asked for a person. There aren't any left on this floor."
-		if int(state.get("stress", 0)) >= 70: ending += " You look exhausted. Please take tonight off. That isn't a policy; I checked."
-		_append(history, "Morgan", ending, "notice", "", int(state.get("day", 1)), Catalog.shift_seconds(), 100)
+		_append(history, "Morgan", _ending(state), "notice", "", int(state.get("day", 1)), Catalog.shift_seconds(), 100)
 	return _chronological(history)
+
+
+## Morgan's notes as they happen, escalations and abandoned PRs: [{text, day, seconds, order}].
+static func _morgan_notes(state: Dictionary) -> Array:
+	if not state.get("encounters", []).is_empty():
+		return _encounters().morgan(state)
+	# Records without encounters: a PR sent back three times escalates.
+	var notes: Array = []
+	for decision: Dictionary in state.get("decisions", []):
+		if decision.get("verdict") != "request_changes": continue
+		var escalated := Catalog.packet(state, str(decision.get("pr_id", "")), false)
+		if int(escalated.get("revision", 1)) < _lines().MAX_REVISION: continue
+		notes.append({"text": _lines().escalation(str(escalated.author), str(escalated.origin_id)), "day": int(escalated.day),
+			"seconds": float(decision.get("shift_seconds", 0)), "order": _event_order(state, "review", str(escalated.id))})
+	return notes
+
+
+## What Morgan says about one closed shift, in order: [{text, closing, pr_id?}].
+## `closing` is false for the day's notes (a shipped bug, friction, work handed to
+## Helios, or a quiet night) and true for her sign-off.
+static func _shift_report(state: Dictionary, shift: Dictionary) -> Array:
+	var copy: Dictionary = _authored().get("manager", {})
+	var report: Array = []
+	var had_incident := false
+	var had_friction := false
+	var held := false
+	for request: Dictionary in Catalog.day_packets(state, int(shift.day)):
+		var decision := _decision_for(state, str(request.id))
+		if decision.is_empty(): continue
+		if decision.verdict == "approve" and not bool(decision.get("correct", true)):
+			var origin := str(request.get("origin_id", request.id))
+			var incident: String = str(_authored().get("requests", {}).get(origin, {}).get("incident", ""))
+			if not incident.is_empty() and not had_incident:
+				# One concrete example, rather than an identical warning per bad approval.
+				report.append({"text": Catalog.display_id(str(request.id)) + ": " + incident, "closing": false, "pr_id": str(request.id)})
+				had_incident = true
+		elif decision.verdict == "request_changes":
+			held = true
+			if not bool(decision.get("correct", true)): had_friction = true
+	if had_friction: report.append({"text": str(copy.friction), "closing": false})
+	if int(shift.get("handed_off", 0)) > 0:
+		report.append({"text": str(copy.handoff), "closing": false})
+	elif not had_incident and not had_friction:
+		report.append({"text": str(copy.held if held else copy.quiet), "closing": false})
+	report.append({"text": str(copy.get("closings", {}).get(int(shift.day), copy.closing)), "closing": true})
+	# The first Friday was supposed to be the last day.
+	if int(shift.day) == WEEK_DAYS and int(shift.day) < int(Catalog.campaign_days()[-1]):
+		report.append({"text": str(copy.get("extension", "")), "closing": true})
+	return report
+
+
+## Morgan's last word on the assignment, from trust, stress, and Helios's authority.
+static func _ending(state: Dictionary) -> String:
+	# Two weeks in, Helios's authority has a floor of about fifty; the gate
+	# falls to it only when the reviewer leaned on it, or let work slide to it.
+	var ending := "Two weeks. Leadership is keeping a human signature on the review gate, for now. They're calling it the exception path. You're the exception. I'll be in touch about the next rotation."
+	if int(state.get("autonomy", 0)) >= 90:
+		ending = "Leadership has made Helios the default review gate, effective Monday. Human sign-off is an exception now, and Helios decides when to ask for one. I wanted you to hear it from me before the memo lands. Helios wrote the memo."
+	elif int(state.get("trust", 0)) < 40:
+		ending = "I'm moving you to the incident queue for the next rotation. Helios will sit with you on reviews for a while. I asked for a person. There aren't any left on this floor."
+	if int(state.get("stress", 0)) >= 70: ending += " You look exhausted. Please take tonight off. That isn't a policy; I checked."
+	return ending
+
+
+## Morgan's end-of-day panel for the shift that just closed: {day, notes, closing}.
+## `notes` are what she heard that day (escalations, abandoned PRs, a shipped bug,
+## work handed to Helios); `closing` is her sign-off, plus the ending once the
+## assignment is over. Empty while a shift is open. Never a score or a grade.
+static func evening(state: Dictionary) -> Dictionary:
+	var shifts: Array = state.get("shift_history", [])
+	if state.get("phase") not in ["debrief", "complete"] or shifts.is_empty():
+		return {}
+	var shift: Dictionary = shifts[-1]
+	var day := int(shift.day)
+	var notes: Array = []
+	var closing: Array = []
+	for note: Dictionary in _morgan_notes(state):
+		if int(note.day) == day and not str(note.text).is_empty(): notes.append(str(note.text))
+	for line: Dictionary in _shift_report(state, shift):
+		if str(line.text).is_empty(): continue
+		if bool(line.closing): closing.append(str(line.text))
+		else: notes.append(str(line.text))
+	if state.get("phase") == "complete": closing.append(_ending(state))
+	return {"day": day, "notes": notes, "closing": closing}

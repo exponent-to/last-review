@@ -20,7 +20,7 @@ func check(condition: bool, message: String) -> void:
 
 func _run() -> void:
 	root.size = Vector2i(1280, 900)
-	await _test_chat_first_open()
+	await _test_loaded_evening()
 	state = Simulation.initial_state()
 	ui = Interface.new()
 	ui.command_requested.connect(_command)
@@ -32,21 +32,17 @@ func _run() -> void:
 		await process_frame
 	ui.render_state(state)
 	await _test_desktop()
-	_test_slouch()
+	_test_no_slouch()
 	check(ui._clock_label.text == "09:00", "Desktop clock must start at nine")
 	check(ui._pr_id.text == "PR-1042 / AWAITING REVIEW" and not ui._diff.text.is_empty(), "The day's first PR is already on the desk at shift start")
 	check(ui.find_children("*", "OptionButton", true, false).size() == 1, "Review has no arrived-PR picker; the only dropdown is the file picker")
 	for button: Node in ui._windows.review.find_children("*", "Button", true, false):
 		check(not button.text.contains("NEXT PR"), "Review has no NEXT PR button")
 	state = Simulation.advance(state, 20)
+	ui._windows.review.minimize_window()
 	ui.render_state(state)
-	ui._select_chat_contact("Maya")
-	var opened := false
-	for button: Node in ui._chat_messages.find_children("*", "Button", true, false):
-		if button.text.begins_with("OPEN " + str(Catalog.request_at(0).id)):
-			button.pressed.emit()
-			opened = true
-	check(opened and ui._windows["review"].visible, "An arrived Slouch PR link must open Review")
+	ui._open_notification("review", str(Catalog.request_at(0).id))
+	check(ui._windows["review"].visible and ui._app_counts.review == 0, "The review notification opens Review")
 	check(ui._file_picker.item_count == 2, "The first review must expose both changed files")
 	var first_diff: String = ui._diff.text
 	ui._diff.set_caret_line(4)
@@ -56,9 +52,6 @@ func _run() -> void:
 	for frame in range(3):
 		await process_frame
 	check(ui._diff.text == first_diff and ui._diff.get_caret_line() == 4, "Returning to a file must preserve its reading position")
-	for button: Node in ui._chat_messages.find_children("*", "Button", true, false):
-		check(button.text.begins_with("OPEN "), "Coworker conversations only offer PR links, not replies.")
-	ui._select_chat_contact("Theo")
 	check(ui.theme.default_font is FontFile, "Interface must use the bundled terminal font")
 	check(ui.theme.default_font.resource_path.ends_with("IBMPlexMono-Regular.ttf"), "Terminal typography must not depend on installed system fonts")
 	check(ui._flag_buttons.size() == Catalog.rules().size(), "The flag box offers every authored standard")
@@ -104,6 +97,7 @@ func _run() -> void:
 	var saw_revision := false
 	var pushbacks := 0
 	var saw_typing := false
+	var evenings := 0
 	while state.phase != "complete":
 		if Simulation.active_request(state).is_empty() and state.phase == "review":
 			# An author revising at the desk stays seated, typing, until v2 replaces the PR.
@@ -117,16 +111,19 @@ func _run() -> void:
 			state = Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds) if coming else Simulation.Catalog.shift_seconds())
 			ui._windows.review.minimize_window()
 			ui.render_state(state)
-			if coming: check(ui._app_counts.review == 1 and ui._app_badges.review.visible, "A PR landing on the desk shows a review badge of exactly one")
+			if coming:
+				check(ui._app_counts.review == 1 and ui._app_badges.review.visible, "A PR landing on the desk shows a review badge of exactly one")
+				check(ui._notifications._items.any(func(item: Dictionary) -> bool: return item.app == "review" and item.target == state.active_request_id), "A PR landing on the desk shows a review notification card")
 		if state.phase == "review":
 			var packet: Dictionary = Catalog.packet(state, state.active_request_id)
-			ui._open_pr_link(str(packet.id))
-			check(ui._windows.review.visible and ui._app_counts.review == 0, "Opening the desk PR's link opens Review and reads it")
+			# Alternate the two ways to the desk: the review card and the REVIEW icon.
+			if ui._windows.review.visible or state.decisions.size() % 2 == 0: ui._home_icons.review.pressed.emit()
+			else: ui._open_notification("review", str(packet.id))
+			check(ui._windows.review.visible and ui._app_counts.review == 0, "REVIEW and its notification open the desk PR and read it")
 			check(ui._pr_id.text == Catalog.display_id(str(packet.id)) + " / AWAITING REVIEW", "The form shows the desk PR, revisions as 'PR · vN'")
 			if int(packet.revision) > 1:
 				saw_revision = true
 				check(ui._pr_id.text.contains(" · v%d" % int(packet.revision)) and ui._pr_context.text.contains(str(packet.message)), "Revisions show their version and their own author note")
-			var previous_messages: String = str(ui._chat_seen.get(str(packet.author), ""))
 			for rule_id: String in packet.violations:
 				_command(Simulation.Catalog.audit_citation(packet, rule_id))
 			if packet.violations.is_empty():
@@ -153,34 +150,38 @@ func _run() -> void:
 			check(ui._feedback.text.contains(Catalog.display_id(str(packet.id))), "Audit must identify the previous PR")
 			check(not ui._feedback.text.contains("CORRECT") and not ui._feedback.text.contains("Required:"), "Sent confirmation must not grade a review or reveal its answers")
 			check(not ui._feedback.text.contains("Trust +") and not ui._feedback.text.contains("Trust -"), "Audit must omit numeric social/stat deltas")
-			# A revise-now author messages when v2 lands on the desk, a few seconds later.
-			var revising_now: bool = not state.encounters.is_empty() and state.encounters[-1].node == "revise_now"
-			check(revising_now or str(ui._chat_seen.get(str(packet.author), "")) != previous_messages, "Completed review must update its author's Slouch messages")
-			check(ui._chat_contact == "Theo", "Incoming coworker messages must never switch the player's selected conversation")
+			# The archived chat content still hears the verdict; the desktop never shows it.
 			var has_reaction: bool = false
 			for message: Dictionary in Chat.messages(state, str(packet.author)):
 				if str(message.get("kind", "")) == "reaction":
 					has_reaction = true
-			check(has_reaction, "Coworker conversation must contain a review reaction")
-			if str(packet.author) != "Theo":
-				check(bool(ui._chat_unread.get(str(packet.author), false)), "Other coworker reactions must receive an unread indicator")
-			ui._open_pr_link(str(packet.id))
-			check(ui._system_status.text.contains("is closed"), "A stamped PR's Slouch link says it is closed")
-			if not state.desk_line.is_empty():
-				ui._open_pr_link(str(state.desk_line[0]))
-				check(ui._system_status.text.contains("isn't at your desk yet") and state.active_request_id.is_empty(), "A PR still in line cannot be opened early")
+			check(has_reaction, "Coworker conversation content must contain a review reaction")
+			check(not ui._notifications._items.any(func(item: Dictionary) -> bool: return item.app not in ["review", "browser", "system"]), "Coworker messages never reach the ticker")
 		if state.phase == "debrief":
-			check(not ui._windows.has("shift"), "Closing must not open an explicit results window")
-			ui._select_chat_contact("manager")
-			check(ui._evening_buttons.visible, "Manager conversation offers evening choices")
-			_command({"type": "next-day", "choice": "rest"})
+			check(not ui._windows.has("shift") and not ui._windows.has("chat"), "Closing opens no results window and no chat")
+			_check_evening(false)
+			evenings += 1
+			# Choose the evening through the panel's own buttons, in turn.
+			var choices: Array = ui._evening_buttons.find_children("*", "Button", true, false)
+			var day_before := int(state.day)
+			choices[evenings % choices.size()].pressed.emit()
+			check(int(state.day) == day_before + 1 or state.phase == "complete", "Choosing an evening advances the day")
+			check(state.shift_history[-1].evening_choice == ["rest", "socialize", "study"][evenings % 3], "Each evening button sends its own choice")
+			if state.phase == "review":
+				check(not ui._windows.evening.visible and not ui._dock_buttons.evening.visible, "The end-of-day panel goes away with the evening")
 			office.set_story(int(state.day), int(state.autonomy))
 			_check_active_rules(int(state.day))
-			ui._select_chat_contact("Theo")
 	check(state.phase == "complete" and saw_revision, "Authored campaign must finish, with revisions coming back to the desk")
 	check(pushbacks > 0 and saw_typing, "The campaign includes pushbacks and authors revising at the desk")
-	ui._select_chat_contact("manager")
-	check(ui._complete_button.visible and not ui._evening_buttons.visible, "Final manager conversation must offer a return to menu")
+	check(evenings == Catalog.campaign_days().size(), "Every day ends at the end-of-day panel")
+	_check_evening(true)
+	check(int(state.day) == 10 and ui._complete_button.is_visible_in_tree() and not ui._evening_buttons.visible, "Day 10 ends with RETURN TO MAIN MENU instead of the evening choices")
+	var menu := [0]
+	ui.menu_requested.connect(func() -> void: menu[0] += 1)
+	ui._complete_button.pressed.emit()
+	check(menu[0] == 1, "RETURN TO MAIN MENU asks the application for the menu")
+	ui._home_icons.review.pressed.emit()
+	check(ui._windows.review.visible and ui._pr_id.text == "REVIEW / ASSIGNMENT CLOSED" and ui._diff.text.is_empty(), "REVIEW still opens after the assignment, and says the desk is closed")
 	office.set_motion(false)
 	check(not office.is_processing(), "Motion setting must stop decorative animation")
 	ui.queue_free()
@@ -207,7 +208,7 @@ func _test_desktop() -> void:
 		check(not window.visible and not window.launched, "HOME must begin with every application closed")
 	for button in ui._dock_buttons.values():
 		check(not button.visible, "Taskbar must omit applications that have not been launched")
-	check(ui._home_icons.size() == 4, "HOME must offer the four actual application launchers")
+	check(ui._home_icons.size() == 3 and ui._home_icons.keys() == ["review", "browser", "system"], "HOME must offer the three actual application launchers")
 	ui._home_icons["review"].pressed.emit()
 	check(review.visible and review.launched, "REVIEW desktop icon must launch the combined review application")
 	check(ui._dock_buttons["review"].visible, "Launching an application must add its taskbar entry")
@@ -298,57 +299,96 @@ func _test_desktop() -> void:
 	ui._diff.set_caret_line(0)
 	ui._diff.scroll_vertical = 0
 
-func _test_slouch() -> void:
-	var chat = ui._windows["chat"]
-	check(not chat.visible, "Slouch must remain closed until the player opens it")
-	check(chat.window_title.begins_with("SLOUCH"), "Chat must be its own named native application")
-	ui._open_app("chat")
-	check(chat.visible, "Taskbar must open the separate Slouch window")
-	ui._select_chat_contact("Theo")
-	check(ui._chat_heading.text.begins_with("Theo"), "Selecting a DM must display that coworker's conversation")
-	check(not bool(ui._chat_unread.get("Theo", false)), "Reading a conversation must clear its unread indicator")
-	check(ui._chat_messages.get_child_count() > 0, "Slouch must render authored message rows")
-	chat.minimize_window()
-	ui.render_state(state)
-	check(not chat.visible, "Incoming refresh must not reopen minimized chat")
-	ui._open_app("chat")
-	check(ui._chat_contact == "Theo", "Reopening Slouch must preserve the player's selected conversation")
-	ui._open_app("review")
-	var top_window: Node = ui._desktop.get_child(ui._desktop.get_child_count() - 1)
-	ui.render_state(state)
-	check(ui._desktop.get_child(ui._desktop.get_child_count() - 1) == top_window, "Chat refresh must not steal native window focus")
-	check(ui._dock_buttons["chat"].text.begins_with("SLOUCH"), "Taskbar must expose the Slouch application and its unread count")
+## Slouch is off the desktop: no icon, window, taskbar entry, badge, or ticker cards,
+## and nothing on screen mentions it.
+func _test_no_slouch() -> void:
+	check(not ui._windows.has("chat") and not ui._home_icons.has("chat") and not ui._dock_buttons.has("chat"), "There is no Slouch window, icon, or taskbar entry")
+	check(not ui._app_counts.has("chat") and not ui._app_badges.has("chat") and not Interface.Notifications.NAMES.has("chat"), "Slouch has no badge and no notification source")
+	check(not ui._home_icons.has("evening") and not ui._windows.evening.visible and not ui._dock_buttons.evening.visible, "The end-of-day panel has no icon and stays closed during the shift")
+	for item: Dictionary in ui._notifications._items:
+		check(item.app != "chat" and not item.card.tooltip_text.contains("Your team has left you messages"), "No Slouch ticker cards")
+	ui._browse("procedure")
+	ui._browse("memo")
+	for node: Node in ui.find_children("*", "", true, false):
+		var words := ""
+		if node is Button or node is Label: words = str(node.text)
+		if node is Control: words += " " + str(node.tooltip_text)
+		if node is Interface.DesktopWindow: words += " " + str(node.window_title)
+		check(not words.to_lower().contains("slouch"), "Nothing on the desktop mentions Slouch: " + words.strip_edges())
+	ui._browse("home")
 
-func _test_chat_first_open() -> void:
-	var initial: Dictionary = Simulation.initial_state()
-	var loaded: Dictionary = initial.duplicate(true)
-	var first_packet: Dictionary = Catalog.request_at(0)
-	loaded = Simulation.advance(loaded, 20)
-	for id: String in first_packet.violations:
-		loaded = Simulation.dispatch(loaded, Simulation.Catalog.audit_citation(first_packet, id))
-	loaded = Simulation.dispatch(loaded, {"type": "review", "verdict": "approve" if first_packet.violations.is_empty() else "request_changes"})
-	for snapshot: Dictionary in [initial, loaded]:
-		var first_ui = Interface.new()
-		root.add_child(first_ui)
-		first_ui.render_state(snapshot)
-		first_ui.hide()
-		for frame: int in range(8):
-			await process_frame
-		first_ui.show()
-		first_ui.focus_workspace()
-		for frame: int in range(6):
-			await process_frame
-		first_ui._open_app("chat")
-		for contact: String in ["Maya", "company", "Inez", "Theo", "Maya"]:
-			first_ui._select_chat_contact(contact)
-			for frame: int in range(8):
-				await process_frame
-			var chat = first_ui._windows["chat"]
-			check(chat.size.x <= 800.0, "First Slouch open and contact changes must retain the arranged width without a reset")
-			check(chat.get_global_rect().end.x <= root.size.x, "Slouch minimize button must remain inside the game window")
-			for node: Node in first_ui._chat_messages.find_children("*", "Label", true, false):
-				var label: Label = node as Label
-				if label.autowrap_mode != TextServer.AUTOWRAP_OFF and label.text.length() > 100:
-					check(label.get_line_count() > 1, "Long Slouch messages must wrap within the first-open viewport")
-		first_ui.queue_free()
+## Morgan's end-of-day panel: open by itself, her portrait, the day's notes, her closing
+## words, and the evening choices (or, once the assignment is over, the way to the menu).
+func _check_evening(final: bool) -> void:
+	var evening = ui._windows.evening
+	var expected: Dictionary = Chat.evening(state)
+	check(evening.visible and evening.launched and evening._active and ui._dock_buttons.evening.visible, "Closing opens the end-of-day panel by itself")
+	check(not evening.close_button.visible, "The end-of-day panel cannot be closed before the evening is chosen")
+	check(not ui._windows.review.visible, "Closing puts the desk away")
+	check(ui._evening_face.is_visible_in_tree() and ui._evening_face is TextureRect and ui._evening_face.texture == Interface.Portraits.texture_for("Morgan"), "The panel shows Morgan's cat portrait")
+	check(ui._evening_when.text.begins_with(Interface.day_label(int(state.day))), "The panel names the day that just closed")
+	var notes: Array = ui._evening_notes.find_children("*", "Label", true, false).map(func(label: Node) -> String: return str(label.text))
+	var closing: Array = ui._evening_closing.get_children().map(func(label: Node) -> String: return str(label.text))
+	check(not expected.is_empty() and notes == expected.notes and ui._evening_notes_heading.visible != notes.is_empty(),"The panel shows Morgan's notes from today")
+	check(not closing.is_empty() and closing == expected.closing, "The panel shows Morgan's closing message")
+	for note: Dictionary in Encounters.morgan(state):
+		if int(note.day) == int(state.day): check(str(note.text) in notes, "Today's escalations and abandons reach the panel: " + str(note.text))
+	if int(state.shift_history[-1].get("handed_off", 0)) > 0:
+		check(notes.any(func(text: String) -> bool: return text.contains("Helios picked up")), "Work handed to Helios reaches the panel")
+	var shown := " ".join(notes + closing) + ui._evening_when.text
+	var graded := RegEx.create_from_string("\\bP\\d\\d\\b|[Ss]core|Trust|Stress|credits|CORRECT|\\d+%")
+	check(graded.search(shown) == null, "The panel carries no scores or rule IDs: " + shown)
+	if final:
+		check(ui._complete_button.is_visible_in_tree() and not ui._evening_buttons.visible, "After the last evening the panel offers RETURN TO MAIN MENU")
+	else:
+		var buttons: Array = ui._evening_buttons.find_children("*", "Button", true, false)
+		var texts: Array = buttons.map(func(button: Node) -> String: return str(button.text))
+		check(ui._evening_buttons.is_visible_in_tree() and texts == ["GO HOME", "GET DINNER", "STUDY"] and not ui._complete_button.visible, "The panel offers GO HOME, GET DINNER, and STUDY")
+		_check_evening_descriptions(buttons)
+
+
+## Each evening choice says what it does, under its button and on hover, in words.
+func _check_evening_descriptions(buttons: Array) -> void:
+	# What each choice does (Simulation._evening), as the words must convey it.
+	var meaning := {"GO HOME": ["calmer"], "GET DINNER": ["Costs", "coworkers", "unwind"], "STUDY": ["Morgan", "tired"]}
+	var digits := RegEx.create_from_string("\\d")
+	check(buttons.size() == Interface.EVENINGS.size(), "Every evening choice has a button")
+	for index in range(buttons.size()):
+		var button: Button = buttons[index]
+		var about: Label = button.get_meta("about")
+		var expected: String = Interface.EVENINGS[index].about
+		check(about.is_visible_in_tree() and about.text == expected and button.tooltip_text == expected, "%s shows what it does, under the button and as its tooltip" % button.text)
+		check(digits.search(about.text) == null, "%s describes its effect without numbers" % button.text)
+		for word: String in meaning[button.text]:
+			check(about.text.contains(word), "%s's description conveys its effect (%s)" % [button.text, word])
+
+## Loading a save at closing, or after the assignment, opens Morgan's panel straight away.
+func _test_loaded_evening() -> void:
+	var closed: Dictionary = Simulation.advance(Simulation.initial_state(), Catalog.shift_seconds())
+	var finished: Dictionary = closed.duplicate(true)
+	while finished.phase != "complete":
+		finished = Simulation.dispatch(Simulation.advance(finished, Catalog.shift_seconds()), {"type": "next-day", "choice": "rest"})
+	for snapshot: Dictionary in [closed, finished]:
+		var loaded = Interface.new()
+		root.add_child(loaded)
+		for frame in range(3): await process_frame
+		loaded.render_state(snapshot)
+		for frame in range(3): await process_frame
+		var done: bool = snapshot.phase == "complete"
+		var evening = loaded._windows.evening
+		check(evening.visible and evening.get_global_rect().size.x > 400 and loaded._desktop.get_global_rect().encloses(evening.get_global_rect()), "A loaded evening opens the end-of-day panel on the desktop")
+		check(loaded._evening_buttons.visible != done and loaded._complete_button.visible == done, "Day %d offers %s" % [int(snapshot.day), "RETURN TO MAIN MENU" if done else "the evening choices"])
+		check(loaded._notifications._items.is_empty() and not loaded._app_badges.browser.visible, "An evening load announces no morning memo or standards")
+		if not done:
+			for button: Button in loaded._evening_buttons.find_children("*", "Button", true, false):
+				var about: Label = button.get_meta("about")
+				check(about.get_global_rect().position.y >= button.get_global_rect().end.y and evening.get_global_rect().encloses(about.get_global_rect()), "%s's description sits under it, inside the panel" % button.text)
+				check(about.get_line_count() <= 3, "%s's description stays short" % button.text)
+		if done:
+			check(int(snapshot.day) == 10 and loaded._evening_when.text.begins_with("WEEK 2 · FRIDAY"), "The final panel is the second Friday's")
+			var last: Node = loaded._evening_closing.get_child(loaded._evening_closing.get_child_count() - 1)
+			check(str(last.text) == Chat.evening(snapshot).closing[-1] and str(last.text).contains("review gate"), "Morgan's final word closes the assignment")
+		loaded._home_icons.review.pressed.emit()
+		check(loaded._windows.review.visible and loaded._pr_id.text == ("REVIEW / ASSIGNMENT CLOSED" if done else "REVIEW / SHIFT CLOSED"), "REVIEW opens off the clock and says the desk is closed")
+		loaded.queue_free()
 		await process_frame

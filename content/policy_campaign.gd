@@ -158,7 +158,7 @@ static func permit_valid(permit: String, day: int) -> bool:
 static func briefing(day: int) -> String:
 	match day:
 		1:
-			return "YOUR DESK IS ASSIGNED. Paperclip Labs is transitioning review to Helios. Until it completes, every change still needs a human signature. You will not be asked to understand the code, only to enforce the standards on it exactly as written: forbidden comment wording, approved keyword ink, and quiet filenames. Standards are reissued every second morning. Work arrives through Slouch. The clock does not wait for you."
+			return "YOUR DESK IS ASSIGNED. Paperclip Labs is transitioning review to Helios. Until it completes, every change still needs a human signature. You will not be asked to understand the code, only to enforce the standards on it exactly as written: forbidden comment wording, approved keyword ink, and quiet filenames. Standards are reissued every second morning. Work lands on your desk one PR at a time. The clock does not wait for you."
 		2:
 			return "NO CHANGES TODAY. Yesterday's three standards still apply, word for word. Changes now arrive in several files; an unread file is an unsigned file. Cite each broken standard once."
 		3:
@@ -1019,7 +1019,7 @@ const CITED_WORDS: Dictionary = {
 	"P13": ["the missing test", "added the test you asked for"],
 	"P14": ["the Helios disclosure", "credited Helios, as required"],
 }
-## The author's note on the PR form and in Slouch. {Fixes}/{fixes} come from CITED_WORDS.
+## The author's note on the PR form (and in the archived chat content). {Fixes}/{fixes} come from CITED_WORDS.
 const REVISION_MESSAGES: Dictionary = {
 	"Maya": {
 		2: ["v2. {Fixes}.", "v2. {Fixes}. Try to contain your excitement. I can't contain anything, I'm too tired.", "v2 is up. {Fixes}, and touched nothing else, as a treat."],

@@ -148,7 +148,7 @@ func _test_review_desk() -> void:
 	ui.render_state(state)
 	var packet: Dictionary = Catalog.request_at(0)
 	var author := str(packet.author)
-	ui._open_pr_link(str(packet.id))
+	ui._open_app("review")
 	var pitch: Array = Encounters.desk_lines(packet, "pitch", Encounters.mood(state, author))
 	check(ui._banter.visible and ui._banter.speaker == author and ui._banter.kind == "open" and ui._banter.line in pitch, "Opening a PR shows a bubble from its author")
 	for frame in range(8):
@@ -212,7 +212,7 @@ func _test_flags_sound_the_same() -> void:
 	var heard: Array[String] = []
 	for line_number: int in [int(cite.line), 1 if int(cite.line) != 1 else 2]:
 		await _fresh_ui(Simulation.advance(Simulation.initial_state(), 20))
-		ui._open_pr_link(str(packet.id))
+		ui._open_app("review")
 		_point_at(str(cite.path), line_number)
 		ui._flag_buttons.P01.pressed.emit()
 		check(ui._banter.kind == "flag", "Both flags get a reaction")
@@ -226,7 +226,7 @@ func _test_consult() -> void:
 		snapshot = Simulation.dispatch(snapshot, {"type": "next-day", "choice": "rest"})
 	await _fresh_ui(Simulation.advance(snapshot, 20))
 	var packet: Dictionary = Simulation.available_requests(state)[0]
-	ui._open_pr_link(str(packet.id))
+	ui._open_app("review")
 	check(ui._consult.visible and not ui._consult.disabled, "Helios is available on Wednesday")
 	ui._consult.pressed.emit()
 	var consult_lines: Array = Encounters.desk_lines(packet, "consult", Encounters.mood(state, str(packet.author)))
@@ -235,10 +235,10 @@ func _test_consult() -> void:
 func _test_orientation() -> void:
 	await _fresh_ui(Tutorial.initial_practice_state())
 	var progress := Tutorial.initial_progress()
-	progress.stage = 3
+	progress.stage = Tutorial.STAGE_OPEN_REVIEW
 	ui.render_tutorial(progress, Tutorial.prompt(progress))
 	var packet: Dictionary = Catalog.request_at(0)
-	ui._open_pr_link(str(packet.id))
+	ui._open_app("review")
 	check(ui._banter.speaker == "Maya" and ui._banter.kind == "open", "Orientation keeps one greeting from Maya")
 	var cite: Dictionary = Catalog.audit_citation(packet, "P01")
 	_point_at(str(cite.path), int(cite.line))
@@ -248,7 +248,7 @@ func _test_orientation() -> void:
 	ui._process(ReviewBanter.IDLE_SECONDS * 2)
 	check(not ui._banter.is_speaking() and ui._banter.visible, "Orientation has no idle nudges, but Maya stays seated")
 	ui._windows.review.close_window()
-	ui._open_pr_link(str(packet.id))
+	ui._open_app("review")
 	check(not ui._banter.is_speaking(), "Maya greets only once during orientation")
 	ui._reject.pressed.emit()
 	check(not ui._banter.is_speaking(), "Orientation stamps get no reaction")
