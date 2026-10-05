@@ -212,13 +212,13 @@ func _test_purity() -> void:
 
 
 func _test_history_and_contract() -> void:
-	var state := _state(int(Catalog.campaign_days()[-1]), 300)
+	var state := _state(int(Catalog.campaign_days()[-1]), Catalog.shift_seconds())
 	var known: Dictionary = {}
 	for request: Dictionary in Catalog.requests():
 		known[request.id] = request
 		_arrive(state, request, 0)
 		for reply_id: String in Chat.REPLY_IDS:
-			state.chat_replies.append({"day": request.day, "shift_seconds": 300, "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
+			state.chat_replies.append({"day": request.day, "shift_seconds": Catalog.shift_seconds(), "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
 		var verdict := "approve" if request.violations.is_empty() or int(request.day) == 5 else "request_changes"
 		state.decisions.append({"pr_id": request.id, "verdict": verdict, "correct": true, "cited_rules": request.violations, "shift_seconds": 100})
 		if verdict == "approve": continue
@@ -294,5 +294,5 @@ func _test_chronology() -> void:
 	_check(history[5].kind == "reaction" and history[6].kind == "reply", "The action journal orders a review reaction between two questions sent on the same tick.")
 	var saved: Dictionary = JSON.parse_string(JSON.stringify(state))
 	_check(Chat.messages(saved, str(first.author)) == history, "Chronological history survives save/load without new or reordered messages.")
-	_check(Chat.timestamp(history[-1]) == "Mon 12:00", "Bubble timestamps use the same accelerated office clock as the desktop.")
+	_check(Chat.timestamp(history[-1]) == "Mon 14:00", "Bubble timestamps use the same accelerated office clock as the desktop.")
 	Catalog._requests = original

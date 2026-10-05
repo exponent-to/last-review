@@ -30,9 +30,9 @@ func run() -> void:
 	check(Catalog.campaign_days() == range(1, 11), "Campaign is two weeks, Monday through Friday twice.")
 	state = Sim.initial_state()
 	check(Sim.available_requests(state).size() == 1 and state.active_request_id == "PR-1042", "The first request is on the desk immediately.")
-	for wait in [19, 20, 280]:
+	for wait in [19, 20, Catalog.shift_seconds() - 1]:
 		check(Sim.available_requests(Sim.advance(state, wait)).size() == 1, "Waiting never adds a second PR to the desk.")
-	check(Sim.advance(state, 299).phase == "review" and Sim.advance(state, 300).phase == "debrief", "Five-minute deadline is exact.")
+	check(Sim.advance(state, Catalog.shift_seconds() - 1).phase == "review" and Sim.advance(state, Catalog.shift_seconds()).phase == "debrief", "The shift deadline is exact.")
 	root.size = Vector2i(1280, 900)
 	ui = Interface.new()
 	ui.command_requested.connect(command)
@@ -98,7 +98,7 @@ func run() -> void:
 			state = Sim.dispatch(state, {"type":"review", "verdict":"approve" if packet.violations.is_empty() else "request_changes"})
 			check(state.last_feedback.correct, "Visible evidence leads to a correct decision.")
 			check(Sim.validate_save(state).ok, "Every packet's action history survives save replay.")
-		state = Sim.advance(state, 300)
+		state = Sim.advance(state, Catalog.shift_seconds())
 		check(state.phase == "debrief", "Each day ends with the manager.")
 		check(not Chat.messages(state, "manager").is_empty(), "Manager delivers end-of-day messages.")
 		ui.render_state(state)
@@ -116,14 +116,14 @@ func run() -> void:
 	while not Sim.active_request(careless).is_empty():
 		careless = Sim.dispatch(careless, {"type":"review", "verdict":"approve"})
 		careless = Sim.advance(careless, Sim.DESK_BEAT)
-	careless = Sim.advance(careless,300)
+	careless = Sim.advance(careless, Catalog.shift_seconds())
 	var message_ids: Array = []
 	for message: Dictionary in Chat.messages(careless,"manager"):
 		check(message.id not in message_ids, "Manager warnings have unique notification identities.")
 		message_ids.append(message.id)
 	check(message_ids.size() <= 4, "Many mistakes produce a concise manager DM instead of repeated boilerplate.")
-	var current := Sim.advance(Sim.initial_state(), 150)
-	check(Sim.clock_minutes(current) == 810, "All saves use the five-minute clock.")
+	var current := Sim.advance(Sim.initial_state(), 90)
+	check(Sim.clock_minutes(current) == 810, "All saves use the same shift clock.")
 	var unsupported := current.duplicate(true)
 	unsupported.version = 4
 	check(not Sim.validate_save(unsupported).ok, "Unsupported saves cannot switch game rules.")

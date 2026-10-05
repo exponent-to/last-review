@@ -10,7 +10,7 @@ func check(ok: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func _initialize() -> void:
-	var before := Simulation.advance(Simulation.initial_state(), 280)
+	var before := Simulation.advance(Simulation.initial_state(), Catalog.shift_seconds() - 20)
 	check(Chat.messages(before, "manager").size() == 1, "Manager does not know release outcomes before closing.")
 	var mixed := before.duplicate(true)
 	mixed = Simulation.dispatch(mixed, {"type": "review", "verdict": "approve"})

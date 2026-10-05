@@ -102,7 +102,7 @@ func _test_reviews() -> void:
 	_round_trip(bad_approval)
 	var wednesday := Simulation.initial_state()
 	for day in range(2):
-		wednesday = Simulation.dispatch(Simulation.advance(wednesday, 300), {"type": "next-day", "choice": "rest"})
+		wednesday = Simulation.dispatch(Simulation.advance(wednesday, Simulation.Catalog.shift_seconds()), {"type": "next-day", "choice": "rest"})
 	_check(wednesday.active_request_id == Catalog.requests_for_day(3)[0].id, "Each morning puts the day's first PR on the desk.")
 	var consulted := Simulation.dispatch(wednesday, {"type": "consult-ai"})
 	_check(consulted.consulted and consulted.autonomy == wednesday.autonomy + 4, "Wednesday consultation increases reliance.")

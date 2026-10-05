@@ -96,7 +96,7 @@ static func display_id(request_id: String) -> String:
 	return request_id
 
 static func shift_seconds() -> int:
-	return 300
+	return 180
 
 ## Audit/test helper: a citation command pointing at the packet's real evidence.
 static func audit_citation(request: Dictionary, rule_id: String) -> Dictionary:

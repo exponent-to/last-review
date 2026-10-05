@@ -12,7 +12,7 @@ PR: `{id:String, title:String, author:String, day:int, file:String, description:
 
 ## Simulation API (core agent)
 
-Preserve pure static `initial_state`, `dispatch`, `advance`, `validate_save`, `serialize_save`. `advance(state, seconds)` progresses a five-minute shift. The application stops calling it during intro, pause, focus loss, and after closing. Reading while unpaused consumes time. PRs must have arrived and been selected before review.
+Preserve pure static `initial_state`, `dispatch`, `advance`, `validate_save`, `serialize_save`. `advance(state, seconds)` progresses a three-minute shift. The application stops calling it during intro, pause, focus loss, and after closing. Reading while unpaused consumes time. PRs must have arrived and been selected before review.
 
 Core state fields (see simulation.md for the full action journal): version=5, day:int (catalog day), request_index:int (bounded by catalog length), phase:String(review/debrief/complete), credits:int, trust:int0..100, stress:int0..100, autonomy:int0..100, coworkers:Dictionary(Maya/Theo/Inez:int0..100), selected_rules:Array[String], consulted:bool, decisions:Array[Dictionary], log:Array[{day:int,message:String}], last_feedback:Dictionary, last_debrief:Dictionary.
 

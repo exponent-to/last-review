@@ -1,6 +1,6 @@
 # PRs please architecture
 
-Godot 4.7.2 owns the native desktop window, Control menus, input, and texture rendering. The simulation is deterministic GDScript. The application advances it in whole elapsed seconds only while the shift is active and the game is unpaused. Decoration never drives the clock. A workday lasts 300 seconds, with arrivals scheduled inside the shift and payroll at closing time.
+Godot 4.7.2 owns the native desktop window, Control menus, input, and texture rendering. The simulation is deterministic GDScript. The application advances it in whole elapsed seconds only while the shift is active and the game is unpaused. Decoration never drives the clock. A workday lasts 180 seconds, with arrivals scheduled inside the shift and payroll at closing time.
 
 ## Boundaries
 

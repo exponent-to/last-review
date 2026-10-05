@@ -125,7 +125,7 @@ func _test_one_at_a_time() -> void:
 		state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	_check(seen == day_ids, "With no change requests, the line is the day's authored packets in order.")
 	_check(state.last_debrief.handed_off == 0 and state.last_debrief.reviewed == 15, "A cleared line hands nothing to Helios.")
-	var late := Simulation.advance(Simulation.initial_state(), 298)
+	var late := Simulation.advance(Simulation.initial_state(), Catalog.shift_seconds() - 2)
 	late = Simulation.dispatch(late, {"type": "review", "verdict": "approve"})
 	late = Simulation.advance(late, 2)
 	_check(late.phase == "debrief" and late.last_debrief.handed_off == 14 and late.arrivals.size() == 1, "A PR due after the bell never lands; it goes to Helios with the rest of the line.")
