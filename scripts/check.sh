@@ -24,4 +24,6 @@ sh scripts/run.sh --headless --script res://tests/test_portraits.gd
 sh scripts/run.sh --headless --script res://tests/test_pr_bank.gd
 sh scripts/run.sh --headless --script res://tests/test_encounters.gd
 sh scripts/run.sh --headless --script res://tests/test_trees.gd
+sh scripts/run.sh --headless --script res://tests/test_music.gd
+sh scripts/run.sh --headless --script res://tests/test_records.gd
 sh scripts/run.sh --headless --script res://tests/test_cast.gd

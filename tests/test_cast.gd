@@ -35,6 +35,7 @@ func _initialize() -> void:
 	_test_joining()
 	_test_templates()
 	_test_branches()
+	_test_records()
 	_test_trees()
 	_test_introductions()
 	print("Cast checks: %d passed, %d failed." % [checks - failures, failures])
@@ -106,7 +107,7 @@ func _round_trip(state: Dictionary, label: String) -> void:
 	_check(loaded.ok and loaded.state == state, "Survives a save round trip on " + label)
 
 func _test_joining() -> void:
-	_check(Simulation.SAVE_VERSION == 13, "The cast change bumped the save format to 13")
+	_check(Simulation.SAVE_VERSION == 14, "Penny and Gwen bumped the save format to 14")
 	var state := Simulation.initial_state()
 	_check(state.coworkers.keys() == ORIGINALS, "Day one's team is Maya, Theo, and Inez")
 	# Dinner on the second evening is before Penny's time; it doesn't count for her.
@@ -184,19 +185,58 @@ func _test_branches() -> void:
 		_check(int(penny.pushback) < others.min(), "Penny pushes back less than anyone (%s)" % mood)
 		var gwen := Encounters.weights("changes", "Gwen", mood)
 		_check(int(gwen.revise_now) >= int(gwen.revise_later) and int(gwen.escalate) <= 8, "Gwen fixes most things at once and rarely escalates (%s)" % mood)
-		var secret := Encounters.odds("changes", "Gwen", mood)
-		var secret_weights := Encounters.weights("changes", "Gwen", mood, ["P11"])
-		var layout_weights := Encounters.weights("changes", "Gwen", mood, ["P04"])
-		_check(int(secret_weights.pushback) > int(secret_weights.revise_later) and int(secret_weights.pushback) > 2 * int(layout_weights.pushback), "Gwen argues about credentials, not margins (%s)" % mood)
-		_check(int(layout_weights.revise_now) > int(layout_weights.pushback), "Gwen would rather fix a long line than argue about it (%s)" % mood)
-		_check(not secret.is_empty(), "Gwen has odds (%s)" % mood)
+		_check(not Encounters.odds("changes", "Gwen", mood).is_empty(), "Gwen has odds (%s)" % mood)
+		var paperwork := Encounters.weights("changes", "Gwen", mood, ["P16"])
+		for turf: String in ["P11", "P19"]:
+			var own := Encounters.weights("changes", "Gwen", mood, [turf])
+			_check(int(own.pushback) > int(own.revise_later) and int(own.pushback) > 2 * int(paperwork.pushback), "Gwen argues about her own field (%s), not ticket paperwork (%s)" % [turf, mood])
+			_check(int(own.pushback) > int(Encounters.weights("changes", "Maya", mood, [turf]).pushback), "Gwen defends her field harder than Maya would (%s, %s)" % [turf, mood])
+		_check(int(paperwork.revise_now) > int(paperwork.pushback), "Gwen would rather fix ticket paperwork than argue about it (%s)" % mood)
 	for mood: String in ["neutral", "strained", "hostile"]:
 		_check(int(Encounters.weights("insist", "Penny", mood).insist_escalate) > int(Encounters.weights("insist", "Penny", mood).insist_revise), "Insisting sends Penny to Morgan for help (%s)" % mood)
 	_check(int(Encounters.weights("changes", "Penny", "hostile").escalate) > int(Encounters.weights("changes", "Penny", "warm").escalate), "The worse it goes, the more Penny asks Morgan")
-	_check(Encounters.disputed(["P04", "P11"], "PR-X", "Gwen") == "P11" and Encounters.disputed(["P04", "P12"], "PR-Y", "Gwen") == "P12", "When Gwen pushes back, she disputes her own field")
+	_check(Encounters.disputed(["P16", "P11"], "PR-X", "Gwen") == "P11" and Encounters.disputed(["P02", "P16", "P19"], "PR-Y", "Gwen") == "P19", "When Gwen pushes back, she disputes her own field")
+	# Her temperament leans on real categories, and her field is in play on every day she works.
+	var categories := {}
+	for rule: Dictionary in Catalog.rules(): categories[str(rule.category)] = true
+	for author: String in Encounters.AUTHOR_LEANS:
+		for category: String in Encounters.AUTHOR_LEANS[author]:
+			_check(categories.has(category), "%s's leans name a real standard category (%s)" % [author, category])
+	for day: int in Catalog.campaign_days():
+		if day < int(NEWCOMERS.Gwen): continue
+		var live := Catalog.rules_for_day(day).filter(func(rule: Dictionary) -> bool: return int(Encounters.AUTHOR_LEANS.Gwen.get(str(rule.category), {}).get("pushback", 0)) > 0)
+		_check(not live.is_empty(), "Something Gwen argues about is on the slip on day %d" % day)
 	_check(Encounters.mood_for(58, "Penny") == "warm" and Encounters.mood_for(58) == "neutral", "Penny is easily impressed")
 	_check(Encounters.mood_for(64, "Gwen") == "neutral" and Encounters.mood_for(37, "Gwen") == "neutral" and Encounters.mood_for(37) == "strained", "Gwen is hard to win over, but slow to sour")
 	_check(Encounters.tone("Gwen", "revise_now") > Encounters.tone("Maya", "revise_now"), "A change request stings Gwen less than anyone")
+
+# --- Jiro and Pipeline ---------------------------------------------------------------
+
+func _test_records() -> void:
+	var checked := {"Penny": 0, "Gwen": 0}
+	for packet: Dictionary in Catalog.originals():
+		var day := int(packet.day)
+		var author := str(packet.author)
+		# The recipe (which the assignee standard reads) agrees with the lineup.
+		_check(str(packet.recipe.author) == author, "%s's recipe names its real author" % packet.id)
+		if day < Policy.JIRO_DAY: continue
+		var own: Dictionary = packet.tickets[0]
+		var assignee := str(own.assignee)
+		# A misassigned ticket goes to someone who works here that day, never to a future hire.
+		if assignee in Policy.AUTHORS:
+			_check(Policy.joins(assignee) <= day, "%s's ticket isn't assigned to someone who hasn't joined yet (%s on day %d)" % [packet.id, assignee, day])
+		if author not in NEWCOMERS: continue
+		var p17: bool = Policy._on("P17", day)
+		if p17 and "P17" not in packet.violations:
+			_check(assignee == author, "%s's own ticket is assigned to %s" % [packet.id, author])
+			checked[author] += 1
+		if "P17" in packet.violations:
+			_check(assignee != author, "%s's misassigned ticket is someone else's" % packet.id)
+		_check(not str(own.id).is_empty() and (not str(packet.ticket_ref).is_empty() or "P16" in packet.violations), "%s links a Jiro ticket" % packet.id)
+		if day >= Policy.PIPELINE_DAY:
+			_check(not packet.build.is_empty() and packet.build.tests.size() >= 4 and not str(packet.build.id).is_empty(), "%s has a Pipeline build" % packet.id)
+		_check(packet.violations == Policy.evaluate(packet.files, day, {"author": author, "ticket_ref": packet.ticket_ref, "tickets": packet.tickets, "build": packet.build}), "%s's audit agrees with its records" % packet.id)
+	_check(int(checked.Penny) > 0 and int(checked.Gwen) > 0, "Some of Penny's and Gwen's tickets are checked against their names (%s)" % [checked])
 
 # --- Trees -------------------------------------------------------------------------
 

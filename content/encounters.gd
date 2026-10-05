@@ -177,30 +177,28 @@ const PICKS := {
 	},
 }
 ## Some people lean harder on what was cited, by category, on top of LEANS. Gwen
-## argues about her own field (credentials, debug output, crediting Helios) and
-## would rather fix anything else at once than talk about it.
+## argues about her own field: credentials, and the build (a red build is her
+## tripwire, and a rerun until green is how things get past it). Anything else
+## she would rather fix at once than talk about.
 const AUTHOR_LEANS := {
 	"Gwen": {
 		"Security": {"pushback": 34, "revise_now": -16},
-		"Hygiene": {"pushback": 24, "revise_now": -10},
-		"Disclosure": {"pushback": 18},
+		"Builds": {"pushback": 22, "revise_now": -10},
 	},
 }
 ## What you cited leans the change-request branch, by standard category.
-## People defend their words, colors, scope, and authorship; paperwork, secrets,
-## and stray prints they just fix; splitting a big PR is when people give up.
+## People defend their words, colors, scope, and their CI ("it's flaky"); ticket
+## paperwork and secrets they just fix; coverage gates and splitting a big PR are
+## when people give up.
 const LEANS := {
 	"Language": {"pushback": 8},
 	"Color": {"pushback": 6},
-	"Labels": {"pushback": 6},
-	"Disclosure": {"pushback": 8},
 	"Process": {"pushback": 6, "revise_later": 4},
 	"Size": {"pushback": 4, "abandon": 6},
-	"Filenames": {"revise_now": 8},
-	"Sign-off": {"revise_now": 8},
-	"Layout": {"revise_now": 6},
 	"Security": {"revise_now": 10},
-	"Hygiene": {"revise_now": 8},
+	"Tickets": {"revise_now": 8},
+	"Builds": {"pushback": 8, "revise_later": 2},
+	"Coverage": {"pushback": 4, "abandon": 6},
 }
 ## Neutral desk lines for the classic moments are the original banter.
 const DESK_FALLBACK := {"pitch": "open", "return": "revision", "flag": "flag", "unflag": "withdraw", "consult": "consult", "thanks": "approved", "revise_later": "changes"}

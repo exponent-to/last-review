@@ -211,7 +211,8 @@ func _test_desktop() -> void:
 		check(not window.visible and not window.launched, "HOME must begin with every application closed")
 	for button in ui._dock_buttons.values():
 		check(not button.visible, "Taskbar must omit applications that have not been launched")
-	check(ui._home_icons.size() == 3 and ui._home_icons.keys() == ["review", "browser", "system"], "HOME must offer the three actual application launchers")
+	check(ui._home_icons.keys() == ["review", "jiro", "pipeline", "browser", "system"], "HOME holds the five application launchers")
+	check(ui._home_icons.review.visible and not ui._home_icons.jiro.visible and not ui._home_icons.pipeline.visible, "Jiro and Pipeline are not installed on the first Monday")
 	ui._home_icons["review"].pressed.emit()
 	check(review.visible and review.launched, "REVIEW desktop icon must launch the combined review application")
 	check(ui._dock_buttons["review"].visible, "Launching an application must add its taskbar entry")

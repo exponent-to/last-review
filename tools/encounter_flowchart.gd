@@ -44,7 +44,7 @@ const DESK_ORDER: Array[String] = ["pitch", "return", "revised", "flag", "unflag
 	"revise_now", "revise_later", "pushback", "abandon", "escalate", "insist_revise", "insist_escalate", "withdrawn"]
 const DM_ORDER: Array[String] = ["thanks", "suspicious", "relief", "revise_now", "revise_later", "withdrawn", "insist_revise",
 	"insist_escalate", "abandon", "grudge", "escalate"]
-const EXAMPLE_TOPIC := "P04"
+const EXAMPLE_TOPIC := "P19"
 
 var out := "user://encounter_flowchart.html"
 
@@ -260,11 +260,11 @@ static func dm_table(author: String) -> String:
 		for mood: String in Encounters.MOODS:
 			var authored: Array = Lines.lines(author, "dm", node, mood)
 			var lines: Array = []
-			for text: Variant in authored: lines.append(Encounters.fill(str(text), ["P04", "P06"], EXAMPLE_TOPIC))
+			for text: Variant in authored: lines.append(Encounters.fill(str(text), ["P16", "P19"], EXAMPLE_TOPIC))
 			var note := ""
 			if authored.is_empty():
 				note = {"thanks": "classic per-PR thanks", "relief": "classic: Finally.", "revise_later": "classic send-back", "escalate": "classic"}.get(node, "")
-				var beat := {"pr_id": "PR-1042", "author": author, "day": 1, "version": 3 if node == "escalate" else (2 if node == "relief" else 1), "mood": mood, "node": node, "cited": ["P04", "P06"], "shift_seconds": 30, "seq": 1}
+				var beat := {"pr_id": "PR-1042", "author": author, "day": 1, "version": 3 if node == "escalate" else (2 if node == "relief" else 1), "mood": mood, "node": node, "cited": ["P16", "P19"], "shift_seconds": 30, "seq": 1}
 				lines = [Encounters.dm_text(beat, Catalog.request_at(0), node)]
 			if mood == "neutral" and node == "grudge": note = "the PR's own grudge line from the bank; else these"
 			cells.append(_cell(lines, note))
@@ -504,7 +504,7 @@ static func page() -> String:
 		var face := _portrait(author)
 		var voice: String = str({"Maya": "tired and dry: fixes it now for people she likes, gives up on people she doesn't", "Theo": "overconfident: argues first, and fixes at top speed", "Inez": "process-minded and passive-aggressive: proper revisions, escalation when in doubt",
 			"Penny": "the eager new junior (from day 3): fixes it on the spot, almost never argues or gives up, runs to Morgan when it goes wrong",
-			"Gwen": "paranoid security, reassigned from day 6: fixes most things at once, argues about security, escalates rarely and pointedly"}.get(author, ""))
+			"Gwen": "paranoid security, reassigned from day 6: fixes most things at once, argues about credentials and the build, escalates rarely and pointedly"}.get(author, ""))
 		tabs.append('<button class="tab%s" data-tab="%s" role="tab" aria-selected="%s">%s%s</button>' % [" on" if index == 0 else "", author.to_lower(), "true" if index == 0 else "false", '<img src="%s" alt="">' % face if not face.is_empty() else "", author])
 		panels.append("""
 <section class="author%s" id="tab-%s" role="tabpanel">

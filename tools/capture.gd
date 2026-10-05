@@ -41,7 +41,8 @@ func _later(app: Node) -> void:
 	# Stamp until a PR that breaks a whole-PR standard is on the desk or, on days
 	# before those standards exist, one that breaks two standards at once.
 	app.state = Simulation.advance(app.state, 10)
-	var whole_pr: Array = ["P09", "P10", "P13"]
+	var opening: Dictionary = app.state
+	var whole_pr: Array = Main.Simulation.Policy.PR_SCOPED
 	var any_whole_pr: bool = whole_pr.any(func(rule_id: String) -> bool: return Catalog.rule_active(rule_id, int(app.state.day)))
 	while not Simulation.active_request(app.state).is_empty():
 		var packet: Dictionary = Catalog.packet(app.state, str(app.state.active_request_id))
@@ -62,10 +63,65 @@ func _later(app: Node) -> void:
 	ui._open_app("browser")
 	ui._browse("standards")
 	await _shot("24-%s-standards" % tag)
+	# Back to the start of the shift, on a fresh desktop, for the PR's ticket and build.
+	app.state = opening
+	app._build_interface()
+	await _records(app, tag)
 	# Let the rest of the day go to Helios: Morgan's panel carries the handoff.
 	app.state = Simulation.advance(app.state, Catalog.shift_seconds())
 	app._render()
 	await _shot("25-%s-end-of-day" % tag)
+
+## Jiro and Pipeline on a PR whose ticket or build breaks a standard: open each
+## from the PR slip, SELECT AS EVIDENCE, and tick the standard on the slip.
+func _records(app: Node, tag: String) -> void:
+	var Simulation = Main.Simulation
+	var Catalog = Main.Simulation.Catalog
+	var Policy = Main.Simulation.Policy
+	if int(app.state.day) < Policy.JIRO_DAY: return
+	while app.state.phase == "review":
+		if Simulation.active_request(app.state).is_empty():
+			if int(app.state.desk_at) < 0: return
+			app.state = Simulation.advance(app.state, int(app.state.desk_at) - int(app.state.shift_seconds))
+			continue
+		if not Encounters.pending(app.state).is_empty():
+			app.state = Simulation.dispatch(app.state, {"type": "pushback", "choice": "insist"})
+			continue
+		var packet: Dictionary = Catalog.packet(app.state, str(app.state.active_request_id))
+		var tickets: Array = packet.violations.filter(func(rule_id: String) -> bool: return rule_id in Policy.TICKET_SCOPED)
+		var builds: Array = packet.violations.filter(func(rule_id: String) -> bool: return rule_id in Policy.BUILD_SCOPED)
+		if not tickets.is_empty() and (not builds.is_empty() or int(app.state.day) < Policy.PIPELINE_DAY): break
+		app.state = Simulation.dispatch(app.state, {"type": "review", "verdict": "approve"})
+	if app.state.phase != "review": return
+	app._render()
+	var ui = app.interface
+	var packet: Dictionary = Catalog.packet(app.state, str(app.state.active_request_id))
+	ui._open_app("review")
+	await _shot("26-%s-review-record-links" % tag)
+	ui._ticket_link.pressed.emit()
+	await _shot("27-%s-jiro" % tag)
+	ui._jiro_search.text = "PAPER-1"
+	ui._render_jiro_list()
+	await _shot("27b-%s-jiro-search" % tag)
+	ui._jiro_search.text = ""
+	ui._open_desk_ticket()
+	for button: Node in ui._jiro_detail.find_children("*", "Button", true, false):
+		if str(button.text).begins_with("SELECT"): button.pressed.emit()
+	await _shot("28-%s-ticket-selected" % tag)
+	var ticket_rule: String = packet.violations.filter(func(rule_id: String) -> bool: return rule_id in Policy.TICKET_SCOPED)[0]
+	ui._flag_buttons[ticket_rule].pressed.emit()
+	await _shot("29-%s-ticket-cited" % tag)
+	if int(app.state.day) < Policy.PIPELINE_DAY: return
+	ui._build_link.pressed.emit()
+	await _shot("30-%s-pipeline" % tag)
+	for button: Node in ui._pipeline_detail.find_children("*", "Button", true, false):
+		if str(button.text).begins_with("SELECT"): button.pressed.emit()
+	var build_rule: String = packet.violations.filter(func(rule_id: String) -> bool: return rule_id in Policy.BUILD_SCOPED)[0]
+	ui._flag_buttons[build_rule].pressed.emit()
+	await _shot("31-%s-build-cited" % tag)
+	ui._open_app("pipeline")
+	await _shot("32-%s-pipeline-cited" % tag)
+
 
 func _shot(name: String) -> void:
 	for i in range(6): await process_frame
