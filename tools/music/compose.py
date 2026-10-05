@@ -2,16 +2,21 @@
 """Compose and render the PRs please soundtrack: five synchronized loop stems.
 
 An original, minimal dance-punk piece in E Phrygian at 125 BPM. It lives in the
-mood of a long, sparse club intro: soft woodblock and felt-mallet ticks, a muted kick,
+mood of a long, sparse club intro: soft unpitched ticks and brushes, a muted kick,
 a quiet hypnotic synth figure, and a lot of empty space. There is no drop. The
 game raises and lowers the stems over the workday (see native/music.gd):
 
-  intro    woodblock / felt "tok" / rim ticks, a rare dry clap, and the dark figure
+  intro    brush / side-stick / noise ticks, a rare dry clap, and the dark figure
   pulse    a muted four-on-the-floor kick and a soft offbeat bass pulse
-  hats     a ticking closed hat and a shaker
+  hats     a soft, low-passed noise hat and (in some palettes) a dark shaker
   air      the figure's filter opening (bright render minus dark render)
   tension  late-shift clap on 2 and 4, soft open hats, a breathing drone,
-           sparse high pings, and woodblock rolls into each phrase
+           and a soft brushed roll into each phrase
+
+All percussion is unpitched, low-passed noise (no woodblock, cowbell, mallet,
+bell, or metallic hat partials). PALETTES holds three muted kits; --palette
+picks one and --variant renders a ~20 s audition of it without touching the
+stems.
 
 Every stem is exactly 16 bars long and seamless: events are rendered into a
 circular buffer, and effects with memory (filters, delay) run over two passes
@@ -50,7 +55,7 @@ LOOP = BAR * BARS                    # 1,354,752 samples = 30.72 s
 OUT_LOOP = LOOP * OUT_RATE // RATE   # 677,376 samples
 PAD = 64                             # continuation samples written after the loop
 STEMS = ["intro", "pulse", "hats", "air", "tension"]
-FULL_MIX_PEAK_DB = -2.4              # all stems at full volume peak here
+FULL_MIX_PEAK_DB = -3.3              # all stems at full volume peak here
 
 rng = np.random.default_rng(SEED)
 
@@ -219,39 +224,33 @@ def human(v, spread=0.06):
 # --------------------------------------------------------------- instruments
 
 
-def woodblock(freq, vel):
-    """A soft woodblock: the hollow knock, with its upper partials and stick
-    click kept low and rolled off, so it ticks rather than clanks."""
-    n = int(0.3 * RATE)
+def noise_hit(vel, low, high, attack, decay, length=0.2):
+    """Band-limited noise with a gentle (non-resonant) high- and low-pass and an
+    attack/decay envelope: a tick or brush with no pitch of its own."""
+    n = int(length * RATE)
     t = seconds(n)
-    body = (np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.042)
-            + 0.22 * np.sin(2 * np.pi * freq * 2.71 * t) * np.exp(-t / 0.014)
-            + 0.05 * np.sin(2 * np.pi * freq * 4.95 * t) * np.exp(-t / 0.006))
-    click = filt("bp", noise(n), 2000, 1.0) * np.exp(-t / 0.0012)
-    sig = (body + 0.3 * click) * np.minimum(1.0, t / 0.0008)
-    return vel * filt("lp", sig, 3000, 0.6)
+    sig = filt("lp", filt("hp", noise(n), low, 0.6), high, 0.6)
+    return vel * sig * np.minimum(1.0, t / attack) * np.exp(-t / decay)
 
 
-def felt_tok(midi, vel):
-    """A felt mallet on a muted wooden bar (a damped marimba "tok"): a warm,
-    pitched knock with a soft attack, a faint fourth partial, and no ring."""
-    n = int(0.3 * RATE)
+def brush(vel):
+    """A brush on a snare head: a soft swish, dark above 3.5 kHz."""
+    return 2.2 * noise_hit(vel, 500, 3500, 0.006, 0.035, 0.25)
+
+
+def clock_tick(vel):
+    """A dry clock tick: a very short, dark noise click."""
+    return 3.0 * noise_hit(vel, 800, 2500, 0.0005, 0.004, 0.06)
+
+
+def side_stick(vel):
+    """A quiet, low-passed side-stick: a dull thump and a short noise click."""
+    n = int(0.12 * RATE)
     t = seconds(n)
-    f = hz(midi)
-    body = (np.sin(2 * np.pi * f * t) * np.exp(-t / 0.055)
-            + 0.10 * np.sin(2 * np.pi * f * 3.93 * t) * np.exp(-t / 0.012))
-    thump = filt("lp", noise(n), 900, 0.6) * np.exp(-t / 0.004)
-    sig = (body + 0.35 * thump) * np.minimum(1.0, t / 0.0025)
-    return vel * filt("lp", sig, 1600, 0.6)
-
-
-def rim(vel):
-    n = int(0.1 * RATE)
-    t = seconds(n)
-    sig = (np.sin(2 * np.pi * 1500 * t) * np.exp(-t / 0.009)
-           + 0.5 * np.sin(2 * np.pi * 480 * t) * np.exp(-t / 0.018)
-           + 0.4 * filt("bp", noise(n), 2200, 1.2) * np.exp(-t / 0.004))
-    return vel * filt("lp", sig * np.minimum(1.0, t / 0.0006), 2600, 0.6)
+    thump = filt("lp", noise(n), 500, 0.6) * np.exp(-t / 0.012)
+    click = filt("lp", filt("hp", noise(n), 700, 0.6), 1800, 0.6) * np.exp(-t / 0.003)
+    sig = (1.6 * thump + click) * np.minimum(1.0, t / 0.0008)
+    return vel * sig
 
 
 def clap(vel, tail=0.07):
@@ -293,21 +292,14 @@ def bass_note(midi, vel, length):
 
 
 def hat(vel, decay=0.028):
-    n = int((decay * 7 + 0.01) * RATE)
-    t = seconds(n)
-    metal = sum(pulse(f * 1.65, n) for f in (205.3, 304.4, 369.6, 522.7, 540.0, 800.0)) / 6.0
-    sig = 0.4 * metal + 0.6 * noise(n)
-    sig = filt("bp", sig, 7600, 0.8)
-    sig = filt("hp", sig, 6200)
-    return vel * 2.4 * sig * np.exp(-t / decay) * np.minimum(1.0, t / 0.0004)
+    """A soft closed hat: high-passed noise only (no metallic partials), rolled
+    off at the palette's hat_lp so it ticks without clinking."""
+    return 2.4 * noise_hit(vel, 3000, PALETTE["hat_lp"], 0.0006, decay, decay * 7 + 0.01)
 
 
 def shaker(vel):
-    n = int(0.12 * RATE)
-    t = seconds(n)
-    sig = filt("bp", noise(n), 6200, 1.1)
-    env = np.minimum(1.0, t / 0.007) * np.exp(-t / 0.03)
-    return vel * 1.8 * sig * env
+    """A dark shaker: mid-band noise with a soft swell."""
+    return 2.0 * noise_hit(vel, 1800, 4500, 0.007, 0.03, 0.12)
 
 
 def figure_note(midi, vel, bright, lfo):
@@ -328,16 +320,30 @@ def figure_note(midi, vel, bright, lfo):
     return vel * sig * env
 
 
-def ping(midi, vel):
-    """A soft sine blip: a slow-ish attack and only a trace of overtone."""
-    n = int(0.9 * RATE)
-    t = seconds(n)
-    f = hz(midi)
-    tone = np.sin(2 * np.pi * f * t) + 0.05 * np.sin(2 * np.pi * f * 3.0 * t) * np.exp(-t / 0.04)
-    return vel * tone * np.exp(-t / 0.14) * np.minimum(1.0, t / 0.006)
-
-
 # ---------------------------------------------------------------------- stems
+
+# Three muted kits for the intro's ticking slots: "tick" (the syncopated
+# off-beat figure), "low" (the downbeat), "ghost" (the "and" of beats two and
+# four), the late layer's "roll", hat brightness, and whether the shaker plays.
+PALETTES = {
+    "a": {"name": "brush and side-stick", "tick": (brush, 0.40), "low": (side_stick, 0.45),
+          "ghost": (brush, 0.2), "roll": (brush, 0.26), "hat_lp": 5000, "shaker": True},
+    "b": {"name": "almost bare: clock tick, side-stick, muted kick", "tick": (clock_tick, 0.26),
+          "low": (side_stick, 0.45), "ghost": None, "roll": (clock_tick, 0.14), "hat_lp": 3800,
+          "shaker": False},
+    "c": {"name": "dark closed hat and clock", "tick": (hat, 0.26), "low": (clock_tick, 0.36),
+          "ghost": (side_stick, 0.2), "roll": (hat, 0.16), "hat_lp": 6500, "shaker": True},
+}
+PALETTE = PALETTES["a"]
+
+
+def kit(slot, vel):
+    entry = PALETTE[slot]
+    if entry is None:
+        return None
+    voice, level = entry
+    return level * voice(vel)
+
 
 FIGURE = [(0, 64, 1.0), (3, 59, 0.62), (6, 64, 0.8), (10, 62, 0.7), (13, 59, 0.6)]
 # The fourth bar of each phrase adds a pickup note on the last sixteenths.
@@ -373,22 +379,16 @@ def figure_echo(x):
 def intro_percussion():
     """The morning bed's ticks; the dark figure is added in main()."""
     buf = np.zeros(LOOP)
-    wb_hi = [pattern("..o....x..o....."), pattern("..o....x....o..x")]
-    wb_lo = [pattern("x..........o...."), pattern("x......o........")]
-    # Felt-mallet toks, warm and unringing: B4 on the "and" of beat two, and a
-    # quiet E5 on the "and" of beat four every other bar, just above the figure.
-    tok = [[(6, 71, 0.5)], [(6, 71, 0.5), (14, 76, 0.3)]]
-    rims = [pattern("........-......."), pattern("................")]
+    ticks = [pattern("..o....x..o....."), pattern("..o....x....o..x")]
+    lows = [pattern("x..........o...."), pattern("x......o........")]
+    ghosts = [pattern("......o........."), pattern("......o.......-.")]
     for bar in range(BARS):
         b = bar % 2
-        for step, v in wb_hi[b]:
-            place(buf, 0.24 * woodblock(1100, human(v)), at(bar, step))
-        for step, v in wb_lo[b]:
-            place(buf, 0.30 * woodblock(800, human(v)), at(bar, step))
-        for step, midi, v in tok[b]:
-            place(buf, 0.34 * felt_tok(midi, human(v)), at(bar, step))
-        for step, v in rims[b]:
-            place(buf, 0.22 * rim(human(v)), at(bar, step))
+        for slot, steps in (("tick", ticks[b]), ("low", lows[b]), ("ghost", ghosts[b])):
+            for step, v in steps:
+                hit = kit(slot, human(v))
+                if hit is not None:
+                    place(buf, hit, at(bar, step))
         if b == 1:
             place(buf, 0.34 * clap(human(0.8)), at(bar, 12))
     # A small flam into the top of the loop.
@@ -428,7 +428,7 @@ def stem_hats():
             offset = swing if step % 2 else 0.0
             pos = step % 4
             place(buf, 0.26 * hat(human(hat_levels[pos], 0.12), 0.024 if pos != 2 else 0.034), at(bar, step, offset))
-            if shaker_levels[pos]:
+            if shaker_levels[pos] and PALETTE["shaker"]:
                 place(buf, 0.14 * shaker(human(shaker_levels[pos], 0.15)), at(bar, step, offset))
     return buf
 
@@ -442,14 +442,7 @@ def stem_tension():
             place(buf, 0.10 * hat(human(0.6, 0.1), 0.11), at(bar, step))
         if bar % 4 == 3:
             for k, step in enumerate(range(12, 16)):
-                place(buf, 0.2 * woodblock(1100, 0.35 + 0.15 * k), at(bar, step))
-    pings = [(1, 9, 77, 0.8), (3, 3, 76, 0.6), (5, 9, 77, 0.8), (7, 11, 72, 0.6),
-             (9, 9, 77, 0.8), (11, 3, 76, 0.6), (13, 9, 76, 0.7), (15, 7, 71, 0.6)]
-    tones = np.zeros(LOOP)
-    for bar, step, midi, v in pings:
-        place(tones, 0.085 * ping(midi, human(v)), at(bar, step))
-    tones = circular(lambda s: feedback_delay(s, 3, 0.38, 1700, 0.35), tones)
-    buf += tones
+                place(buf, kit("roll", 0.35 + 0.15 * k), at(bar, step))
     # A thin drone on B and E: the fifth and root of E, a maj7 and #11 over F,
     # so it holds still while the bass moves under it. Frequencies are rounded
     # to whole cycles per loop and every modulation divides the loop, so the
@@ -471,7 +464,7 @@ def stem_tension():
 
 def soft_limit(x, ratio=2.0):
     """Round off the sharpest transients (memoryless, so the loop is unchanged):
-    a tanh knee at 1/ratio of the peak takes the top few dB off woodblock and
+    a tanh knee at 1/ratio of the peak takes the top few dB off tick and
     clap attacks while leaving quieter material nearly linear."""
     knee = np.max(np.abs(x)) / ratio
     return knee * np.tanh(x / knee)
@@ -561,6 +554,7 @@ def loudness(x, rate=RATE):
 # gain, because intro + air must equal the bright figure exactly.
 FIGURE_LEVEL = 0.17    # the dark figure sits a couple of dB under the ticks
 OPEN_LIFT_DB = 3.0     # the fully open figure's loudness over the dark one
+DEFAULT_PALETTE = "a"
 STEM_LUFS = {"intro": -24.0, "pulse": -25.0, "hats": -29.5, "tension": -27.5}
 
 
@@ -575,19 +569,27 @@ PREVIEW = [
 ]
 
 
-def render_preview(stems, path):
-    """A ~85 s walk through the workday at the in-game layer volumes."""
+# A ~20 s audition of a palette: the morning intro, then the 13:00 mix.
+VARIANT = [
+    (5, 1.0, 0.0, 0.0, 0.0, 0.0, 0.8, 20000),
+    (6, 1.0, 1.0, 0.75, 0.4, 0.0, 0.85, 20000),
+]
+
+
+def render_preview(stems, path, plan=None):
+    """A walk through the workday at the in-game layer volumes (~85 s by default)."""
+    plan = plan or PREVIEW
     rate = OUT_RATE
     bar = OUT_LOOP // BARS
-    total = sum(p[0] for p in PREVIEW) * bar
+    total = sum(p[0] for p in plan) * bar
     names = STEMS
     gains = {name: np.zeros(total) for name in names}
     level = np.zeros(total)
     cutoff = np.zeros(total)
     prev = None
     pos = 0
-    fade = 2 * bar
-    for bars, *values in PREVIEW:
+    fade = min(2 * bar, total // 8)
+    for bars, *values in plan:
         target = dict(zip(names + ["level", "cutoff"], values))
         n = bars * bar
         ramp = np.minimum(1.0, np.arange(n) / fade) if prev else np.ones(n)
@@ -631,8 +633,15 @@ def main():
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     parser.add_argument("--out", default=os.path.join(root, "audio", "music"))
     parser.add_argument("--preview", help="also write a ~85 s preview mix to this WAV path")
+    parser.add_argument("--palette", choices=sorted(PALETTES), default=DEFAULT_PALETTE,
+                        help="percussion kit (default %(default)s)")
+    parser.add_argument("--variant", help="write only a ~20 s audition (intro, then the 13:00 mix) here")
     args = parser.parse_args()
-    os.makedirs(args.out, exist_ok=True)
+    global PALETTE
+    PALETTE = PALETTES[args.palette]
+    print("palette %s: %s" % (args.palette, PALETTE["name"]))
+    if not args.variant:
+        os.makedirs(args.out, exist_ok=True)
 
     print("rendering at %d Hz: %d BPM, %d bars, loop %d samples (%.2f s)" % (RATE, BPM, BARS, LOOP, LOOP / RATE))
     dark = figure_echo(render_figure(bright=False))
@@ -663,15 +672,17 @@ def main():
     for name in STEMS:
         out = to_out_rate(raw[name] * scale)
         samples = quantize(out)
-        data = np.concatenate([samples, samples[:PAD]])
-        wav_path = os.path.join(args.out, name + ".wav")
-        write_wav(wav_path, data)
-        write_import(wav_path + ".import")
         stems[name] = samples.astype(float) / 32768.0
+        size = 0
+        if not args.variant:
+            wav_path = os.path.join(args.out, name + ".wav")
+            write_wav(wav_path, np.concatenate([samples, samples[:PAD]]))
+            write_import(wav_path + ".import")
+            size = os.path.getsize(wav_path)
         seam, typical = seam_report(stems[name])
         print("%-8s peak %6.1f dBFS  rms %6.1f dBFS  %6.1f LUFS  seam jump %.4f (99.9%% step %.4f)  %d+%d samples  %d bytes" % (
             name, db(np.max(np.abs(stems[name]))), db(rms(stems[name])), loudness(stems[name], OUT_RATE),
-            seam, typical, OUT_LOOP, PAD, os.path.getsize(wav_path)))
+            seam, typical, OUT_LOOP, PAD, size))
     for label, mix in (
             ("morning", {"intro": 1.0}),
             ("early", {"intro": 1.0, "pulse": 0.8}),
@@ -680,7 +691,9 @@ def main():
         x = sum(stems[n] * g for n, g in mix.items())
         print("mix %-8s peak %6.1f dBFS  rms %6.1f dBFS  %6.1f LUFS" % (
             label, db(np.max(np.abs(x))), db(rms(x)), loudness(x, OUT_RATE)))
-    if args.preview:
+    if args.variant:
+        render_preview(stems, args.variant, VARIANT)
+    elif args.preview:
         render_preview(stems, args.preview)
     return 0
 
