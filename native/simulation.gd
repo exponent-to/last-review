@@ -61,8 +61,14 @@ static func clock_minutes(state: Dictionary) -> int:
 
 static func advance(state: Dictionary, seconds: int = 1) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
+	_advance(next, seconds)
+	return next
+
+## `advance`, in place. Save replay steps one working copy through the whole
+## journal, so it must not deep-copy the (growing) state on every action.
+static func _advance(next: Dictionary, seconds: int) -> void:
 	if next.phase != "review" or seconds <= 0:
-		return next
+		return
 	var target: int = mini(Catalog.shift_seconds(), int(next.shift_seconds) + mini(seconds, Catalog.shift_seconds()))
 	# The next PR lands at its scheduled second, so batched and stepped clocks agree.
 	if int(next.desk_at) >= 0 and int(next.desk_at) < Catalog.shift_seconds() and int(next.desk_at) <= target:
@@ -71,7 +77,6 @@ static func advance(state: Dictionary, seconds: int = 1) -> Dictionary:
 	if next.shift_seconds == Catalog.shift_seconds():
 		next.actions.append({"type": "timeout", "day": next.day, "shift_seconds": Catalog.shift_seconds()})
 		_debrief(next)
-	return next
 
 static func _reviewed(state: Dictionary, request_id: String) -> bool:
 	for decision: Dictionary in state.decisions:
@@ -138,12 +143,17 @@ static func _desk(state: Dictionary) -> Dictionary:
 static func _update_request_index(state: Dictionary) -> void:
 	var requests: Array = Catalog.originals()
 	state.request_index = requests.size()
+	# One pass over the decisions, not one per original: this runs on every review,
+	# and save replay runs every review again.
+	var reviewed: Dictionary = {}
+	for decision: Dictionary in state.decisions:
+		reviewed[decision.pr_id] = true
 	for index in range(requests.size()):
 		if int(requests[index].day) < int(state.day):
 			continue
 		if state.phase != "review" and int(requests[index].day) == int(state.day):
 			continue
-		if not _reviewed(state, requests[index].id):
+		if not reviewed.has(requests[index].id):
 			state.request_index = index
 			return
 
@@ -169,22 +179,27 @@ static func _same_rules(left: Array, right: Array) -> bool:
 
 static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 	var next: Dictionary = state.duplicate(true)
+	_dispatch(next, command)
+	return next
+
+## `dispatch`, in place (see `_advance`).
+static func _dispatch(next: Dictionary, command: Dictionary) -> void:
 	var kind: Variant = command.get("type", "")
-	var event: Dictionary = {"type": kind, "day": state.day, "shift_seconds": state.shift_seconds}
+	var event: Dictionary = {"type": kind, "day": next.day, "shift_seconds": next.shift_seconds}
 	if next.phase == "complete":
-		return next
+		return
 	if kind == "next-day":
 		if next.phase == "debrief" and command.get("choice") in EVENINGS:
 			event.choice = command.choice
 			next.actions.append(event)
 			_evening(next, command.choice)
-		return next
+		return
 	if next.phase != "review":
-		return next
+		return
 	if kind == "chat-reply":
 		var contact: Variant = command.get("contact")
 		if typeof(contact) != TYPE_STRING:
-			return next
+			return
 		for option: Dictionary in Chat.reply_options(next, contact):
 			if option.id == command.get("reply_id") and option.pr_id == command.get("pr_id"):
 				event.contact = contact
@@ -193,10 +208,10 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 				next.chat_replies.append({"day": next.day, "shift_seconds": next.shift_seconds, "pr_id": option.pr_id, "contact": contact, "reply_id": option.id})
 				next.actions.append(event)
 				break
-		return next
+		return
 	var active: Dictionary = _desk(next)
 	if active.is_empty():
-		return next
+		return
 	# While the author pushes back, the review waits on INSIST or WITHDRAW.
 	# Stamping changes again is insisting; citations are frozen until then.
 	var disputed: Dictionary = Encounters.pending(next)
@@ -206,12 +221,12 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 			command = {"type": "pushback", "choice": "insist"}
 			event.type = kind
 		elif kind in ["review", "toggle-rule"]:
-			return next
+			return
 	match kind:
 		"pushback":
 			var choice: Variant = command.get("choice")
 			if disputed.is_empty() or choice not in ["insist", "withdraw"]:
-				return next
+				return
 			event.pr_id = active.id
 			event.choice = choice
 			next.actions.append(event)
@@ -219,7 +234,7 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 		"toggle-rule":
 			var rule_id: Variant = command.get("rule_id")
 			if not _active_rule(rule_id, int(next.day)):
-				return next
+				return
 			if rule_id in next.selected_rules:
 				next.selected_rules.erase(rule_id)
 				next.citation_evidence.erase(rule_id)
@@ -228,11 +243,11 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 				# or to a record they selected in Jiro or Pipeline.
 				var location: Variant = _evidence_location(next, active, command)
 				if location == null:
-					return next
+					return
 				next.selected_rules.append(rule_id)
 				next.citation_evidence[rule_id] = location
 		"consult-ai":
-			if int(next.day) < 3: return next
+			if int(next.day) < 3: return
 			if not next.consulted:
 				next.consulted = true
 				next.consulted_requests.append(active.id)
@@ -244,11 +259,11 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 		"review":
 			var verdict: Variant = command.get("verdict")
 			if verdict not in ["approve", "request_changes"]:
-				return next
+				return
 			# Approval still requires no citations. A change request may now carry
 			# zero citations: a deliberate, unexplained rejection (see below).
 			if verdict == "approve" and not next.selected_rules.is_empty():
-				return next
+				return
 			event.pr_id = active.id
 			event.verdict = verdict
 			event.cited_rules = next.selected_rules.duplicate()
@@ -272,7 +287,6 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 				_record(next, "%s is pushing back on your change request." % active.author)
 			else:
 				_review(next, verdict, context, node)
-	return next
 
 ## INSIST keeps the change request (the author revises grudgingly or escalates);
 ## WITHDRAW retracts the disputed citation and the PR stays open for review.
@@ -313,11 +327,13 @@ static func _evidence_location(state: Dictionary, request: Dictionary, command: 
 			return {"path": path, "line": int(command.line)}
 	return null
 
-static func _cite(state: Dictionary, rule_id: String, evidence: Variant) -> Dictionary:
+## Re-cite a saved rule on the replay's desk, in place.
+static func _cite(state: Dictionary, rule_id: String, evidence: Variant) -> void:
 	var location: Dictionary = evidence if typeof(evidence) == TYPE_DICTIONARY else {}
 	if location.has("record"):
-		return dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "record": location.get("record"), "id": location.get("id")})
-	return dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "path": location.get("path"), "line": location.get("line")})
+		_dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "record": location.get("record"), "id": location.get("id")})
+	else:
+		_dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "path": location.get("path"), "line": location.get("line")})
 
 ## Grade and close the PR on the desk. `node` is the encounter branch already
 ## chosen from mood and visible actions; it decides what happens to the desk line.
@@ -576,7 +592,7 @@ static func _evening(state: Dictionary, choice: String) -> void:
 			state.trust = clampi(int(state.trust) + 4, 0, 100)
 			state.stress = clampi(int(state.stress) + 4, 0, 100)
 			_record(state, "You spend the evening studying the rulebook. Trust +4; stress +4.")
-	if int(state.request_index) == Catalog.requests().size():
+	if int(state.request_index) == Catalog.originals().size():
 		state.phase = "complete"
 		if str(state.ending).is_empty(): state.ending = resolve_ending(state)
 		_record(state, str(Endings.summary(state.ending)))
@@ -637,7 +653,7 @@ static func validate_save(value: Variant) -> Dictionary:
 	if not _integer(value.get("version"), SAVE_VERSION, SAVE_VERSION):
 		return _invalid("this save cannot be loaded. Start a new game in this slot.")
 	var days: Array = Catalog.campaign_days()
-	var campaign_size: int = Catalog.requests().size()
+	var campaign_size: int = Catalog.originals().size()
 	for field: String in ["day", "request_index", "credits", "trust", "stress", "autonomy", "shift_seconds"]:
 		var minimum: int = -9999 if field == "credits" else (int(days[0]) if field == "day" else 0)
 		var maximum: int = 9999 if field == "credits" else (int(days[-1]) if field == "day" else (campaign_size if field == "request_index" else (Catalog.shift_seconds() if field == "shift_seconds" else 100)))
@@ -664,11 +680,11 @@ static func validate_save(value: Variant) -> Dictionary:
 		if kind == "timeout":
 			if replay.phase != "review" or int(event.shift_seconds) != Catalog.shift_seconds():
 				return _invalid("shift closure is outside its deadline.")
-			replay = advance(replay, Catalog.shift_seconds() - int(replay.shift_seconds))
+			_advance(replay, Catalog.shift_seconds() - int(replay.shift_seconds))
 		else:
 			if replay.phase == "review" and int(event.shift_seconds) == Catalog.shift_seconds():
 				return _invalid("a work action occurs at or after the closing bell.")
-			replay = advance(replay, int(event.shift_seconds) - int(replay.shift_seconds))
+			_advance(replay, int(event.shift_seconds) - int(replay.shift_seconds))
 			var command: Dictionary = event.duplicate(true)
 			if kind in ["consult-ai", "review", "pushback"]:
 				if typeof(event.get("pr_id")) != TYPE_STRING:
@@ -681,17 +697,17 @@ static func validate_save(value: Variant) -> Dictionary:
 					replay.selected_rules = []
 					replay.citation_evidence = {}
 					for rule_id: String in event.cited_rules:
-						replay = _cite(replay, rule_id, event.evidence.get(rule_id))
+						_cite(replay, rule_id, event.evidence.get(rule_id))
 				command.erase("cited_rules")
 				command.erase("evidence")
 			command.erase("day")
 			command.erase("shift_seconds")
-			replay = dispatch(replay, command)
+			_dispatch(replay, command)
 		if replay.actions.size() != index + 1 or not _matches(replay.actions[index], event):
 			return _invalid("action %d cannot occur in this history." % index)
 	if int(value.day) != int(replay.day) or int(value.shift_seconds) < int(replay.shift_seconds):
 		return _invalid("current clock precedes its action history.")
-	replay = advance(replay, int(value.shift_seconds) - int(replay.shift_seconds))
+	_advance(replay, int(value.shift_seconds) - int(replay.shift_seconds))
 	if typeof(value.get("citation_evidence")) != TYPE_DICTIONARY:
 		return _invalid("citations are missing their evidence.")
 	# A pending pushback freezes the citations the replayed stamp left behind.
@@ -699,7 +715,7 @@ static func validate_save(value: Variant) -> Dictionary:
 		replay.selected_rules = []
 		replay.citation_evidence = {}
 		for rule_id: String in value.selected_rules:
-			replay = _cite(replay, rule_id, value.citation_evidence.get(rule_id))
+			_cite(replay, rule_id, value.citation_evidence.get(rule_id))
 	if not _matches(replay, value):
 		return _invalid("state does not match its timed actions, arrivals, or earned resources.")
 	return {"ok": true, "state": replay, "error": ""}

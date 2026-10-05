@@ -333,12 +333,6 @@ static func _record_finding(findings: Array, id: String, record: String, record_
 static func _is_test(path: String) -> bool:
 	return path.begins_with("tests/")
 
-## Existing code outside tests/ is changing (an M or R in the file list).
-static func _modifies_code(files: Array) -> bool:
-	for file: Dictionary in files:
-		if str(file.get("status", "added")) in ["modified", "renamed"] and not _is_test(str(file.path)): return true
-	return false
-
 static func _has_tests(files: Array) -> bool:
 	for file: Dictionary in files:
 		if _is_test(str(file.path)): return true
@@ -398,8 +392,6 @@ static func _findings(files: Array, day: int, active: Array, records: Dictionary
 		var changed: int = changed_lines(files)
 		if changed > DIFF_BUDGET:
 			whole.append(["P09", "The PR changes %d lines; the budget is %d." % [changed, DIFF_BUDGET]])
-	if "P13" in active and _modifies_code(files) and not _has_tests(files):
-		whole.append(["P13", "Existing code changes, but no file under tests/ does."])
 	for fault: Array in whole:
 		for file: Dictionary in files:
 			_finding(result, str(fault[0]), str(file.path), 0, str(fault[1]))
@@ -707,15 +699,12 @@ static func _component_files(files: Array, recipe: Dictionary, entry: Dictionary
 	if nested: files.append(_companion_file("nested", entry, day))
 	if test and not _has_tests(files): files.append(_companion_file("test", entry, day))
 
-## Whole-PR shape, settled after every file is written: the test that travels with
-## changed code, and lookup tables sized against the diff budget.
+## Whole-PR shape, settled after every file is written: lookup tables sized
+## against the diff budget.
 static func _whole_pr(files: Array, recipe: Dictionary, entry: Dictionary, day: int) -> void:
 	var faults: Dictionary = {}
 	for fault: Dictionary in recipe.faults:
 		if str(fault.rule) in PR_SCOPED and not faults.has(fault.rule): faults[fault.rule] = int(fault.variant)
-	# Authors bring a test along with changes to existing code, unless that's the fault.
-	if _on("P13", day) and not faults.has("P13") and _modifies_code(files) and not _has_tests(files):
-		files.append(_companion_file("test", entry, day))
 	var rows: int = int(recipe.get("fill", 0))
 	var style: int = int(recipe.get("fill_variant", 0))
 	if faults.has("P09"):
@@ -811,15 +800,11 @@ static func _audit(recipe: Dictionary, files: Variant = null) -> Array:
 ## standard active that day. A few break two, more often in week two.
 const CLEAN_SLOTS: Array = [1, 4, 7, 10, 13]
 ## Decoys that shape the whole PR rather than one file or record.
-const PLAN_DECOYS: Array = ["fill", "fresh", "big-diff"]
+const PLAN_DECOYS: Array = ["fill", "big-diff"]
 
 static func _companions(day: int, index: int) -> Array:
 	if day == 1:
 		return ["test"] if index == 0 else []
-	if _on("P13", day):
-		# Tests now travel with changed code by themselves; only the extras vary.
-		if index == 13: return ["legacy"]
-		return ["config"] if index % 4 == 0 else []
 	var kinds: Array = ["test"] if index % 2 == 0 else []
 	if day >= 3 and index % 13 == 0:
 		kinds.append("legacy")
@@ -831,7 +816,6 @@ static func _near_misses(rule_id: String, day: int) -> Array:
 		"P01": return ["near-load"]
 		"P09": return ["fill"]
 		"P11": return ["vault"]
-		"P13": return ["fresh"]
 		"P16": return ["odd-ticket"]
 		"P17": return ["watched"]
 		"P18": return ["nested-ok"] if day >= SUBFOLDER_DAY else ["test-exempt"]
@@ -888,7 +872,7 @@ static func _plans(day: int) -> Array:
 	var inked: int = 0
 	var valid_ink_placed: bool = false
 	for index in range(DAY_COUNTS[day - 1]):
-		var plan: Dictionary = {"rules": [], "decoys": [], "inks": [], "companions": _companions(day, index), "fill": false, "big": false, "needs": "", "forged": false}
+		var plan: Dictionary = {"rules": [], "decoys": [], "inks": [], "companions": _companions(day, index), "fill": false, "big": false, "forged": false}
 		if index in CLEAN_SLOTS:
 			if day >= PERMIT_DAY and clean == 0:
 				# A pink file with a valid permit is clean.
@@ -905,7 +889,6 @@ static func _plans(day: int) -> Array:
 				var second: String = str(active[(at + 3) % active.size()])
 				if second == first: second = str(active[(at + 1) % active.size()])
 				plan.rules.append(second)
-			if "P13" in plan.rules: plan.needs = "modified"
 			if "P02" in plan.rules and day >= PERMIT_DAY:
 				# Every other broken ink standard comes with a forged permit.
 				plan.forged = inked % 2 == 0
@@ -924,7 +907,6 @@ static func _add_decoy(plan: Dictionary, kind: String) -> void:
 	match kind:
 		"fill": plan.fill = true
 		"big-diff": plan.big = true
-		"fresh": plan.needs = "added"
 		"": pass
 		_: plan.decoys.append(kind)
 
@@ -934,10 +916,8 @@ static func _fallbacks(plan: Dictionary) -> Array:
 	plain.decoys = []
 	plain.fill = false
 	plain.big = false
-	if plain.needs == "added": plain.needs = ""
 	var single: Dictionary = plain.duplicate(true)
 	single.rules = plan.rules.slice(0, 1)
-	single.needs = "modified" if "P13" in single.rules else ""
 	return [plan, plain, single]
 
 ## A record fault's variant. A missing or mistyped ticket link would hide the
@@ -953,8 +933,6 @@ static func _record_variant(rule_id: String, day: int, index: int, plan: Diction
 ## Turn a plan into a recipe for one bank entry, or {} if that entry can't carry it.
 static func _realize(entry_index: int, day: int, index: int, plan: Dictionary) -> Dictionary:
 	var entry: Dictionary = _bank_entries()[entry_index]
-	if (plan.needs == "modified" and not entry.has("before")) or (plan.needs == "added" and entry.has("before")):
-		return {}
 	var slot: int = _slot(day, index)
 	var recipe: Dictionary = {"entry": entry_index, "day": day, "slot": slot, "author": _author(day, index), "version": 1,
 		"files": ["primary"] + plan.companions, "decoys": [], "faults": [], "notes": [], "permits": [], "fill": 0, "fill_variant": 0}
@@ -1260,7 +1238,6 @@ const CITED_WORDS: Dictionary = {
 	"P02": ["the keyword ink", "repainted the keywords a calmer blue"],
 	"P09": ["the size of the diff", "split out everything that wasn't strictly necessary"],
 	"P11": ["the hardcoded secret", "moved the secret into the vault"],
-	"P13": ["the missing test", "added the test you asked for"],
 	"P16": ["the ticket's status", "linked a ticket that's actually open"],
 	"P17": ["the ticket's assignee", "put my own name on the ticket"],
 	"P18": ["the ticket's component", "lined the ticket up with the files"],

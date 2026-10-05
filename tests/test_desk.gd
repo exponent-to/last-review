@@ -290,7 +290,7 @@ func _test_saves() -> void:
 	forged.revisions[0].fixed = ["P02"]
 	_check(not Simulation.validate_save(forged).ok, "A save cannot claim a different fix than the replay produces.")
 	forged = state.duplicate(true)
-	forged.revisions[0].regression = "P06"
+	forged.revisions[0].regression = "P11" if str(forged.revisions[0].regression) != "P11" else "P01"
 	_check(not Simulation.validate_save(forged).ok, "A save cannot invent or remove a regression.")
 	forged = state.duplicate(true)
 	forged.desk_line.reverse()
@@ -332,7 +332,7 @@ func _test_dialogue() -> void:
 				for cited: Array in [["P01"], ["P16", "P19"], ["P02", "P17", "P21"], []]:
 					var line: String = Chat._lines().reaction(author, version, verdict, cited, "PR-2004" if version == 1 else "PR-2004-v%d" % version)
 					_check(forbidden.search(line) == null and not line.is_empty(), "Revision dialogue never names rules or audit results: " + line)
-			for cited: Array in [["P01"], ["P02", "P06"]]:
+			for cited: Array in [["P01"], ["P02", "P09"]]:
 				var message: String = Policy.revision_message(author, version if version > 1 else 2, cited, "PR-2004-v2")
 				_check(forbidden.search(message) == null, "Revision notes never name rules: " + message)
 	for contact: String in Chat.CONTACTS:

@@ -4,6 +4,7 @@ const Simulation = preload("res://native/simulation.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
 const Encounters = preload("res://content/encounters.gd")
+const Policy = preload("res://content/policy_campaign.gd")
 var checks: int = 0
 var failures: int = 0
 
@@ -28,6 +29,10 @@ func _round_trip(state: Dictionary) -> void:
 	_check(not raw.is_empty(), "Reachable timed state must serialize.")
 	var result: Dictionary = Simulation.validate_save(JSON.parse_string(raw))
 	_check(result.ok and result.state == state, "Timed action history must round-trip through JSON numbers.")
+
+## A new rulebook or mechanic (all BLOCK_STARTS) or a newcomer's first morning.
+func _mid_shift_day(day: int) -> bool:
+	return day in Policy.BLOCK_STARTS or Policy.ROSTER.values().any(func(entry: Dictionary) -> bool: return int(entry.joins) == day)
 
 func _desk_id(state: Dictionary) -> String:
 	return str(Simulation.active_request(state).get("id", ""))
@@ -179,7 +184,10 @@ func _test_mixed_action_history() -> void:
 				for reply_id: String in ["acknowledge", "clarify", "concern"]:
 					state = Simulation.dispatch(state, {"type": "chat-reply", "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
 				expected_replies += 3
-			if int(request.day) == 1 or not state.decisions.is_empty() and state.decisions.size() % 4 == 0: _round_trip(state)
+			# Every packet on day 1; every fourth decision on the days a rulebook or
+			# mechanic changes or a newcomer joins. Each shift's whole journal is
+			# round-tripped below at least four times either way.
+			if int(request.day) == 1 or _mid_shift_day(day) and not state.decisions.is_empty() and state.decisions.size() % 4 == 0: _round_trip(state)
 			# Leave the final shift's consulted work unsigned: replay must retain
 			# those consultation/reply effects without inventing review decisions.
 			if last_day: break

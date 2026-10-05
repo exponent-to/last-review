@@ -1,6 +1,6 @@
 extends SceneTree
 ## Render key screens to PNG for visual review: godot --path . --script res://tools/capture.gd -- <out_dir> [day]
-## With a day (2-10), only that later day's screens are captured; without one,
+## With a day (1-10), only that day's screens are captured; without one,
 ## the opening screens are captured first, then week two's Thursday, then the final evening.
 const Main = preload("res://native/main.gd")
 const Encounters = preload("res://content/encounters.gd")
@@ -12,7 +12,7 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	if not args.is_empty(): out = args[0]
 	if args.size() > 1 and args[1].is_valid_int():
-		later_day = clampi(int(args[1]), 2, 10)
+		later_day = clampi(int(args[1]), 1, 10)
 		only_later = true
 	DirAccess.make_dir_recursive_absolute(out)
 	_run.call_deferred()

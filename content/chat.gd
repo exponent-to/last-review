@@ -98,11 +98,6 @@ static func _arrival(state: Dictionary, pr_id: String) -> Dictionary:
 	return {}
 
 
-## A coworker sends a PR when it reaches the player's desk, never before.
-static func _arrived(state: Dictionary, request: Dictionary) -> bool:
-	return not _arrival(state, str(request.id)).is_empty()
-
-
 static func _option(contact: String, pr_id: String, reply_id: String) -> Dictionary:
 	if contact in ["company", "manager"] or contact not in CONTACTS or reply_id not in REPLY_IDS:
 		return {}
@@ -122,24 +117,29 @@ static func _option(contact: String, pr_id: String, reply_id: String) -> Diction
 	return {"id": reply_id, "text": text, "pr_id": pr_id, "response": response}
 
 
-static func _used(state: Dictionary, contact: String, pr_id: String, reply_id: String) -> bool:
-	for reply: Dictionary in state.get("chat_replies", []):
-		if reply.get("contact") == contact and reply.get("pr_id") == pr_id and reply.get("reply_id") == reply_id:
-			return true
-	return false
-
-
 static func reply_options(state: Dictionary, contact: String) -> Array:
 	if contact in ["company", "manager"] or contact not in CONTACTS or state.get("phase") != "review" or not _on_team(state, contact):
 		return []
 	var options: Array = []
-	for request: Dictionary in Catalog.requests():
-		if request.author != contact or int(request.day) != int(state.get("day", 1)) or not _arrived(state, request):
-			continue
-		if not _decision_for(state, str(request.id)).is_empty():
+	# Only today's originals can be answered: once each has reached the desk (a
+	# coworker sends a PR when it arrives, never before) and until it is signed.
+	# Index arrivals, signatures, and replies once; save replay calls this for
+	# every saved reply.
+	var day: int = int(state.get("day", 1))
+	var arrived: Dictionary = {}
+	for entry: Dictionary in state.get("arrivals", []):
+		arrived[entry.get("pr_id")] = true
+	var signed: Dictionary = {}
+	for decision: Dictionary in state.get("decisions", []):
+		signed[decision.get("pr_id")] = true
+	var used: Dictionary = {}
+	for reply: Dictionary in state.get("chat_replies", []):
+		if reply.get("contact") == contact: used["%s|%s" % [reply.get("pr_id"), reply.get("reply_id")]] = true
+	for request: Dictionary in Catalog.originals_for_day(day):
+		if request.author != contact or not arrived.has(request.id) or signed.has(request.id):
 			continue
 		for reply_id: String in REPLY_IDS:
-			if _used(state, contact, str(request.id), reply_id):
+			if used.has("%s|%s" % [request.id, reply_id]):
 				continue
 			var option := _option(contact, str(request.id), reply_id)
 			if not option.is_empty():

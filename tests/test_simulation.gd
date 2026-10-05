@@ -4,6 +4,7 @@ const Simulation = preload("res://native/simulation.gd")
 const SaveStore = preload("res://native/save_store.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Encounters = preload("res://content/encounters.gd")
+const Policy = preload("res://content/policy_campaign.gd")
 var checks: int = 0
 var failures: int = 0
 
@@ -47,6 +48,18 @@ func _takeovers(state: Dictionary) -> int:
 
 func _waiting(state: Dictionary) -> bool:
 	return not Simulation.active_request(state).is_empty() or (int(state.desk_at) >= 0 and int(state.desk_at) < Catalog.shift_seconds())
+
+## Days whose every mid-shift state is round-tripped: each morning that issues a
+## new rulebook or switches on a mechanic (all of those are BLOCK_STARTS) or on
+## which a newcomer joins. The other days rerun the same mechanics on different
+## packets, and every one of their actions is still replayed by the end-of-shift
+## round trip. Round-tripping after every packet of every day replays the whole
+## campaign about 250 times.
+func _mid_shift_day(day: int) -> bool:
+	if day in Policy.BLOCK_STARTS: return true
+	for person: String in Policy.ROSTER:
+		if int(Policy.ROSTER[person].joins) == day: return true
+	return false
 
 func _round_trip(state: Dictionary) -> void:
 	var raw: String = Simulation.serialize_save(state)
@@ -136,7 +149,9 @@ func _test_career() -> void:
 			_check(state.decisions.size() == before + 1, "Each valid submission signs exactly the PR on the desk.")
 			_check(state.decisions[-1].correct, "Exact citations and approvals stay correct on revisions too.")
 			before = state.decisions.size()
-			_round_trip(state)
+			if _mid_shift_day(day): _round_trip(state)
+		# The whole shift's journal, with the desk cleared and the clock still running.
+		_round_trip(state)
 		var signed: int = 0
 		for decision: Dictionary in state.decisions:
 			if Catalog.packet(state, decision.pr_id).day == day: signed += 1
