@@ -2,11 +2,11 @@
 """Compose and render the PRs please soundtrack: five synchronized loop stems.
 
 An original, minimal dance-punk piece in E Phrygian at 125 BPM. It lives in the
-mood of a long, sparse club intro: dry woodblock and cowbell ticks, a muted kick,
+mood of a long, sparse club intro: soft woodblock and felt-mallet ticks, a muted kick,
 a quiet hypnotic synth figure, and a lot of empty space. There is no drop. The
 game raises and lowers the stems over the workday (see native/music.gd):
 
-  intro    woodblock / cowbell / rim ticks, a rare dry clap, and the dark figure
+  intro    woodblock / felt "tok" / rim ticks, a rare dry clap, and the dark figure
   pulse    a muted four-on-the-floor kick and a soft offbeat bass pulse
   hats     a ticking closed hat and a shaker
   air      the figure's filter opening (bright render minus dark render)
@@ -50,7 +50,7 @@ LOOP = BAR * BARS                    # 1,354,752 samples = 30.72 s
 OUT_LOOP = LOOP * OUT_RATE // RATE   # 677,376 samples
 PAD = 64                             # continuation samples written after the loop
 STEMS = ["intro", "pulse", "hats", "air", "tension"]
-FULL_MIX_PEAK_DB = -1.5              # all stems at full volume peak here
+FULL_MIX_PEAK_DB = -2.4              # all stems at full volume peak here
 
 rng = np.random.default_rng(SEED)
 
@@ -72,7 +72,12 @@ def seconds(n):
 
 
 def place(buf, sig, start):
-    """Add sig into the circular buffer at start, wrapping past the loop end."""
+    """Add sig into the circular buffer at start, wrapping past the loop end.
+    The last few milliseconds fade out, so no hit ends on a cut."""
+    fade = min(len(sig), int(0.006 * RATE))
+    if fade:
+        sig = sig.copy()
+        sig[-fade:] *= 0.5 + 0.5 * np.cos(np.linspace(0.0, np.pi, fade))
     start %= LOOP
     while len(sig):
         take = min(len(sig), LOOP - start)
@@ -215,32 +220,38 @@ def human(v, spread=0.06):
 
 
 def woodblock(freq, vel):
-    n = int(0.16 * RATE)
+    """A soft woodblock: the hollow knock, with its upper partials and stick
+    click kept low and rolled off, so it ticks rather than clanks."""
+    n = int(0.3 * RATE)
     t = seconds(n)
-    body = (np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.045)
-            + 0.38 * np.sin(2 * np.pi * freq * 2.71 * t) * np.exp(-t / 0.018)
-            + 0.12 * np.sin(2 * np.pi * freq * 4.95 * t) * np.exp(-t / 0.008))
-    click = filt("bp", noise(n), 3200, 1.2) * np.exp(-t / 0.0015)
-    sig = (body + 0.6 * click) * np.minimum(1.0, t / 0.0004)
-    return vel * sig
+    body = (np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.042)
+            + 0.22 * np.sin(2 * np.pi * freq * 2.71 * t) * np.exp(-t / 0.014)
+            + 0.05 * np.sin(2 * np.pi * freq * 4.95 * t) * np.exp(-t / 0.006))
+    click = filt("bp", noise(n), 2000, 1.0) * np.exp(-t / 0.0012)
+    sig = (body + 0.3 * click) * np.minimum(1.0, t / 0.0008)
+    return vel * filt("lp", sig, 3000, 0.6)
 
 
-def cowbell_tick(vel):
-    n = int(0.12 * RATE)
+def felt_tok(midi, vel):
+    """A felt mallet on a muted wooden bar (a damped marimba "tok"): a warm,
+    pitched knock with a soft attack, a faint fourth partial, and no ring."""
+    n = int(0.3 * RATE)
     t = seconds(n)
-    tone = pulse(562.0, n) + 0.8 * pulse(845.0, n)
-    tone = filt("bp", tone, 2400, 1.6)
-    env = np.exp(-t / 0.028) * 0.85 + 0.15 * np.exp(-t / 0.09)
-    return vel * tone * env * np.minimum(1.0, t / 0.0005)
+    f = hz(midi)
+    body = (np.sin(2 * np.pi * f * t) * np.exp(-t / 0.055)
+            + 0.10 * np.sin(2 * np.pi * f * 3.93 * t) * np.exp(-t / 0.012))
+    thump = filt("lp", noise(n), 900, 0.6) * np.exp(-t / 0.004)
+    sig = (body + 0.35 * thump) * np.minimum(1.0, t / 0.0025)
+    return vel * filt("lp", sig, 1600, 0.6)
 
 
 def rim(vel):
-    n = int(0.08 * RATE)
+    n = int(0.1 * RATE)
     t = seconds(n)
-    sig = (np.sin(2 * np.pi * 1720 * t) * np.exp(-t / 0.010)
+    sig = (np.sin(2 * np.pi * 1500 * t) * np.exp(-t / 0.009)
            + 0.5 * np.sin(2 * np.pi * 480 * t) * np.exp(-t / 0.018)
-           + 0.7 * filt("bp", noise(n), 2600, 1.5) * np.exp(-t / 0.004))
-    return vel * sig * np.minimum(1.0, t / 0.0003)
+           + 0.4 * filt("bp", noise(n), 2200, 1.2) * np.exp(-t / 0.004))
+    return vel * filt("lp", sig * np.minimum(1.0, t / 0.0006), 2600, 0.6)
 
 
 def clap(vel, tail=0.07):
@@ -285,8 +296,8 @@ def hat(vel, decay=0.028):
     n = int((decay * 7 + 0.01) * RATE)
     t = seconds(n)
     metal = sum(pulse(f * 1.65, n) for f in (205.3, 304.4, 369.6, 522.7, 540.0, 800.0)) / 6.0
-    sig = 0.55 * metal + 0.45 * noise(n)
-    sig = filt("bp", sig, 8200, 0.8)
+    sig = 0.4 * metal + 0.6 * noise(n)
+    sig = filt("bp", sig, 7600, 0.8)
     sig = filt("hp", sig, 6200)
     return vel * 2.4 * sig * np.exp(-t / decay) * np.minimum(1.0, t / 0.0004)
 
@@ -318,11 +329,12 @@ def figure_note(midi, vel, bright, lfo):
 
 
 def ping(midi, vel):
-    n = int(0.6 * RATE)
+    """A soft sine blip: a slow-ish attack and only a trace of overtone."""
+    n = int(0.9 * RATE)
     t = seconds(n)
     f = hz(midi)
-    tone = np.sin(2 * np.pi * f * t) + 0.18 * np.sin(2 * np.pi * f * 3.0 * t) * np.exp(-t / 0.05)
-    return vel * tone * np.exp(-t / 0.16) * np.minimum(1.0, t / 0.002)
+    tone = np.sin(2 * np.pi * f * t) + 0.05 * np.sin(2 * np.pi * f * 3.0 * t) * np.exp(-t / 0.04)
+    return vel * tone * np.exp(-t / 0.14) * np.minimum(1.0, t / 0.006)
 
 
 # ---------------------------------------------------------------------- stems
@@ -363,16 +375,18 @@ def intro_percussion():
     buf = np.zeros(LOOP)
     wb_hi = [pattern("..o....x..o....."), pattern("..o....x....o..x")]
     wb_lo = [pattern("x..........o...."), pattern("x......o........")]
-    cow = [pattern("......o........."), pattern("......o.......-.")]
+    # Felt-mallet toks, warm and unringing: B4 on the "and" of beat two, and a
+    # quiet E5 on the "and" of beat four every other bar, just above the figure.
+    tok = [[(6, 71, 0.5)], [(6, 71, 0.5), (14, 76, 0.3)]]
     rims = [pattern("........-......."), pattern("................")]
     for bar in range(BARS):
         b = bar % 2
         for step, v in wb_hi[b]:
-            place(buf, 0.30 * woodblock(1240, human(v)), at(bar, step))
+            place(buf, 0.24 * woodblock(1100, human(v)), at(bar, step))
         for step, v in wb_lo[b]:
-            place(buf, 0.34 * woodblock(830, human(v)), at(bar, step))
-        for step, v in cow[b]:
-            place(buf, 0.15 * cowbell_tick(human(v)), at(bar, step))
+            place(buf, 0.30 * woodblock(800, human(v)), at(bar, step))
+        for step, midi, v in tok[b]:
+            place(buf, 0.34 * felt_tok(midi, human(v)), at(bar, step))
         for step, v in rims[b]:
             place(buf, 0.22 * rim(human(v)), at(bar, step))
         if b == 1:
@@ -428,13 +442,13 @@ def stem_tension():
             place(buf, 0.10 * hat(human(0.6, 0.1), 0.11), at(bar, step))
         if bar % 4 == 3:
             for k, step in enumerate(range(12, 16)):
-                place(buf, 0.26 * woodblock(1240, 0.35 + 0.15 * k), at(bar, step))
+                place(buf, 0.2 * woodblock(1100, 0.35 + 0.15 * k), at(bar, step))
     pings = [(1, 9, 77, 0.8), (3, 3, 76, 0.6), (5, 9, 77, 0.8), (7, 11, 72, 0.6),
              (9, 9, 77, 0.8), (11, 3, 76, 0.6), (13, 9, 76, 0.7), (15, 7, 71, 0.6)]
     tones = np.zeros(LOOP)
     for bar, step, midi, v in pings:
-        place(tones, 0.11 * ping(midi, human(v)), at(bar, step))
-    tones = circular(lambda s: feedback_delay(s, 3, 0.45, 2600, 0.45), tones)
+        place(tones, 0.085 * ping(midi, human(v)), at(bar, step))
+    tones = circular(lambda s: feedback_delay(s, 3, 0.38, 1700, 0.35), tones)
     buf += tones
     # A thin drone on B and E: the fifth and root of E, a maj7 and #11 over F,
     # so it holds still while the bass moves under it. Frequencies are rounded
@@ -545,7 +559,7 @@ def loudness(x, rate=RATE):
 # the layers sit in a fixed balance: the intro and the kick-and-bass pulse
 # about level, hats and the late layer tucked beneath. `air` keeps the intro's
 # gain, because intro + air must equal the bright figure exactly.
-FIGURE_LEVEL = 0.2     # the dark figure sits a few dB under the ticks
+FIGURE_LEVEL = 0.17    # the dark figure sits a couple of dB under the ticks
 OPEN_LIFT_DB = 3.0     # the fully open figure's loudness over the dark one
 STEM_LUFS = {"intro": -24.0, "pulse": -25.0, "hats": -29.5, "tension": -27.5}
 
