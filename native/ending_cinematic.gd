@@ -131,11 +131,11 @@ func _draw() -> void:
 	# card clears them so the title and Morgan's words read cleanly.
 	if not _done:
 		for row in range(5):
-			var y := size.y * 0.30 + row * 46.0
+			var y := size.y * 0.28 + row * 34.0
 			var shade := Color(0.10, 0.10, 0.13).lerp(BACK, row / 5.0)
 			for col in range(6):
 				var x := size.x * 0.12 + col * (size.x * 0.76 / 6.0)
-				draw_rect(Rect2(x, y, size.x * 0.76 / 6.0 - 14, 20), shade)
+				draw_rect(Rect2(x, y, size.x * 0.76 / 6.0 - 14, 16), shade)
 	# Helios's eyes, watching from the dark. Amber on most endings, red on a firing.
 	var eye_color := RED if _fired else AMBER
 	var pulse := 0.5 + 0.5 * sin(_eye_phase * (3.2 if _fired else 1.4))
@@ -152,22 +152,29 @@ func _draw() -> void:
 	var alpha := clampf(_elapsed / FADE, 0.0, 1.0) * clampf((BEAT_SECONDS - _elapsed) / FADE, 0.0, 1.0)
 	alpha = clampf(alpha + 0.25, 0.0, 1.0)
 	var text := str(_beats[_index])
-	_centered(text, size.y * 0.52, 20, Color(TEXT, alpha), size.x - 160)
-	_centered("%d / %d" % [_index + 1, _beats.size()], size.y * 0.52 + 70, 12, Color(DIM, alpha * 0.7), size.x - 160)
+	# The caption sits below the rows of desks, never on top of them.
+	var caption_y := size.y * 0.28 + 5 * 34.0 + 56
+	var lines := _centered(text, caption_y, 20, Color(TEXT, alpha), size.x - 160)
+	_centered("%d / %d" % [_index + 1, _beats.size()], caption_y + lines * (TerminalFont.get_height(20) + 4) + 18, 12, Color(DIM, alpha * 0.7), size.x - 160)
 
 
 func _draw_card() -> void:
-	_centered(_title.to_upper(), size.y * 0.30, 34, RED if _fired else AMBER, size.x - 120)
-	_centered(_morgan, size.y * 0.30 + 70, 16, TEXT, minf(760, size.x - 160))
+	# Title, then Morgan's last word hanging below it; a long one grows downward
+	# toward the button instead of back up into the title.
+	var title_y := size.y * 0.30
+	_centered(_title.to_upper(), title_y, 34, RED if _fired else AMBER, size.x - 120)
+	_centered(_morgan, title_y + 54, 16, TEXT, minf(760, size.x - 160))
 
 
-func _centered(text: String, y: float, font_size: int, color: Color, wrap: float) -> void:
+## Draws wrapped, horizontally centered text whose first baseline is y, and
+## returns its line count.
+func _centered(text: String, y: float, font_size: int, color: Color, wrap: float) -> int:
 	var lines := _wrap(text, wrap, font_size)
 	var line_height := TerminalFont.get_height(font_size) + 4
-	var top := y - (lines.size() - 1) * line_height * 0.5
 	for i in range(lines.size()):
 		var w := TerminalFont.get_string_size(lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-		draw_string(TerminalFont, Vector2((size.x - w) * 0.5, top + i * line_height), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+		draw_string(TerminalFont, Vector2((size.x - w) * 0.5, y + i * line_height), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+	return lines.size()
 
 
 func _wrap(text: String, width: float, font_size: int) -> Array:

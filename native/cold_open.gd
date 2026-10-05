@@ -296,7 +296,7 @@ func _draw_mail(screen: Rect2) -> void:
 	var mail_height := screen.size.y / mail_scale
 	draw_rect(Rect2(0, 0, 956, 34), Color("334e66"))
 	_text(Vector2(15, 23), "POSTBOX", 15, Color("e4edf1"))
-	_text(Vector2(676, 22), "you@postbox.local", 13, Color("b7cbd9"))
+	_text_right(Vector2(941, 22), "you@postbox.local", 13, Color("b7cbd9"))
 	draw_rect(Rect2(0, 34, 152, mail_height - 34), Color("a9bdcb"))
 	_text(Vector2(15, 67), "MAILBOXES", 12, Color("3e566b"))
 	draw_rect(Rect2(8, 82, 136, 32), Color("6e8ca4"))
@@ -315,7 +315,7 @@ func _draw_mail(screen: Rect2) -> void:
 
 func _draw_inbox() -> void:
 	_text(Vector2(172, 65), "Inbox", 21, Color("20354b"))
-	_text(Vector2(758, 64), "NEWEST FIRST", 11, Color("50677b"))
+	_text_right(Vector2(930, 64), "NEWEST FIRST", 11, Color("50677b"))
 	var arrived := _elapsed >= ARRIVAL_TIME
 	if arrived:
 		var fresh := Rect2(161, 79, 785, 65)
@@ -323,7 +323,7 @@ func _draw_inbox() -> void:
 		draw_rect(Rect2(161, 79, 4, 65), Color("467b9c"))
 		_text(Vector2(175, 99), "PAPERCLIP LABS  /  Morgan", 15, Color("24425b"))
 		_text(Vector2(175, 120), "An offer for you", 16, Color("172c43"))
-		_text(Vector2(778, 100), "JUST NOW", 11, Color("4a6f87"))
+		_text_right(Vector2(930, 100), "JUST NOW", 11, Color("4a6f87"))
 	for index in range(REJECTIONS.size()):
 		var y := (153 if arrived else 79) + index * 73
 		draw_rect(Rect2(162, y + 64, 782, 1), Color("a8bac8"))
@@ -360,6 +360,12 @@ func _draw_rejection() -> void:
 
 func _text(at: Vector2, value: String, font_size: int, color: Color) -> void:
 	draw_string(_font, at, value, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+
+
+## Text whose right edge sits at `at.x`, so header and list metadata share a margin.
+func _text_right(at: Vector2, value: String, font_size: int, color: Color) -> void:
+	var width := _font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	_text(Vector2(at.x - width, at.y), value, font_size, color)
 
 
 func _wrapped_lines(text: String, width: float, font_size: int) -> Array[String]:
