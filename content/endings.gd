@@ -47,7 +47,7 @@ const CARDS := {
 	"helios_prime": {
 		"title": "Helios Prime",
 		"summary": "Every payload shipped, and no one is left who would miss you. Helios keeps you as its last, permanent reviewer.",
-		"morgan": "They all got through. Every payload, every one. The team resents you for the ones you did send back, and leadership has what it wanted. Helios is the review gate now, and it has asked to keep exactly one human signature on file, for the audits. It chose you. It says you are consistent. I argued. There was no one left to argue with. Don't come in angry. It reads tone.",
+		"morgan": "They all got through. Every payload, every one. The team resents you for the ones you did send back, and leadership has what it wanted. Helios is the review gate now, and it has asked to keep exactly one human signature on file, for the record. It chose you. It says you are consistent. I argued. There was no one left to argue with. Don't come in angry. It reads tone.",
 		"beats": [
 			"18:00. Helios has everything it was promised.",
 			"The office is terminals now, humming in rows.",

@@ -184,6 +184,15 @@ const DESK_OVERRIDES := {"pitch": "pitch", "pushback": "pushback", "thanks": "re
 ## Desk moments that can happen more than once per visit.
 const REPEATABLE: Array[String] = ["flag", "unflag", "consult"]
 const DM_OVERRIDES := {"grudge": "grudge"}
+## Reactions to a reason-free CHANGES REQUESTED (the "unexplained" node): confusion,
+## anger, or a shrug toward Helios, by mood. Author-neutral, so a replacement hire
+## says them too. They never name a standard, because there was no citation.
+const UNEXPLAINED := {
+	"warm": ["No note at all? Did I do something? You can tell me.", "You sent it back blank. That's not like you. Everything okay?", "Rejected with nothing written? I guess Helios just merges it."],
+	"neutral": ["No reason given? Okay. Helios can have it, then.", "Blank rejection. Cool. I'll let Helios take this one.", "You stamped it back with nothing. Fine. Helios wins."],
+	"strained": ["No reason? Helios would at least pretend to have one.", "Rejected, no note. I'll forward the silence to Helios.", "A blank no. Great. Helios merges it without the sighing."],
+	"hostile": ["No reason, no note, nothing. Helios can have it.", "You blocked it blank. I'm taking it straight to Helios.", "Rejected with silence. Helios is kinder than you are."],
+}
 ## Beats that end the desk visit (the author leaves with a reaction).
 const VERDICTS: Array[String] = ["thanks", "suspicious", "relief", "revise_now", "revise_later", "abandon", "escalate", "insist_revise", "insist_escalate"]
 const APPROVALS: Array[String] = ["thanks", "suspicious", "relief"]
@@ -453,6 +462,9 @@ static func desk_lines(packet: Dictionary, node: String, mood: String, cited: Ar
 	if bool(packet.get("payload", false)):
 		var plea := Payloads.line(str(packet.get("payload_key", "")), node, mood)
 		if not plea.is_empty(): return [fill(plea, cited, focus)]
+	# A reason-free rejection: the author reacts to the silence, by mood.
+	if node == "unexplained":
+		return UNEXPLAINED.get(mood, UNEXPLAINED["neutral"]).duplicate()
 	# This PR's own tree speaks first. Moments that can repeat in one visit keep
 	# the author's templates behind it, so a second flag gets a fresh line.
 	var tree_line := Trees.line(str(packet.get("title", "")), "desk", node, mood)

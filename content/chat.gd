@@ -291,17 +291,56 @@ static func _shift_report(state: Dictionary, shift: Dictionary) -> Array:
 	return report
 
 
-## Morgan's last word on the assignment, from trust, stress, and Helios's authority.
+const Staff = preload("res://content/staff.gd")
+const Endings = preload("res://content/endings.gd")
+
+## Morgan's last word on the assignment, from the ending the run earned.
 static func _ending(state: Dictionary) -> String:
-	# Two weeks in, Helios's authority has a floor of about fifty; the gate
-	# falls to it only when the reviewer leaned on it, or let work slide to it.
-	var ending := "Two weeks. Leadership is keeping a human signature on the review gate, for now. They're calling it the exception path. You're the exception. I'll be in touch about the next rotation."
-	if int(state.get("autonomy", 0)) >= 90:
-		ending = "Leadership has made Helios the default review gate, effective Monday. Human sign-off is an exception now, and Helios decides when to ask for one. I wanted you to hear it from me before the memo lands. Helios wrote the memo."
-	elif int(state.get("trust", 0)) < 40:
-		ending = "I'm moving you to the incident queue for the next rotation. Helios will sit with you on reviews for a while. I asked for a person. There aren't any left on this floor."
-	if int(state.get("stress", 0)) >= 70: ending += " You look exhausted. Please take tonight off. That isn't a policy; I checked."
-	return ending
+	var key := str(state.get("ending", ""))
+	if key.is_empty(): key = "helios_prime"
+	return Endings.morgan(key)
+
+## What Morgan says about the staffing on a closed day: a warning when a coworker
+## is one strike from the axe, and the firing itself. Prose only, never a score.
+static func _staffing_notes(state: Dictionary, day: int) -> Array:
+	var notes: Array = []
+	var struck_today: Dictionary = {}
+	for strike: Dictionary in state.get("strikes", []):
+		if int(strike.get("day", 0)) == day: struck_today[str(strike.name)] = true
+	for firing: Dictionary in state.get("firings", []):
+		if int(firing.get("day", 0)) != day: continue
+		var hire := str(firing.get("hire", ""))
+		var where := ("%s starts at that desk tomorrow." % hire) if not hire.is_empty() else "The desk goes to Helios tomorrow."
+		notes.append("I had to let %s go. %s %s" % [str(firing.name), str(firing.reason).capitalize() + ".", where])
+	# Warn about anyone one strike short who is still here.
+	for person: String in Staff.team(state, day):
+		if Staff.is_fired(state, person) or not struck_today.get(person, false): continue
+		if Staff.strikes(state, person) == Staff.WARN_AT:
+			notes.append("%s picked up another mark today. One more and it's out of my hands." % person)
+	return notes
+
+## What Morgan says about the day's Helios payloads: something unreadable shipped,
+## or that you held the line. Audit-free; it reads the payload ledger, not grades.
+static func _payload_notes(state: Dictionary, day: int) -> Array:
+	var shipped: Array = []
+	var held := false
+	for payload: Dictionary in state.get("payloads", []):
+		if int(payload.get("day", 0)) != day: continue
+		if str(payload.get("outcome", "")) == "blocked": held = true
+		else: shipped.append(payload)
+	var notes: Array = []
+	if not shipped.is_empty():
+		notes.append("Something shipped today that none of us can read. Legal is going to ask who signed it, and I won't have a good answer.")
+	elif held:
+		notes.append("You turned back a change nobody could review. Whatever it was, it isn't in main. Thank you for that.")
+	return notes
+
+## Morgan noticing a reason-free rejection you stamped that day.
+static func _unexplained_notes(state: Dictionary, day: int) -> Array:
+	for beat: Dictionary in state.get("encounters", []):
+		if int(beat.get("day", 0)) == day and str(beat.get("node", "")) == "unexplained":
+			return ["Someone came by asking why their PR was rejected with no notes on it. I didn't have an answer. Try to leave a reason."]
+	return []
 
 
 ## Morgan's end-of-day panel for the shift that just closed: {day, notes, closing}.
@@ -318,6 +357,9 @@ static func evening(state: Dictionary) -> Dictionary:
 	var closing: Array = []
 	for note: Dictionary in _morgan_notes(state):
 		if int(note.day) == day and not str(note.text).is_empty(): notes.append(str(note.text))
+	notes.append_array(_payload_notes(state, day))
+	notes.append_array(_unexplained_notes(state, day))
+	notes.append_array(_staffing_notes(state, day))
 	for line: Dictionary in _shift_report(state, shift):
 		if str(line.text).is_empty(): continue
 		if bool(line.closing): closing.append(str(line.text))

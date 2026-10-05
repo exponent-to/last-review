@@ -91,7 +91,8 @@ func _run() -> void:
 	check(ui._approve.disabled and not ui._reject.disabled, "Citations must gate the correct decision controls")
 	ui._clear_citations()
 	check(state.selected_rules.is_empty(), "Clear citations must update simulation state")
-	check(not ui._approve.disabled and ui._reject.disabled, "Clearing citations must restore approval")
+	# With no citations, approval is available and CHANGES REQUESTED is a reason-free rejection.
+	check(not ui._approve.disabled and not ui._reject.disabled, "Clearing citations restores approval and leaves reason-free rejection available")
 	check(not ui._ai_note.text.contains(str(Catalog.request_at(0).ai_note)), "AI advice must be hidden before consultation")
 	check(not ui._consult.visible, "Consultation stays hidden until Wednesday")
 	var saw_revision := false
