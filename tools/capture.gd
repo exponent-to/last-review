@@ -38,16 +38,24 @@ func _later(app: Node) -> void:
 	app.interface._daily_reader._scroll.scroll_vertical = 100000
 	await _shot("21b-%s-memo-changes" % tag)
 	app.interface._finish_morning()
-	# Stamp until a PR that breaks a whole-PR standard (or the most standards) is on the desk.
+	# Stamp until a PR that breaks a whole-PR standard is on the desk or, on days
+	# before those standards exist, one that breaks two standards at once.
 	app.state = Simulation.advance(app.state, 10)
 	var opening: Dictionary = app.state
+	var whole_pr: Array = Main.Simulation.Policy.PR_SCOPED
+	var any_whole_pr: bool = whole_pr.any(func(rule_id: String) -> bool: return Catalog.rule_active(rule_id, int(app.state.day)))
 	while not Simulation.active_request(app.state).is_empty():
 		var packet: Dictionary = Catalog.packet(app.state, str(app.state.active_request_id))
-		if packet.violations.any(func(rule_id: String) -> bool: return rule_id in Main.Simulation.Policy.PR_SCOPED): break
+		if packet.violations.any(func(rule_id: String) -> bool: return rule_id in whole_pr): break
+		if not any_whole_pr and packet.violations.size() >= 2: break
 		app.state = Simulation.dispatch(app.state, {"type": "review", "verdict": "approve"})
 		app.state = Simulation.advance(app.state, Simulation.DESK_BEAT)
-	app._render()
+	# The skipped stamps all landed at once; start a fresh desk so the PR's own
+	# author greets you, rather than the last skipped author saying goodbye.
+	app._build_interface()
+	await _settle(4)
 	app.interface._open_app("review")
+	await _beat(app.interface, 0.4)
 	await _shot("22-%s-review" % tag)
 	var ui = app.interface
 	ui._point_at(0)

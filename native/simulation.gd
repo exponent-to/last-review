@@ -9,12 +9,13 @@ const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
 const Policy = preload("res://content/policy_campaign.gd")
 const Encounters = preload("res://content/encounters.gd")
-const SAVE_VERSION: int = 13
+const SAVE_VERSION: int = 14
 const SHIFT_SECONDS: int = 300
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
 const LOG_LIMIT: int = 40
-const AUTHORS: Array = ["Maya", "Theo", "Inez"]
+## Everyone who writes PRs; `state.coworkers` holds the ones already on the team.
+const AUTHORS: Array = Policy.AUTHORS
 const EVENINGS: Array = ["rest", "socialize", "study"]
 ## Game seconds between a stamp and the next PR landing on the desk.
 const DESK_BEAT: int = 3
@@ -26,7 +27,7 @@ static func initial_state() -> Dictionary:
 	var state: Dictionary = {
 		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
 		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
-		"coworkers": {"Maya": 50, "Theo": 50, "Inez": 50},
+		"coworkers": {},
 		"selected_rules": [], "citation_evidence": {}, "consulted": false, "decisions": [],
 		"shift_seconds": 0, "active_request_id": "", "consulted_requests": [],
 		"desk_line": [], "desk_at": -1, "arrivals": [], "revisions": [],
@@ -34,8 +35,19 @@ static func initial_state() -> Dictionary:
 		"log": [{"day": first_day, "message": "Your review shift begins. Work lands on your desk one PR at a time."}],
 		"last_feedback": {}, "last_debrief": {},
 	}
+	_staff(state)
 	_open_desk(state)
 	return state
+
+## Newcomers join on their first morning (Policy.ROSTER), before the line opens,
+## at their starting relationship. Nobody is in `state.coworkers` before then, so
+## dinner with the team only warms the people who were actually there.
+static func _staff(state: Dictionary) -> void:
+	for author: String in Policy.staff(int(state.day)):
+		if not state.coworkers.has(author):
+			state.coworkers[author] = int(Policy.ROSTER[author].relationship)
+			if int(Policy.ROSTER[author].joins) > 1:
+				_record(state, "%s joins the team today." % author)
 
 static func clock_minutes(state: Dictionary) -> int:
 	return START_MINUTE + floori(float(state.shift_seconds) * float(END_MINUTE - START_MINUTE) / float(SHIFT_SECONDS))
@@ -229,7 +241,7 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 			var context: Dictionary = Encounters.context(next, active, verdict, next.selected_rules)
 			var node: String = Encounters.verdict_node(context)
 			if node == "pushback":
-				next.encounters.append(Encounters.beat(next, context, node, {"disputed": Encounters.disputed(context.cited, active.id)}))
+				next.encounters.append(Encounters.beat(next, context, node, {"disputed": Encounters.disputed(context.cited, active.id, str(active.author))}))
 				_record(next, "%s is pushing back on your change request." % active.author)
 			else:
 				_review(next, verdict, context, node)
@@ -406,7 +418,8 @@ static func _evening(state: Dictionary, choice: String) -> void:
 		"socialize":
 			state.credits = clampi(int(state.credits) - 15, -9999, 9999)
 			state.stress = clampi(int(state.stress) - 8, 0, 100)
-			for author: String in AUTHORS:
+			# Only the people already on the team come to dinner.
+			for author: String in state.coworkers:
 				state.coworkers[author] = clampi(int(state.coworkers[author]) + 4, 0, 100)
 			_record(state, "Dinner with the team costs 15. Relationships +4; stress -8.")
 		"study":
@@ -420,9 +433,10 @@ static func _evening(state: Dictionary, choice: String) -> void:
 		state.day = int(Catalog.request_at(int(state.request_index)).day)
 		state.phase = "review"
 		state.shift_seconds = 0
+		_record(state, "Day %d begins. Read the updated rulebook before reviewing." % state.day)
+		_staff(state)
 		_open_desk(state)
 		_update_request_index(state)
-		_record(state, "Day %d begins. Read the updated rulebook before reviewing." % state.day)
 
 static func _invalid(reason: String) -> Dictionary:
 	return {"ok": false, "state": {}, "error": "Invalid save: " + reason}

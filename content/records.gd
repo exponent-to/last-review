@@ -12,6 +12,8 @@ extends RefCounted
 
 const PROJECT := "PAPER"
 const OPEN_STATUSES: Array[String] = ["Open", "In Progress"]
+## The original three, for a spec that doesn't say who is on staff. The spec's
+## `team` (policy_campaign.gd `staff(day)`) is who a ticket can be misassigned to.
 const AUTHORS: Array[String] = ["Maya", "Theo", "Inez"]
 ## People a ticket can still be assigned to after they've gone.
 const DEPARTED: Array[String] = ["Dave (deactivated)", "Priya (offboarded)", "Gary (released to opportunity)", "Sam (consolidated)"]
@@ -238,7 +240,7 @@ static func ticket(spec: Dictionary) -> Dictionary:
 					var number := ticket_number(id)
 					ref = ["%s-%d" % [PROJECT, number * 10 + variant % 10], "PAPR-%d" % number][variant % 2]
 			"assignee":
-				var others: Array = AUTHORS.filter(func(name: String) -> bool: return name != author)
+				var others: Array = Array(spec.get("team", AUTHORS)).filter(func(name: Variant) -> bool: return str(name) != author)
 				match str(effect.kind):
 					"coworker": record.assignee = str(others[variant % others.size()])
 					"helios": record.assignee = "Helios"
@@ -256,7 +258,7 @@ static func ticket(spec: Dictionary) -> Dictionary:
 					elif key == "history": record.history.append(str(odd[key]))
 					else: record[key] = odd[key].duplicate() if odd[key] is Array else odd[key]
 			"watched":
-				var others: Array = AUTHORS.filter(func(name: String) -> bool: return name != author)
+				var others: Array = Array(spec.get("team", AUTHORS)).filter(func(name: Variant) -> bool: return str(name) != author)
 				record.reporter = str(others[variant % others.size()])
 				record.watchers = ["Helios", DEPARTED[variant % DEPARTED.size()]]
 				record.history.append("Helios asked to be assigned. %s said no." % author)

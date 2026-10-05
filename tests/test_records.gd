@@ -118,7 +118,7 @@ func _test_schedule() -> void:
 		_check(("P16" in active) == (day >= Policy.JIRO_DAY) and ("P17" in active) == (day >= Policy.JIRO_DAY and day < 7), "Tickets from Wednesday; assignees until Helios takes them (day %d)." % day)
 		_check(("P18" in active) == (day >= Policy.PIPELINE_DAY) and ("P19" in active) == (day >= Policy.PIPELINE_DAY), "Components and green builds from Friday (day %d)." % day)
 		_check(("P20" in active) == (day >= Policy.PIPELINE_DAY and day < 7) and ("P21" in active) == (day >= 7), "Reruns until week two, coverage from week two (day %d)." % day)
-	_check(Simulation.SAVE_VERSION == 13, "Record citations bumped the save format to 13.")
+	_check(Simulation.SAVE_VERSION >= 13, "Record citations bumped the save format to 13 or later.")
 	for rule_id: String in Policy.RECORD_SCOPED:
 		_check(Encounters.LEANS.has(str(Policy.rules().filter(func(rule: Dictionary) -> bool: return rule.id == rule_id)[0].category)), "%s leans the encounter by its category." % rule_id)
 		_check(Policy.CITED_WORDS.has(rule_id) and str(Policy.CITED_WORDS[rule_id][0]).begins_with("the "), "%s has plain words for what was cited." % rule_id)

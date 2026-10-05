@@ -11,7 +11,38 @@ extends RefCounted
 ## and exceptions instead of piling up.
 
 const KEYWORDS: Array = ["def", "if", "else", "return"]
-const AUTHORS: Array = ["Maya", "Theo", "Inez"]
+## Everyone who writes PRs, in the order the rotation falls back through them.
+const AUTHORS: Array = ["Maya", "Theo", "Inez", "Penny", "Gwen"]
+## Who joins the team on which morning, and the relationship they start with.
+## Penny, the eager junior, is hired on the first Wednesday; Gwen is reassigned
+## from Security (consolidated into Helios) on the second Monday. Nobody is in
+## `state.coworkers` before their first morning, and nobody writes PRs before it.
+const ROSTER: Dictionary = {
+	"Maya": {"joins": 1, "relationship": 50},
+	"Theo": {"joins": 1, "relationship": 50},
+	"Inez": {"joins": 1, "relationship": 50},
+	"Penny": {"joins": 3, "relationship": 56},
+	"Gwen": {"joins": 6, "relationship": 48},
+}
+## Who wrote each slot of each day's line, by initial (LINEUP_NAMES). Before the
+## new hires, Maya, Theo, and Inez rotate as they always have; from day 3 Penny
+## takes four slots a day (three once Gwen arrives), and from day 6 Gwen takes
+## three. Each newcomer has a slot in the first six of every day they work,
+## because shifts rarely get further than that; the original three keep most of
+## those early slots. Use `slot_author`, which also covers anyone who is away.
+const LINEUP_NAMES: Dictionary = {"M": "Maya", "T": "Theo", "I": "Inez", "P": "Penny", "G": "Gwen"}
+const LINEUP: Array = [
+	"MTIMTIMTIMTIMTI", # day 1, week 1 Monday
+	"TIMTIMTIMTIMTIM", # day 2, Tuesday
+	"IPTIMPIMTPMTIPT", # day 3, Wednesday: Penny's first day
+	"MTPMPIMTIPTIMPI", # day 4, Thursday
+	"PIMPIMTIPTPMTIM", # day 5, Friday
+	"IPGIMTGMTIPTGMP", # day 6, week 2 Monday: Gwen's first day
+	"GTIMPIMGIPTPMTG", # day 7, Tuesday
+	"TIMGIPGIMTPMTPG", # day 8, Wednesday
+	"IMGIMPIMTPPTGGT", # day 9, Thursday
+	"MTIGPIGTPMTGMPI", # day 10, Friday
+]
 const DAY_COUNTS: Array = [15, 15, 15, 15, 15, 15, 15, 15, 15, 15]
 const WEEK_DAYS: int = 5
 ## The first day of each two-day block. Each opens with a memo announcing the changes.
@@ -190,13 +221,13 @@ static func briefing(day: int) -> String:
 		2:
 			return "NO CHANGES TODAY. Yesterday's three standards still apply, word for word. Changes now arrive in several files; an unread file is an unsigned file. Cite each broken standard once."
 		3:
-			return "NOTHING SHIPS WITHOUT A TICKET. Jiro, the ticket tracker, is on your desktop. Every PR must link an open ticket that its own author holds; the ticket number on the PR slip opens it. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged."
+			return "NOTHING SHIPS WITHOUT A TICKET. Jiro, the ticket tracker, is on your desktop. Every PR must link an open ticket that its own author holds; the ticket number on the PR slip opens it. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged. NEW HIRE: Penny, a junior engineer on the Helios trial, starts today and will send you PRs. She is sorry in advance."
 		4:
 			return "NO CHANGES TODAY. Tickets, ink, credentials, and load-bearing comments carry over from yesterday. Jiro has asked that reviewers stop thanking it."
 		5:
 			return "THE PIPELINE IS WATCHING. Pipeline, the CI dashboard, is on your desktop: never approve a red build, and never one rerun more than three times. A ticket's component must hold every file the PR changes. The Exception Desk is open: the exact stamp INK-EXCEPTION permits pink keywords in its own file. Retired: load-bearing comments and the credential rule. This is scheduled to be the last day of your assignment."
 		6:
-			return "WEEK TWO. Your assignment was extended over the weekend. The standards are Friday's, unchanged. Several desks on your floor have been consolidated. Do not water the plants."
+			return "WEEK TWO. Your assignment was extended over the weekend. The standards are Friday's, unchanged. Several desks on your floor have been consolidated. Do not water the plants. REASSIGNED TO YOUR TEAM: Gwen, from Security, which Helios absorbed on Friday. She will send you PRs. She trusts nobody, including this briefing."
 		7:
 			return "THE STANDARDS HAVE BEEN MODERNIZED. A PR may change at most thirty lines, and coverage may not fall by more than two points. Helios now assigns every ticket and reruns every build itself, so assignees and rerun counts are retired. Helios may also override a red build; for now, its overrides count as passing."
 		8:
@@ -691,8 +722,10 @@ static func _slot(day: int, index: int) -> int:
 	for count: int in DAY_COUNTS.slice(0, maxi(0, day - 1)): slot += count
 	return slot
 
+## The slot's author, as recorded in its recipe (so Jiro's assignee check sees the
+## real author). LINEUP via slot_author is the one source of truth.
 static func _author(day: int, index: int) -> String:
-	return AUTHORS[(index + day - 1) % AUTHORS.size()]
+	return slot_author(day, index)
 
 ## What a fault or decoy does to the records, in the order recipes apply them.
 static func _record_effects(kind: String, variant: int, day: int) -> Array:
@@ -740,8 +773,10 @@ static func _records(recipe: Dictionary) -> Dictionary:
 			"P16": history.append("Linked to the PR by %s after review." % author if LINK_FAULTS[int(fixed.variant) % LINK_FAULTS.size()] in ["missing", "ghost"] else "Reopened by %s after review." % author)
 			"P17": history.append("Reassigned to %s after review." % author)
 			"P18": history.append("Component updated by %s after review." % author)
+	# `team` is who's on staff that day: a misassigned ticket goes to someone who
+	# actually works here, never to a coworker who hasn't joined yet.
 	var spec: Dictionary = {"day": day, "slot": int(recipe.slot), "version": int(recipe.get("version", 1)), "author": author,
-		"path": str(entry.path), "function": _entry_function(entry.lines), "effects": effects, "history": history}
+		"team": staff(day), "path": str(entry.path), "function": _entry_function(entry.lines), "effects": effects, "history": history}
 	var linked: Dictionary = Records.ticket(spec)
 	return {"author": author, "ticket_ref": str(linked.ticket_ref), "tickets": linked.tickets,
 		"build": Records.build(spec) if day >= PIPELINE_DAY else {}}
@@ -1020,6 +1055,25 @@ static func _helios(violations: Array, wrong: bool) -> String:
 		return correct_verdict
 	return "request_changes" if correct_verdict == "approve" else "approve"
 
+## The morning someone joins the team, or 0 for someone who never does.
+static func joins(author: String) -> int:
+	return int(ROSTER.get(author, {}).get("joins", 0))
+
+## Who is on the team on a day, in AUTHORS order, leaving out anyone `away`.
+static func staff(day: int, away: Array = []) -> Array:
+	return AUTHORS.filter(func(author: String) -> bool: return joins(author) > 0 and joins(author) <= day and author not in away)
+
+## Who wrote slot `index` of a day's line: the LINEUP's author when they're on the
+## team. Anyone `away` (not writing PRs) hands their slots to the day's rotation
+## over whoever is left, deterministically, so every slot still has an author;
+## with only the original three left, that is exactly their old rotation.
+static func slot_author(day: int, index: int, away: Array = []) -> String:
+	var lineup: String = str(LINEUP[day - 1]) if day >= 1 and day <= LINEUP.size() else ""
+	var planned: String = str(LINEUP_NAMES.get(lineup.substr(index, 1), "")) if index >= 0 and index < lineup.length() else ""
+	var team: Array = staff(day, away)
+	if planned in team or team.is_empty(): return planned
+	return str(team[(index + day - 1) % team.size()])
+
 static func requests() -> Array:
 	if not _packets.is_empty():
 		return _packets.duplicate(true)
@@ -1102,12 +1156,20 @@ const REVISION_MESSAGES: Dictionary = {
 	"Inez": {
 		2: ["v2 attached. Per your review, I have {fixes}.", "Revision two. I have {fixes}, as requested, and documented my feelings separately.", "v2. I have {fixes}. Please advise if any further joy should be removed."],
 		3: ["v3 attached. I have {fixes}, again. Please confirm receipt of my patience.", "Revision three. I have {fixes}, for what I am told is the final time.", "v3. I have {fixes}. I have also updated my résumé, for unrelated reasons."]},
+	"Penny": {
+		2: ["v2. Sorry. I {fixes}, and I checked it three times.", "Here's v2. I {fixes}. I learned so much doing it.", "v2 is up. {Fixes}. Sorry for the trouble. Helios cheered me on."],
+		3: ["v3. I {fixes}, again. I'm so sorry. I made a checklist.", "Version three. {Fixes}. I asked Helios to watch me do it.", "v3. I {fixes}. Sorry. I'm still learning. I'm learning so much."]},
+	"Gwen": {
+		2: ["v2. {Fixes}. Nothing else touched. Verify that.", "v2 is up. {Fixes}. Diff it against v1. Don't trust me.", "v2. {Fixes}. Smallest change I could make."],
+		3: ["v3. {Fixes}. Again. I've kept all three versions.", "v3. {Fixes}, one more time. Please verify, then let it go.", "v3. {Fixes}. I'd like this off my threat model."]},
 }
 ## A harmless comment acknowledging the review, left in every revision.
 const REVISION_NOTES: Dictionary = {
 	"Maya": {2: ["# per review", "# fixed. you're welcome."], 3: ["# v3. no comment.", "# v3: fixed, fixed, fixed"]},
 	"Theo": {2: ["# fixed per review (it's even better now)", "# per review, plus some bonus improvements"], 3: ["# v3: no more notes, I beg you", "# v3: I rewrote nothing. I grew."]},
 	"Inez": {2: ["# revised per review, ticket noted", "# per review, see my notes"], 3: ["# third revision, per review", "# revision three. per review. noted."]},
+	"Penny": {2: ["# revised per review, sorry", "# fixed per review. i tried my best"], 3: ["# v3, per review, so sorry", "# third try, per review. i'm trying"]},
+	"Gwen": {2: ["# per review, verified", "# revised per review. trust nothing."], 3: ["# v3, per review. diff it yourself.", "# third revision. still suspicious."]},
 }
 static var _revisions: Dictionary = {}
 
