@@ -15,9 +15,17 @@ func _run() -> void:
 	root.size = Vector2i(1280, 900)
 	Main.SaveStore.storage_root = "user://application-slot-test-%d" % Time.get_ticks_usec()
 	DirAccess.make_dir_recursive_absolute(Main.SaveStore.storage_root)
+	# Pre-release: a save from an older format is deleted when the application starts.
+	var outdated := Main.Simulation.initial_state()
+	outdated.version = Main.Simulation.SAVE_VERSION - 1
+	var stale := FileAccess.open(Main.SaveStore.slot_path(3), FileAccess.WRITE)
+	stale.store_string(JSON.stringify(outdated))
+	stale.close()
 	var app := Main.new()
 	root.add_child(app)
 	await process_frame
+	_check(not FileAccess.file_exists(Main.SaveStore.slot_path(3)) and not Main.SaveStore.has_save(3), "Startup deletes an outdated save.")
+	_check(app.menu._load_game.disabled, "With only an outdated save, there is nothing to load.")
 	app.set_process(false)
 	app._tick_shift(30.0)
 	_check(int(app.state.shift_seconds) == 0 and app.menu.visible and not app.interface.visible, "Main menu must appear before play and stop time.")

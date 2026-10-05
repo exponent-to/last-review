@@ -22,6 +22,8 @@ var active_slot := 1
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(1120, 800)
+	# Pre-release: saves from an older format are removed, so the menu shows empty slots.
+	if SaveStore.DELETE_INVALID_SAVES_ON_START: SaveStore.purge_invalid()
 	state = Simulation.initial_state()
 	_build_interface()
 	interface.hide()
