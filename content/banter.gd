@@ -41,7 +41,7 @@ const LINES := {
 			"Are you reviewing it or printing it out?",
 			"No rush. I'll be here, not doing my actual job.",
 			"It's the same diff it was a minute ago, I promise.",
-			"I've refreshed this tab more than my inbox. Lonely, but here.",
+			"I've refreshed this page more than my inbox. Lonely, but here.",
 			"My pager just went off. Unrelated. Probably.",
 		],
 		"flag": [

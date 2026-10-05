@@ -114,7 +114,8 @@ var _monitor_screen: Control
 var _desktop_home: Control
 var _home_icons: Dictionary = {}
 var _notifications: Notifications
-var _app_counts := {"review": 0, "jiro": 0, "pipeline": 0, "browser": 0, "system": 0}
+## Apps that can notify. Jiro and Pipeline never do: a record is checked, not delivered.
+var _app_counts := {"review": 0, "browser": 0, "system": 0}
 var _app_badges: Dictionary = {}
 var _known_requests: Dictionary = {}
 var _unread_requests: Dictionary = {}

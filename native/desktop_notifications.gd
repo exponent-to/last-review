@@ -1,7 +1,7 @@
 extends Control
 ## Small transient notifications. Dismissing a bubble never marks its app read.
 signal activated(app: String, target: String)
-const NAMES := {"review": "REVIEW", "jiro": "JIRO", "pipeline": "PIPELINE", "browser": "INTRANET", "system": "SYSTEM"}
+const NAMES := {"review": "REVIEW", "browser": "INTRANET", "system": "SYSTEM"}
 const Portraits = preload("res://native/portraits.gd")
 var _stack: VBoxContainer
 var _items: Array[Dictionary] = []
