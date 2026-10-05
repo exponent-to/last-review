@@ -182,12 +182,12 @@ func _test_graph() -> void:
 	for branch: String in odds: total += int(odds[branch])
 	_check(absi(total - 100) <= 2, "Odds are percentages")
 	# Leans follow what was cited, by category; piling on makes giving up likelier.
-	var plain := Encounters.weights("changes", "Maya", "neutral", ["P05"])
+	var plain := Encounters.weights("changes", "Maya", "neutral", ["P16"])
 	_check(int(plain.revise_now) > int(Encounters.weights("changes", "Maya", "neutral").revise_now), "Citing paperwork leans toward a quick fix")
 	for rule: Dictionary in Catalog.rules():
 		_check(Encounters.LEANS.has(str(rule.category)), "Citing %s leans the branch by its category (%s)" % [rule.id, rule.category])
 		_check(Policy.CITED_WORDS.has(rule.id) and not Encounters.noun(str(rule.id)).contains(str(rule.id)), "%s has plain words for what was cited" % rule.id)
-	var piled := Encounters.weights("changes", "Maya", "neutral", ["P01", "P02", "P03"])
+	var piled := Encounters.weights("changes", "Maya", "neutral", ["P01", "P02", "P11"])
 	_check(int(piled.abandon) > int(Encounters.weights("changes", "Maya", "neutral").abandon), "Citing many standards at once makes abandoning likelier")
 
 # --- Lines ------------------------------------------------------------------------
@@ -584,7 +584,7 @@ func _test_saves() -> void:
 
 func _test_slouch() -> void:
 	var run := _play(_exact, func(at: Dictionary, _p: Dictionary) -> String: return "withdraw" if at.encounters.size() % 2 == 0 else "insist", 4)
-	var forbidden := RegEx.create_from_string("\\bP0[1-9]\\b|violat|audit|%|\\[|\\{")
+	var forbidden := RegEx.create_from_string("\\bP[0-2][0-9]\\b|violat|audit|%|\\[|\\{")
 	var kinds := {}
 	for contact: String in ["Maya", "Theo", "Inez", "manager"]:
 		var ids := {}

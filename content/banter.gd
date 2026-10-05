@@ -35,13 +35,13 @@ const LINES := {
 			"Revised. The commit message is just a sigh.",
 		],
 		"idle": [
-			"It passed CI. Just saying.",
+			"I read it twice. Once on purpose.",
 			"Helios already looked at it, for what that's worth.",
 			"I could've rewritten it in the time this is taking.",
 			"Are you reviewing it or printing it out?",
 			"No rush. I'll be here, not doing my actual job.",
 			"It's the same diff it was a minute ago, I promise.",
-			"The build's been green for an hour. Lonely, but green.",
+			"I've refreshed this tab more than my inbox. Lonely, but here.",
 			"My pager just went off. Unrelated. Probably.",
 		],
 		"flag": [
@@ -128,7 +128,7 @@ const LINES := {
 			"Took your note. Added a feature while I was in there.",
 		],
 		"idle": [
-			"It passed CI, my guy.",
+			"It ran on my laptop, my guy.",
 			"Helios already looked at it. Just saying.",
 			"Bro, it's one line. Are you reading it in Latin?",
 			"You could approve this with your eyes closed. Try it.",
@@ -227,7 +227,7 @@ const LINES := {
 			"Helios already looked at it. I have the transcript.",
 			"Gentle reminder that this is blocking three teams.",
 			"Should I book a meeting so you can review this in it?",
-			"It passed CI. I've attached the CI's meeting notes.",
+			"I've attached the meeting notes, and the notes on the notes.",
 			"No pressure. The steering committee is just watching.",
 		],
 		"flag": [
