@@ -2,6 +2,19 @@ extends Control
 ## The physical monitor and room behind the desktop. All input belongs to its screen.
 
 const SCREEN_INSETS := Vector4(100.0, 108.0, 100.0, 128.0)
+## Room-pixel height of the desk's front fascia, measured up from the bottom.
+const DESK_EDGE := 6.0
+## The desk plane converges on a point above the monitor's centre (room pixels).
+const DESK_VANISH_Y := 48.0
+## Keyboard rows in key units, each 23u: main block, navigation, numpad. Negative
+## widths are gaps; the five rows are numbers, three letter rows, and space.
+const KEY_ROWS := [
+	[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, -0.5, 1, 1, 1, -0.5, 1, 1, 1, 1],
+	[1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5, -0.5, 1, 1, 1, -0.5, 1, 1, 1, 1],
+	[1.75, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.25, -4, 1, 1, 1, 1],
+	[2.25, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.75, -1.5, 1, -1.5, 1, 1, 1, 1],
+	[1.25, 1.25, 1.25, 6.25, 1.25, 1.25, 1.25, 1.25, -0.5, 1, 1, 1, -0.5, 2, 1, 1],
+]
 var _motion := true
 var _elapsed := 0.0
 var _day := 1
@@ -72,13 +85,12 @@ func _draw() -> void:
 	var screen := get_screen_rect(size)
 	var case_rect := Rect2(screen.position - Vector2(12, 12), screen.size + Vector2(24, 48))
 	var case_bottom := case_rect.end.y
-	# A little of the stand remains visible on the desk below the enclosure.
-	var center_x := floorf(size.x * 0.5)
-	draw_rect(Rect2(center_x - 18, case_bottom - 4, 36, 35), Color("111112"))
-	draw_rect(Rect2(center_x - 55, case_bottom + 29, 110, 5), Color("1b1c1e"))
-	draw_rect(Rect2(center_x - 56, case_bottom + 34, 112, 2), Color("060606"))
+	# The stand sits behind the enclosure; everything else on the desk is in front.
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(2, 2))
+	_draw_stand(floorf(size.x * 0.25), ceilf(case_bottom * 0.5))
+	draw_set_transform(Vector2.ZERO)
 	# A stepped charcoal/slate enclosure, with a physical lip below the screen.
-	draw_rect(Rect2(case_rect.position + Vector2(4, 5), case_rect.size), Color("030303"))
+	draw_rect(Rect2(case_rect.position + Vector2(4, 4), case_rect.size), Color("030303"))
 	draw_rect(case_rect, Color("151717"))
 	draw_rect(Rect2(case_rect.position + Vector2(2, 2), case_rect.size - Vector2(4, 4)), Color("0f1011"))
 	draw_rect(Rect2(case_rect.position + Vector2(2, 0), Vector2(case_rect.size.x - 4, 2)), Color("323537"))
@@ -98,6 +110,9 @@ func _draw() -> void:
 		power_color = Color("e5384a")
 	draw_rect(Rect2(screen.end.x - 22, screen.end.y + 16, 5, 5), Color("070808"))
 	draw_rect(Rect2(screen.end.x - 21, screen.end.y + 17, 3, 3), power_color)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(2, 2))
+	_draw_desk_props(floorf(size.x * 0.25), ceilf(case_bottom * 0.5))
+	draw_set_transform(Vector2.ZERO)
 
 
 func _draw_room() -> void:
@@ -150,47 +165,215 @@ func _draw_room() -> void:
 	draw_rect(Rect2(25, window_bottom + 29, 12, 16), Color("303335"))
 	draw_rect(Rect2(27, window_bottom + 31, 8, 12), Color("53585d"))
 	draw_rect(Rect2(29, window_bottom + 36, 5, 4), Color("141516"))
-	draw_line(Vector2(31, window_bottom + 40), Vector2(31, desk_y - 10), Color("0c0c0d"), 2)
-	draw_line(Vector2(31, desk_y - 10), Vector2(48, desk_y + 3), Color("0c0c0d"), 2)
-	# Desk top, back lip, and a visible front fascia. No floating flat-color block.
-	draw_rect(Rect2(0, desk_y, room_size.x, room_size.y - desk_y), Color("141516"))
+	draw_rect(Rect2(30, window_bottom + 40, 2, desk_y - window_bottom - 49), Color("0c0c0d"))
+	for step in range(7):
+		draw_rect(Rect2(31 + step * 2, desk_y - 9 + step * 2, 2, 2), Color("0c0c0d"))
+	# Desk top: a lit back lip against the wall, an even laminate surface, then a
+	# rounded front edge whose fascia falls away into shadow toward the viewer.
+	var edge_y := room_size.y - DESK_EDGE
+	draw_rect(Rect2(0, desk_y, room_size.x, edge_y - desk_y), Color("1a1b1e"))
 	draw_rect(Rect2(0, desk_y - 1, room_size.x, 2), Color("3d4044"))
-	draw_rect(Rect2(0, desk_y + 1, room_size.x, 3), Color("1e2022"))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(room_size.x * 0.5 - 96, desk_y + 4), Vector2(room_size.x * 0.5 + 96, desk_y + 4),
-		Vector2(room_size.x * 0.5 + 150, room_size.y - 8), Vector2(room_size.x * 0.5 - 150, room_size.y - 8)
-	]), Color("18191b"))
-	draw_line(Vector2(42, desk_y + 4), Vector2(8, room_size.y - 8), Color("111313"), 1)
-	draw_line(Vector2(room_size.x - 42, desk_y + 4), Vector2(room_size.x - 8, room_size.y - 8), Color("111313"), 1)
-	draw_rect(Rect2(room_size.x * 0.5 - 35, desk_y + 14, 80, 23), Color("101112"))
-	draw_rect(Rect2(0, room_size.y - 8, room_size.x, 2), Color("2b2d30"))
-	draw_rect(Rect2(0, room_size.y - 6, room_size.x, 5), Color("0c0c0d"))
+	draw_rect(Rect2(0, desk_y + 1, room_size.x, 2), Color("141517"))
+	draw_rect(Rect2(0, edge_y, room_size.x, 1), Color("3a3d41"))
+	draw_rect(Rect2(0, edge_y + 1, room_size.x, 1), Color("26282b"))
+	draw_rect(Rect2(0, edge_y + 2, room_size.x, room_size.y - edge_y - 3), Color("121315"))
 	draw_rect(Rect2(0, room_size.y - 1, room_size.x, 1), Color("060606"))
-	# A shallow keyboard grounds the monitor at a believable desk scale.
-	var keyboard_x := floorf(room_size.x * 0.5) - 80
-	draw_rect(Rect2(keyboard_x - 2, room_size.y - 22, 164, 16), Color("0a0a0a"))
-	draw_rect(Rect2(keyboard_x, room_size.y - 23, 160, 14), Color("333538"))
-	for row in range(3):
-		for key in range(24):
-			draw_rect(Rect2(keyboard_x + 3 + key * 6, room_size.y - 21 + row * 3, 5, 2), Color("1a1b1d"))
-	# Mug on the near left of the desk: curved rim, shaded body, hollow handle.
-	var mug := Vector2(16, room_size.y - 52)
-	draw_rect(Rect2(mug + Vector2(-3, 43), Vector2(52, 5)), Color("0c0d0e"))
-	draw_rect(Rect2(mug + Vector2(35, 11), Vector2(12, 24)), Color("4c5054"))
-	draw_rect(Rect2(mug + Vector2(37, 15), Vector2(6, 16)), Color("141516"))
-	draw_rect(Rect2(mug + Vector2(2, 5), Vector2(34, 36)), Color("45494c"))
-	draw_rect(Rect2(mug + Vector2(6, 40), Vector2(26, 4)), Color("333739"))
-	draw_rect(Rect2(mug + Vector2(27, 7), Vector2(9, 31)), Color("333739"))
-	draw_rect(Rect2(mug + Vector2(5, 6), Vector2(3, 28)), Color("555a5e"))
-	draw_rect(Rect2(mug + Vector2(5, 2), Vector2(28, 8)), Color("5d6268"))
-	draw_rect(Rect2(mug + Vector2(8, 4), Vector2(22, 4)), Color("0a0b0c"))
-	# Folded note and pen, kept below the exposed right edge of the monitor.
-	draw_rect(Rect2(room_size.x - 82, room_size.y - 39, 63, 25), Color("0e0e0f"))
-	draw_rect(Rect2(room_size.x - 85, room_size.y - 42, 63, 25), Color("515559"))
-	for row in range(4):
-		draw_rect(Rect2(room_size.x - 79, room_size.y - 36 + row * 4, 36 - row * 5, 1), Color("303335"))
-	draw_rect(Rect2(room_size.x - 26, room_size.y - 35, 2, 25), Color("0b0c0c"))
 	draw_set_transform(Vector2.ZERO)
+
+
+## Where a desk point at `x` on row `from_y` lands on row `to_y`: in one-point
+## perspective, everything lying on the desk widens toward the viewer.
+func _desk_x(x: float, from_y: float, to_y: float) -> float:
+	var vanish_x := floorf(size.x * 0.25)
+	return roundf(vanish_x + (x - vanish_x) * (to_y - DESK_VANISH_Y) / (from_y - DESK_VANISH_Y))
+
+
+## A shape lying flat on the desk, given by its far edge, drawn as crisp rows.
+## `rounding` trims the far corners, tapering over as many rows.
+func _desk_quad(left: float, right: float, top: float, rows: int, color: Color, rounding := 0) -> void:
+	for row in range(rows):
+		var y := top + row
+		var inset := float(maxi(0, rounding - row))
+		var l := _desk_x(left, top, y) + inset
+		var r := _desk_x(right, top, y) - inset
+		if r > l:
+			draw_rect(Rect2(l, y, r - l, 1), color)
+
+
+func _draw_stand(cx: float, case_bottom: float) -> void:
+	# A broad, low foot plate on the desk, with the neck rising behind the case.
+	var foot := case_bottom + 8
+	_desk_quad(cx - 75, cx + 75, foot + 6, 1, Color("08090a"))
+	_desk_quad(cx - 73, cx + 73, foot + 4, 2, Color("131416"))
+	_desk_quad(cx - 72, cx + 72, foot, 4, Color("2a2c30"), 3)
+	_desk_quad(_desk_x(cx - 72, foot, foot + 3), _desk_x(cx + 72, foot, foot + 3), foot + 3, 1, Color("3c3f44"))
+	# The neck faces the viewer, so it stays darker than the lit plate it stands on.
+	var neck_top := case_bottom - 2
+	var neck := Rect2(cx - 16, neck_top, 32, foot + 2 - neck_top)
+	draw_rect(neck, Color("1f2023"))
+	draw_rect(Rect2(neck.position, Vector2(2, neck.size.y)), Color("313337"))
+	draw_rect(Rect2(neck.end.x - 5, neck_top, 5, neck.size.y), Color("131416"))
+	draw_rect(Rect2(cx - 19, foot + 2, 38, 1), Color("17181a"))
+
+
+func _draw_desk_props(cx: float, case_bottom: float) -> void:
+	var room_size := (size * 0.5).ceil()
+	# A felt mat under the keyboard and mouse, edged where it meets the desk.
+	var mat := case_bottom + 15
+	_desk_quad(cx - 162, cx + 214, mat, int(room_size.y - DESK_EDGE - 1 - mat), Color("141518"), 2)
+	_desk_quad(cx - 162, cx + 214, mat, 1, Color("202226"), 2)
+	_draw_keyboard(cx, case_bottom + 16)
+	_draw_mouse(cx + 170, case_bottom + 21)
+	_draw_ink_pad(cx - 258, case_bottom + 25)
+	_draw_stamp(cx - 242, case_bottom + 28, Color("c0202f"))
+	_draw_stamp(cx - 204, case_bottom + 33, Color("2f8a4f"))
+	_draw_tray(room_size.x - 100, room_size.x - 22, case_bottom + 6)
+	_draw_mug(8, case_bottom + 36)
+
+
+func _draw_keyboard(cx: float, top: float) -> void:
+	# A full-size office keyboard: a back rim with lock lights, five rows of keycaps
+	# whose fronts catch less light, then the case front and its contact shadow.
+	var left := cx - 150
+	var right := cx + 150
+	_desk_quad(left - 1, right + 1, top + 21, 1, Color("08090a"))
+	_desk_quad(left, right, top + 18, 3, Color("131416"))
+	_desk_quad(left, right, top, 18, Color("1e1f22"), 2)
+	_desk_quad(_desk_x(left, top, top + 18), _desk_x(right, top, top + 18), top + 18, 1, Color("2c2e32"))
+	for row in range(KEY_ROWS.size()):
+		var y := top + 2 + row * 3
+		var l := _desk_x(left + 4, top, y)
+		var units := 0.0
+		for width in KEY_ROWS[row]:
+			units += absf(float(width))
+		var unit := (_desk_x(right - 4, top, y) - l) / units
+		var at := 0.0
+		for width in KEY_ROWS[row]:
+			var span := absf(float(width))
+			if float(width) > 0.0:
+				var x0 := l + roundf(at * unit)
+				var x1 := l + roundf((at + span) * unit) - 1
+				draw_rect(Rect2(x0, y, x1 - x0, 2), Color("383b3f"))
+				draw_rect(Rect2(x0, y + 2, x1 - x0, 1), Color("27292c"))
+			at += span
+	# Lock lights above the numpad; only num lock is on.
+	var lights := _desk_x(right - 4, top, top) - 40
+	for light in range(3):
+		draw_rect(Rect2(lights + light * 6, top, 2, 1), Color("6fdc8c") if light == 0 else Color("0e0f10"))
+
+
+func _draw_mouse(x: float, top: float) -> void:
+	# A dome-shaped mouse: lit from the screen above, its underside curving away.
+	const INSETS := [8, 5, 3, 2, 2, 1, 1, 1, 1, 1, 2, 3, 5]
+	draw_rect(Rect2(x + 3, top + INSETS.size(), 20, 1), Color("08090a"))
+	for row in range(INSETS.size()):
+		var inset: int = INSETS[row]
+		var width := 26 - inset * 2
+		var body := Color("2a2c30") if row < 9 else Color("1b1c1f")
+		draw_rect(Rect2(x + inset, top + row, width, 1), body)
+		if row > 0 and row < 9:
+			draw_rect(Rect2(x + inset, top + row, 3, 1), Color("3b3e43"))
+			draw_rect(Rect2(x + 26 - inset - 4, top + row, 4, 1), Color("1d1e21"))
+	draw_rect(Rect2(x + 13, top, 1, 5), Color("141517"))
+	draw_rect(Rect2(x + 12, top + 1, 3, 2), Color("4a4e52"))
+
+
+func _draw_ink_pad(x: float, top: float) -> void:
+	# A shallow tin pad, its felt soaked in red ink.
+	_desk_quad(x - 1, x + 47, top + 8, 1, Color("08090a"))
+	_desk_quad(x, x + 46, top + 5, 3, Color("1b1c1f"))
+	_desk_quad(x, x + 46, top, 5, Color("3a3d41"), 1)
+	_desk_quad(x + 3, x + 43, top + 1, 3, Color("5a161f"))
+	_desk_quad(x + 3, x + 43, top + 1, 1, Color("8f2230"))
+
+
+func _draw_stamp(x: float, base: float, ink: Color) -> void:
+	# A rubber stamp standing on its inked die: a wide mount with a coloured label,
+	# a short turned neck, and a rounded knob.
+	draw_rect(Rect2(x - 1, base, 24, 1), Color("08090a"))
+	draw_rect(Rect2(x, base - 1, 22, 1), ink.darkened(0.35))
+	draw_rect(Rect2(x, base - 9, 22, 8), Color("2c2e32"))
+	draw_rect(Rect2(x, base - 9, 22, 1), Color("44474c"))
+	draw_rect(Rect2(x + 18, base - 8, 4, 7), Color("1e1f22"))
+	draw_rect(Rect2(x + 3, base - 7, 14, 4), ink)
+	draw_rect(Rect2(x + 5, base - 6, 10, 2), ink.darkened(0.4))
+	draw_rect(Rect2(x + 9, base - 13, 4, 4), Color("1e1f22"))
+	draw_rect(Rect2(x + 9, base - 13, 1, 4), Color("383b3f"))
+	draw_rect(Rect2(x + 5, base - 20, 12, 7), Color("2c2e32"))
+	draw_rect(Rect2(x + 6, base - 21, 10, 1), Color("44474c"))
+	draw_rect(Rect2(x + 5, base - 19, 2, 5), Color("44474c"))
+	draw_rect(Rect2(x + 14, base - 19, 3, 6), Color("1e1f22"))
+	draw_rect(Rect2(x + 6, base - 13, 10, 1), Color("1e1f22"))
+
+
+func _draw_tray(left: float, right: float, top: float) -> void:
+	# An outbox of reviewed printouts: the top sheet carries a fresh red stamp, and
+	# the lip is smudged where inky fingers have lifted the stack.
+	var lip := top + 13
+	_desk_quad(left - 1, right + 1, lip + 7, 1, Color("08090a"))
+	_desk_quad(left, right, top - 2, lip - top + 2, Color("151618"), 1)
+	_desk_quad(left + 3, right - 3, top, lip - top, Color("4d5155"))
+	for line in range(5):
+		var y := top + 2 + line * 2
+		var start := _desk_x(left + 8, top, y)
+		draw_rect(Rect2(start, y, [40, 52, 30, 46, 22][line], 1), Color("393c40"))
+	var mark := Rect2(_desk_x(right - 34, top, top + 5), top + 5, 24, 6)
+	draw_rect(mark, Color("c0202f"))
+	draw_rect(mark.grow(-1), Color("4d5155"))
+	draw_rect(Rect2(mark.position + Vector2(3, 2), Vector2(18, 2)), Color("c0202f"))
+	_desk_quad(_desk_x(left, top - 2, lip), _desk_x(right, top - 2, lip), lip, 7, Color("1e2023"))
+	_desk_quad(_desk_x(left, top - 2, lip), _desk_x(right, top - 2, lip), lip, 1, Color("383b3f"))
+	_draw_pen(_desk_x(left + 9, top, lip - 3), lip - 3)
+	for smudge: Vector3 in [Vector3(12, 2, 3), Vector3(16, 4, 2), Vector3(57, 3, 2)]:
+		draw_rect(Rect2(_desk_x(left + smudge.x, top - 2, lip), lip + smudge.y, smudge.z, 1), Color("4a161c"))
+
+
+func _draw_pen(x: float, y: float) -> void:
+	# A review pen lying across the sheet, its red cap and clip toward the right.
+	draw_rect(Rect2(x - 1, y + 1, 32, 1), Color("2e3134"))
+	draw_rect(Rect2(x - 2, y, 2, 1), Color("70767b"))
+	draw_rect(Rect2(x, y - 1, 26, 1), Color("3a3d41"))
+	draw_rect(Rect2(x, y, 26, 1), Color("17181a"))
+	draw_rect(Rect2(x + 25, y - 1, 6, 2), Color("c0202f"))
+	draw_rect(Rect2(x + 21, y - 2, 7, 1), Color("70767b"))
+
+
+func _draw_mug(x: float, base: float) -> void:
+	# A tall ceramic mug: an elliptical rim around dark coffee, a shaded body and a
+	# hollow handle. Its coffee steams through the morning, then goes cold.
+	var top := base - 40
+	draw_rect(Rect2(x - 1, base, 54, 1), Color("08090a"))
+	draw_rect(Rect2(x + 1, base - 1, 38, 1), Color("383c3f"))
+	draw_rect(Rect2(x, top + 4, 40, base - top - 5), Color("4f5458"))
+	draw_rect(Rect2(x + 3, top + 6, 3, base - top - 10), Color("666b70"))
+	draw_rect(Rect2(x + 27, top + 5, 13, base - top - 6), Color("3d4144"))
+	draw_rect(Rect2(x + 36, top + 5, 4, base - top - 6), Color("2e3134"))
+	# Rim and coffee, as an ellipse seen from slightly above.
+	draw_rect(Rect2(x + 5, top, 30, 1), Color("70767b"))
+	draw_rect(Rect2(x + 2, top + 1, 36, 3), Color("70767b"))
+	draw_rect(Rect2(x, top + 3, 40, 2), Color("80868b"))
+	draw_rect(Rect2(x + 6, top + 1, 28, 1), Color("1c1512"))
+	draw_rect(Rect2(x + 4, top + 2, 32, 1), Color("140f0d"))
+	draw_rect(Rect2(x + 7, top + 3, 26, 1), Color("140f0d"))
+	# A small prompt glyph printed on the glaze.
+	for pixel: Vector2 in [Vector2(12, 17), Vector2(13, 18), Vector2(12, 19), Vector2(15, 19), Vector2(16, 19), Vector2(17, 19)]:
+		draw_rect(Rect2(Vector2(x, top) + pixel, Vector2.ONE), Color("6fdc8c"))
+	# Handle, open in the middle so the desk shows through.
+	draw_rect(Rect2(x + 40, top + 10, 7, 3), Color("4a4e52"))
+	draw_rect(Rect2(x + 45, top + 12, 4, 15), Color("3d4144"))
+	draw_rect(Rect2(x + 40, top + 26, 7, 3), Color("3d4144"))
+	draw_rect(Rect2(x + 40, top + 10, 7, 1), Color("666b70"))
+	# Steam: two faint wisps that sway as they rise, fading with height and as the
+	# morning wears on.
+	var heat := clampf(1.0 - float(_day_minutes - 540) / 210.0, 0.0, 1.0)
+	if heat <= 0.0:
+		return
+	for wisp in range(2):
+		for rise in range(10):
+			var sway := roundf(sin(_elapsed * 1.6 - rise * 0.55 + wisp * 2.1) * 1.4)
+			var tint := Color("9aa4a8")
+			tint.a = 0.20 * heat * (1.0 - rise / 10.0)
+			draw_rect(Rect2(x + 14 + wisp * 11 + sway, top - 2 - rise * 2, 1, 2), tint)
 
 
 func _draw_city(glass: Rect2) -> void:
