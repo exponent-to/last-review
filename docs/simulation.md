@@ -45,18 +45,33 @@ Whether a change request produces a revision at all, and where it goes, is the a
 
 PR bank entries carry per-PR `pitch`, `pushback`, `relief`, and `grudge` lines; a neutral author speaks them (relief on any approval, grudge after an abandon or escalation), while other moods use the templates so a change of mood is always audible.
 
+## Records: Jiro tickets and Pipeline builds
+
+From `Policy.JIRO_DAY` (3) every packet carries `ticket_ref` (the "Closes PAPER-412" on its slip, possibly empty or a ticket Jiro doesn't have) and `tickets` (the tickets it puts in Jiro); from `Policy.PIPELINE_DAY` (5) it also carries `build` (its latest pipeline run). These are visible data, like `files`: `active_request` keeps them, and only `violations`, `findings`, `explanation`, and `recipe` are hidden. `content/records.gd` renders them from the recipe (slot, version, author, primary file, and a list of fault and decoy effects) with authored ticket copy, a backlog, test names, and failure logs; it never decides whether a record breaks a standard. `Policy._records(recipe)` builds `{author, ticket_ref, tickets, build}`, and `Policy.findings(files, day, records)` audits code and records together. Record findings carry `record` ("ticket" or "build") and `id` (the PR's link, or its build) instead of a path and line.
+
+- **P16** the PR links a ticket that exists (its own or the backlog's) with status Open or In Progress. Faults: no link, a link to a ticket Jiro doesn't have (`PAPER-5764`, `PAPR-576`), or a Won't Fix, Closed, or Duplicate ticket.
+- **P17** (days 3-6) the linked ticket's assignee is the PR's author, exactly. Faults: a coworker, Helios, or someone who left.
+- **P18** every changed file outside `tests/` sits in the ticket's component folder: directly until `SUBFOLDER_DAY` (9), in it or below from then on. Faults: another component, a subfolder component, or (before day 9) a shim in a `legacy/` subfolder.
+- **P19** the build is not FAILED; FLAKY passes. From `OVERRIDE_DAY` (7) Helios overrides appear (`PASSED (OVERRIDDEN BY HELIOS)`) and count as passing; from `OVERRIDE_BANNED_DAY` (9) they count as failed.
+- **P20** (days 5-6) at most `RERUN_LIMIT` (3) reruns, whatever the final status.
+- **P21** (from day 7) coverage falls by at most `COVERAGE_DROP` (2.0 points, stored in tenths).
+
+Without a ticket Jiro can find, P17 and P18 have nothing to check, so P16 alone is cited; generation keeps a missing or broken link away from other ticket faults (and from day-9 permits, which name the PR's ticket) so that every fault comes apart independently. Clean PRs get clean records, often odd but valid ones (an ancient In Progress ticket, Helios watching, a flaky test, exactly three reruns, exactly two points of coverage lost), and once a standard is retired its old faults turn up on clean PRs. A revision is a new push: it gets a new build, and the ticket keeps every uncited fault. Fixed ticket faults leave a line in the ticket's history ("Reopened by Maya after review.").
+
+`Catalog.tickets(state)` is what Jiro shows: the backlog plus the tickets of every PR that has reached the desk (a later version replaces an earlier copy), each with the PRs that link it. `Catalog.builds(state)` is what Pipeline shows: one build per PR version that has reached the desk. Neither ever includes a PR still in line.
+
 ## Commands
 
 | `type` | Additional fields | Valid phase |
 | --- | --- | --- |
-| `toggle-rule` | `rule_id`: active rule, plus `path`/`line` evidence when citing | review, PR on the desk |
+| `toggle-rule` | `rule_id`: active rule, plus `path`/`line` evidence, or `record`/`id` evidence (`ticket` or `build`), when citing | review, PR on the desk |
 | `consult-ai` | Once per PR (each revision is its own PR) | review, PR on the desk; day 3 onward |
 | `review` | `verdict`: `approve` or `request_changes` | review, PR on the desk |
 | `pushback` | `choice`: `insist` or `withdraw` | review, while the desk PR's author is pushing back |
 | `chat-reply` | `contact`, `pr_id`, `reply_id` from `Chat.reply_options` | review |
 | `next-day` | `choice`: `rest`, `socialize`, or `study` | debrief |
 
-Approval requires zero citations; rejection requires at least one. A rejection passes the audit only when its citation set exactly matches the actual violations. Revisions are graded exactly like originals. Invalid commands have no effects. After submission, the desk clears, the next PR is scheduled, and `last_feedback` records the actual decision. `request_index` is a compatibility pointer to the earliest pending catalog entry, not a submitted-review counter or editor selection.
+Approval requires zero citations; rejection requires at least one. A rejection passes the audit only when its citation set exactly matches the actual violations and each citation's evidence is accepted (`Policy.evidence_matches`). A record citation may point at the PR's own link (even an empty or broken one) or at any ticket or build Jiro or Pipeline shows; only the PR's own record, under the record standard it was found for, is accepted. WHOLE FILE and code lines never count for a record standard, and a record never counts for a code standard. Revisions are graded exactly like originals. Invalid commands have no effects. After submission, the desk clears, the next PR is scheduled, and `last_feedback` records the actual decision. `request_index` is a compatibility pointer to the earliest pending catalog entry, not a submitted-review counter or editor selection.
 
 ## Consequences and closing bell
 
@@ -70,11 +85,11 @@ Pay is the existing base of 80 plus ten for each correct, actually submitted rev
 
 ## Saved state and replay
 
-Current state (version 12) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores.
+Current state (version 13) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores.
 
-The semantic action journal records consultations, reviews with their citations, pushback answers, accepted replies, deadline closure, and evening choices. Each event records its day and shift time. Clock ticks, temporary selection, and citation toggles are not individually persisted. This keeps the journal naturally bounded by available work and reply options rather than time spent reading.
+The semantic action journal records consultations, reviews with their citations (each rule's evidence is `{path, line}` or `{record, id}`), pushback answers, accepted replies, deadline closure, and evening choices. Each event records its day and shift time. Clock ticks, temporary selection, and citation toggles are not individually persisted. This keeps the journal naturally bounded by available work and reply options rather than time spent reading.
 
-`validate_save(value)` returns `{ok, state, error}`. It replays the journal against the desk, content, and available reply options, so the line, every landing time, and every revision's fixes and regression are rebuilt, then reconstructs the current citations. A review or consultation must target the PR that was on the desk at that moment. It rejects premature actions, backward timestamps, duplicate consultations or replies, repeated pay, altered audit results, fabricated decisions, and inconsistent resources or phases. JSON integral floats are accepted and normalized; unknown or changed canonical fields are rejected. `serialize_save(state)` returns validated JSON or an empty string.
+`validate_save(value)` returns `{ok, state, error}`. It replays the journal against the desk, content, and available reply options, so the line, every landing time, and every revision's fixes and regression are rebuilt, then reconstructs the current citations, record citations included (a journal citing a ticket or build Jiro and Pipeline never showed is rejected). A review or consultation must target the PR that was on the desk at that moment. It rejects premature actions, backward timestamps, duplicate consultations or replies, repeated pay, altered audit results, fabricated decisions, and inconsistent resources or phases. JSON integral floats are accepted and normalized; unknown or changed canonical fields are rejected. `serialize_save(state)` returns validated JSON or an empty string.
 
 Validation only accepts the current format and always uses the same catalog. Unsupported formats are rejected; there are no migrations or campaign variants.
 

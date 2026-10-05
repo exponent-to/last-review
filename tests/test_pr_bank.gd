@@ -76,8 +76,8 @@ func _test_source(path: String, label: String, lines: Array) -> void:
 	for day in range(1, LAST_DAY + 1):
 		var file := {"path": path, "source": "\n".join(Campaign._clean(lines, day)), "keyword_ink": "blue"}
 		_check(Campaign.findings([file], day).is_empty(), "Bank source is clean under day %d's standards: %s" % [day, where])
-	# Faults and notes are inserted after the first line, and the pigeon stamp
-	# after the last, so both must end outside any string.
+	# Faults and notes are inserted after the first line, so the first line and
+	# the whole file must end outside any string.
 	var opening: String = lines[0]
 	var opens_cleanly: bool = opening.begins_with("#") or opening.begins_with("\"\"\"") or opening.begins_with("import ") or opening.begins_with("from ")
 	_check(opens_cleanly, "A file opens with a comment, docstring, or import: " + where)
@@ -120,18 +120,17 @@ func _probe_is_comment(text: String) -> bool:
 ## and from day 9 a test travels with any change to existing code.
 func _test_faults(entry: Dictionary, index: int) -> void:
 	for day in range(1, LAST_DAY + 1):
-		_check(Campaign.evaluate(_built(index, day, []), day).is_empty(), "A PR built on %s is clean on day %d before any fault." % [entry.path, day])
+		_check(Campaign._audit(_recipe(index, day, [])).is_empty(), "A PR built on %s, with its ticket and build, is clean on day %d before any fault." % [entry.path, day])
 		for rule_id: String in Campaign.active_ids(day):
 			for variant in range(3):
-				# Only a change to existing code needs a test to travel with it, and a
-				# file that already credits Helios is disclosed from the start.
-				var exempt: bool = (rule_id == "P13" and not entry.has("before")) or (rule_id == "P14" and Campaign._mentions_helios("\n".join(entry.lines)))
+				# Only a change to existing code needs a test to travel with it.
+				var exempt: bool = rule_id == "P13" and not entry.has("before")
 				var expected: Array = [] if exempt else [rule_id]
-				var files: Array = _built(index, day, [{"file": 0, "rule": rule_id, "variant": variant}])
-				_check(Campaign.evaluate(files, day) == expected, "Fault %s/%d applies cleanly to %s on day %d" % [rule_id, variant, entry.path, day])
+				_check(Campaign._audit(_recipe(index, day, [{"file": 0, "rule": rule_id, "variant": variant}])) == expected, "Fault %s/%d applies cleanly to %s on day %d" % [rule_id, variant, entry.path, day])
 
-func _built(index: int, day: int, faults: Array) -> Array:
-	return Campaign._build({"entry": index, "day": day, "files": ["primary"], "decoys": [], "notes": [], "permits": [], "faults": faults})
+## A one-file PR on this entry, with a slot and author so it gets a ticket and a build.
+func _recipe(index: int, day: int, faults: Array) -> Dictionary:
+	return {"entry": index, "day": day, "slot": index, "author": "Maya", "files": ["primary"], "decoys": [], "notes": [], "permits": [], "faults": faults}
 
 func _test_dialogue(path: String, entry: Dictionary) -> void:
 	for field: String in FIELDS:

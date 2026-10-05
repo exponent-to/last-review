@@ -149,7 +149,10 @@ func _news() -> void:
 ## The full active rulebook, as an intranet page.
 func _standards() -> void:
 	_text("Active review standards", 22)
-	_text("Every change must meet each standard below. Standards are reissued every second morning. Line standards need the offending line; file standards take WHOLE FILE or any line of that file; whole-PR standards take WHOLE FILE on any changed file.", 13, MUTED)
+	var records: String = ""
+	if _day >= int(Press.Catalog.policy().PIPELINE_DAY): records = " Ticket standards take the PR's ticket and build standards its build: open it from the PR slip in JIRO or PIPELINE and SELECT AS EVIDENCE. WHOLE FILE never counts for a record."
+	elif _day >= int(Press.Catalog.policy().JIRO_DAY): records = " Ticket standards take the PR's ticket: open it from the PR slip in JIRO and SELECT AS EVIDENCE. WHOLE FILE never counts for a ticket."
+	_text("Every change must meet each standard below. Standards are reissued every second morning. Line standards need the offending line; file standards take WHOLE FILE or any line of that file; whole-PR standards take WHOLE FILE on any changed file." + records, 13, MUTED)
 	for rule: Dictionary in Press.Catalog.rules_for_day(_day):
 		_divider()
 		var marker := "   NEW TODAY" if int(rule.introduced_day) == _day and _day > 1 else "   AMENDED TODAY" if int(rule.amended_day) == _day else ""

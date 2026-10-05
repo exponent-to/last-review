@@ -9,7 +9,7 @@ const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
 const Policy = preload("res://content/policy_campaign.gd")
 const Encounters = preload("res://content/encounters.gd")
-const SAVE_VERSION: int = 12
+const SAVE_VERSION: int = 13
 const SHIFT_SECONDS: int = 300
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
@@ -197,8 +197,9 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 				next.selected_rules.erase(rule_id)
 				next.citation_evidence.erase(rule_id)
 			else:
-				# A citation pins a rule to the file and line the reviewer pointed at.
-				var location: Variant = _evidence_location(active, command)
+				# A citation pins a rule to the file and line the reviewer pointed at,
+				# or to a record they selected in Jiro or Pipeline.
+				var location: Variant = _evidence_location(next, active, command)
 				if location == null:
 					return next
 				next.selected_rules.append(rule_id)
@@ -250,7 +251,20 @@ static func _answer_pushback(state: Dictionary, disputed: Dictionary, choice: St
 	state.encounters.append(Encounters.beat(state, context, "withdrawn", {"disputed": rule_id}))
 	_record(state, "You withdrew a citation. %s's PR is open for review again." % author)
 
-static func _evidence_location(request: Dictionary, command: Dictionary) -> Variant:
+## Where a citation points: {path, line} in one of the PR's files, or {record, id}
+## for a ticket or build the reviewer can see. A record need not be this PR's own
+## (that is what grading checks), but it must be one Jiro or Pipeline shows: the
+## PR's own link (even an empty or broken one), or any ticket or build listed there.
+static func _evidence_location(state: Dictionary, request: Dictionary, command: Dictionary) -> Variant:
+	if command.has("record"):
+		var record: Variant = command.get("record")
+		var id: Variant = command.get("id")
+		if typeof(id) != TYPE_STRING: return null
+		if record == "ticket" and int(state.day) >= Policy.JIRO_DAY:
+			if id == str(request.get("ticket_ref", "")) or not Catalog.ticket(state, id).is_empty(): return {"record": "ticket", "id": id}
+		elif record == "build" and int(state.day) >= Policy.PIPELINE_DAY:
+			if id == str(request.get("build", {}).get("id", "")) or not Catalog.build(state, id).is_empty(): return {"record": "build", "id": id}
+		return null
 	var path: Variant = command.get("path")
 	if typeof(path) != TYPE_STRING: return null
 	for file: Dictionary in request.get("files", []):
@@ -262,6 +276,8 @@ static func _evidence_location(request: Dictionary, command: Dictionary) -> Vari
 
 static func _cite(state: Dictionary, rule_id: String, evidence: Variant) -> Dictionary:
 	var location: Dictionary = evidence if typeof(evidence) == TYPE_DICTIONARY else {}
+	if location.has("record"):
+		return dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "record": location.get("record"), "id": location.get("id")})
 	return dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "path": location.get("path"), "line": location.get("line")})
 
 ## Grade and close the PR on the desk. `node` is the encounter branch already
@@ -272,8 +288,7 @@ static func _review(state: Dictionary, verdict: String, context: Dictionary, nod
 	var correct: bool = expected.is_empty() if verdict == "approve" else _same_rules(state.selected_rules, expected)
 	if verdict == "request_changes" and correct:
 		for rule_id: String in state.selected_rules:
-			var location: Dictionary = state.citation_evidence.get(rule_id, {})
-			if not Policy.evidence_accepted(request.findings, rule_id, str(location.get("path", "")), int(location.get("line", -1))):
+			if not Policy.evidence_matches(request.findings, rule_id, state.citation_evidence.get(rule_id, {})):
 				correct = false
 	var relationship_change: int = ((4 if correct else 6) if verdict == "approve" else (-2 if correct else -7)) + Encounters.relationship_change(node)
 	var trust_change: int = (3 if correct else -12) if verdict == "approve" else (5 if correct else -7)
