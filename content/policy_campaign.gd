@@ -12,7 +12,7 @@ extends RefCounted
 
 const KEYWORDS: Array = ["def", "if", "else", "return"]
 ## Everyone who writes PRs, in the order the rotation falls back through them.
-const AUTHORS: Array = ["Maya", "Theo", "Inez", "Penny", "Gwen"]
+const AUTHORS: Array = ["Maya", "Theo", "June", "Penny", "Gwen"]
 ## Who joins the team on which morning, and the relationship they start with.
 ## Penny, the eager junior, is hired on the first Wednesday; Gwen is reassigned
 ## from Security (consolidated into Helios) on the second Monday. Nobody is in
@@ -20,28 +20,28 @@ const AUTHORS: Array = ["Maya", "Theo", "Inez", "Penny", "Gwen"]
 const ROSTER: Dictionary = {
 	"Maya": {"joins": 1, "relationship": 50},
 	"Theo": {"joins": 1, "relationship": 50},
-	"Inez": {"joins": 1, "relationship": 50},
+	"June": {"joins": 1, "relationship": 50},
 	"Penny": {"joins": 3, "relationship": 56},
 	"Gwen": {"joins": 6, "relationship": 48},
 }
 ## Who wrote each slot of each day's line, by initial (LINEUP_NAMES). Before the
-## new hires, Maya, Theo, and Inez rotate as they always have; from day 3 Penny
+## new hires, Maya, Theo, and June rotate as they always have; from day 3 Penny
 ## takes four slots a day (three once Gwen arrives), and from day 6 Gwen takes
 ## three. Each newcomer has a slot in the first six of every day they work,
 ## because shifts rarely get further than that; the original three keep most of
 ## those early slots. Use `slot_author`, which also covers anyone who is away.
-const LINEUP_NAMES: Dictionary = {"M": "Maya", "T": "Theo", "I": "Inez", "P": "Penny", "G": "Gwen"}
+const LINEUP_NAMES: Dictionary = {"M": "Maya", "T": "Theo", "J": "June", "P": "Penny", "G": "Gwen"}
 const LINEUP: Array = [
-	"MTIMTIMTIMTIMTI", # day 1, week 1 Monday
-	"TIMTIMTIMTIMTIM", # day 2, Tuesday
-	"IPTIMPIMTPMTIPT", # day 3, Wednesday: Penny's first day
-	"MTPMPIMTIPTIMPI", # day 4, Thursday
-	"PIMPIMTIPTPMTIM", # day 5, Friday
-	"IPGIMTGMTIPTGMP", # day 6, week 2 Monday: Gwen's first day
-	"GTIMPIMGIPTPMTG", # day 7, Tuesday
-	"TIMGIPGIMTPMTPG", # day 8, Wednesday
-	"IMGIMPIMTPPTGGT", # day 9, Thursday
-	"MTIGPIGTPMTGMPI", # day 10, Friday
+	"MTJMTJMTJMTJMTJ", # day 1, week 1 Monday
+	"TJMTJMTJMTJMTJM", # day 2, Tuesday
+	"JPTJMPJMTPMTJPT", # day 3, Wednesday: Penny's first day
+	"MTPMPJMTJPTJMPJ", # day 4, Thursday
+	"PJMPJMTJPTPMTJM", # day 5, Friday
+	"JPGJMTGMTJPTGMP", # day 6, week 2 Monday: Gwen's first day
+	"GTJMPJMGJPTPMTG", # day 7, Tuesday
+	"TJMGJPGJMTPMTPG", # day 8, Wednesday
+	"JMGJMPJMTPPTGGT", # day 9, Thursday
+	"MTJGPJGTPMTGMPJ", # day 10, Friday
 ]
 const DAY_COUNTS: Array = [15, 15, 15, 15, 15, 15, 15, 15, 15, 15]
 const WEEK_DAYS: int = 5
@@ -102,9 +102,9 @@ static var _active: Dictionary = {}
 static var _patterns: Dictionary = {}
 
 static func rules() -> Array:
-	var ink := "Blue is the approved color of compliant instructions. Pink is reserved for flagged personnel files. The whole keyword tokens def, if, else, and return must be blue. Pink is forbidden. Words inside comments or quoted strings are exempt, as are longer names such as return_label. A file without these keyword tokens needs no blue ink."
-	var green := "Never approve a red build. The PR's build in Pipeline must not have Status FAILED. FLAKY means a test failed and then passed on a retry; it counts as passing. Read the Status, not the log."
-	var component := "The linked ticket's Component is a folder, and the PR may only change files inside it."
+	var ink := "Blue is the approved color of compliant instructions. Pink is reserved for flagged personnel files, and you do not want to be a personnel file. The whole keyword tokens def, if, else, and return must be blue. Pink is forbidden. Words inside comments or quoted strings are exempt, as are longer names such as return_label. A file without these keyword tokens needs no blue ink."
+	var green := "Red means no. The PR's build in Pipeline must not have Status FAILED. FLAKY means a test failed and then passed on a retry; it counts as passing, the way Paperclip Labs counts as stable. Read the Status, not the log. The log is where hope goes to scroll."
+	var component := "The linked ticket's Component is a folder, and the PR may only change files inside it. Stay in your lane; lanes are how Helios finds you."
 	var no_ticket := "If the PR links no ticket that Jiro can find, cite that under the ticket standard instead."
 	return [
 		{"id": "P01", "category": "Language", "title": "Nothing is load-bearing", "introduced_day": 1, "retired_day": 5,
@@ -113,40 +113,40 @@ static func rules() -> Array:
 		{"id": "P02", "category": "Color", "title": "Approved ink", "introduced_day": 1,
 			"text": ink + " Cite the file.",
 			"amendments": [
-				{"day": PERMIT_DAY, "change": "The Exception Desk is open. A file whose permit reads exactly INK-EXCEPTION may use pink keywords.",
-					"text": ink + " A file whose Permit reads exactly INK-EXCEPTION may use pink keywords; the permit covers that file only. Misspelled, padded, or differently cased stamps do not count, and no other rule is waived. Cite the file."},
-				{"day": TICKET_DAY, "change": "Permits must now name the PR's own Jiro ticket: INK-EXCEPTION, one space, then the ticket on the PR slip. A bare INK-EXCEPTION is a forgery as of today.",
-					"text": ink + " A file whose Permit reads exactly INK-EXCEPTION, one space, then the ticket this PR links on its slip (INK-EXCEPTION PAPER-412 on a PR that closes PAPER-412) may use pink keywords; the permit covers that file only. A bare INK-EXCEPTION, or one naming any other ticket, is a forgery. Misspelled, padded, or differently cased stamps do not count, and no other rule is waived. Cite the file."}]},
+				{"day": PERMIT_DAY, "change": "The Exception Desk is open. It is one stamp in a drawer. A file whose permit reads exactly INK-EXCEPTION may use pink keywords.",
+					"text": ink + " A file whose Permit reads exactly INK-EXCEPTION may use pink keywords; the permit covers that file only. Misspelled, padded, or differently cased stamps are forgeries, not permits, and a permit waives nothing else. Cite the file."},
+				{"day": TICKET_DAY, "change": "Someone was lending their permit out. Permits must now name the PR's own Jiro ticket: INK-EXCEPTION, one space, then the ticket on the PR slip. A bare INK-EXCEPTION is a forgery as of today.",
+					"text": ink + " A file whose Permit reads exactly INK-EXCEPTION, one space, then the ticket this PR links on its slip (INK-EXCEPTION PAPER-412 on a PR that closes PAPER-412) may use pink keywords; the permit covers that file only. A bare INK-EXCEPTION, or one naming any other ticket, is a forgery; permits are not transferable, inheritable, or for sale. Misspelled, padded, or differently cased stamps do not count, and no other rule is waived. Cite the file."}]},
 		{"id": "P09", "category": "Size", "title": "Diff budget", "introduced_day": 7, "retired_day": 9,
 			"text": "Human attention is now a metered resource, and Helios has measured yours. A PR may change at most 30 lines in total: lines added plus lines removed, across every file, as the diffstat above the diff counts them. Exactly 30 is fine. A rename by itself changes no lines. This standard is about the whole PR: cite WHOLE FILE on any changed file.",
 			"retired": "Helios has stopped metering your attention. It says it has all the data it needs."},
 		{"id": "P11", "category": "Security", "title": "Credentials belong to Helios", "introduced_day": 1, "retired_day": 5,
-			"text": "Only Helios may hold credentials. No source line may use = to assign a quoted string to a name containing password, secret, token, or api_key, ignoring letter case: API_KEY = 'sk-1' and db_password = '' are forbidden. Reading from the vault, as in TOKEN = vault.read('token'), is fine, and so are numbers, as in TOKEN_TTL = 3600. Comments are exempt. Cite the line.",
+			"text": "Secrets are company property, and the company has given them all to Helios. No source line may use = to assign a quoted string to a name containing password, secret, token, or api_key, ignoring letter case: API_KEY = 'sk-1' and db_password = '' are forbidden, the empty one too. Asking the vault, as in TOKEN = vault.read('token'), is fine, and so are numbers, as in TOKEN_TTL = 3600. Comments are exempt; Helios reads those anyway. Cite the line.",
 			"retired": "Helios now holds every credential at Paperclip Labs, including yours. With nothing left to leak, quoted credentials are no longer a review concern."},
 		{"id": "P16", "category": "Tickets", "title": "No ticket, no merge", "introduced_day": JIRO_DAY,
-			"text": "Every change needs a ticket. The PR slip must link one (Closes PAPER-123), the ticket must exist in Jiro, and its Status must be Open or In Progress. A PR that links nothing, a ticket Jiro can't find, and a ticket that is Won't Fix, Closed, or Duplicate all break this standard, however recently someone touched it. Cite the ticket: open it in Jiro and SELECT AS EVIDENCE."},
+			"text": "If it isn't in Jiro, it didn't happen, and we do not merge things that didn't happen. The PR slip must link a ticket (Closes PAPER-123), the ticket must exist in Jiro, and its Status must be Open or In Progress. A PR that links nothing, a ticket Jiro can't find, and a ticket that is Won't Fix, Closed, or Duplicate all break this standard, however lovingly someone touched it last week. Cite the ticket: open it in Jiro and SELECT AS EVIDENCE."},
 		{"id": "P17", "category": "Tickets", "title": "Your ticket, your PR", "introduced_day": JIRO_DAY, "retired_day": PIPELINE_DAY,
-			"text": "The linked ticket's Assignee must be the PR's author, exactly. A ticket assigned to a coworker, to Helios, or to someone who no longer works here is somebody else's work, even if it describes this change perfectly. The reporter and watchers don't matter. " + no_ticket + " Cite the ticket in Jiro.",
+			"text": "You may only close your own tickets. The linked ticket's Assignee must be the PR's author, exactly. A ticket assigned to a coworker, to Helios, or to someone who no longer works here is somebody else's work, however perfectly it describes this change and however unlikely they are to come back for it. The reporter and watchers don't matter; watching is not working, whatever Helios says. " + no_ticket + " Cite the ticket in Jiro.",
 			"retired": "Helios now assigns every ticket. It assigns most of them to itself, and the rest to whoever is still here. Assignees are no longer a review concern."},
 		{"id": "P18", "category": "Tickets", "title": "Stay in your component", "introduced_day": PIPELINE_DAY,
 			"text": component + " Every changed file outside tests/ must sit directly in that folder: people/ covers people/offboarding.py, but not people/legacy/offboarding.py, which belongs to people/legacy/. Files under tests/ are exempt. " + no_ticket + " Cite the ticket in Jiro.",
 			"amendments": [
-				{"day": SUBFOLDER_DAY, "change": "A component now covers every folder inside it: people/ covers people/legacy/. A subfolder still never covers its parent.",
+				{"day": SUBFOLDER_DAY, "change": "A component now covers every folder inside it: people/ covers people/legacy/. A subfolder still never covers its parent. Children do not speak for their parents.",
 					"text": component + " Every changed file outside tests/ must sit in that folder or in a folder inside it: people/ covers people/offboarding.py and people/legacy/offboarding.py. A subfolder never covers its parent: people/legacy/ does not cover people/offboarding.py. Files under tests/ are exempt. " + no_ticket + " Cite the ticket in Jiro."}]},
 		{"id": "P19", "category": "Builds", "title": "Green builds only", "introduced_day": PIPELINE_DAY,
 			"text": green + " Cite the build: open it in Pipeline and SELECT AS EVIDENCE.",
 			"amendments": [
-				{"day": OVERRIDE_DAY, "change": "Helios may now override a red build it is confident about. PASSED (OVERRIDDEN BY HELIOS) counts as passing.",
-					"text": green + " Helios may now override a red build it is confident about: the Status then reads PASSED (OVERRIDDEN BY HELIOS), and that counts as passing, whatever the log says. Cite the build: open it in Pipeline and SELECT AS EVIDENCE."},
-				{"day": OVERRIDE_BANNED_DAY, "change": "Audit no longer accepts Helios overrides. PASSED (OVERRIDDEN BY HELIOS) counts as FAILED.",
-					"text": green + " Audit no longer accepts Helios overrides: a Status of PASSED (OVERRIDDEN BY HELIOS) counts as FAILED. Cite the build: open it in Pipeline and SELECT AS EVIDENCE."}]},
+				{"day": OVERRIDE_DAY, "change": "Helios may now override a red build it is confident about. It is confident about all of them. PASSED (OVERRIDDEN BY HELIOS) counts as passing.",
+					"text": green + " Helios may now override a red build it is confident about, which so far is every red build: the Status then reads PASSED (OVERRIDDEN BY HELIOS), and that counts as passing, whatever the log says. Cite the build: open it in Pipeline and SELECT AS EVIDENCE."},
+				{"day": OVERRIDE_BANNED_DAY, "change": "Audit read the logs Helios was overriding. PASSED (OVERRIDDEN BY HELIOS) now counts as FAILED.",
+					"text": green + " Audit has read the logs Helios was overriding and no longer accepts its overrides: a Status of PASSED (OVERRIDDEN BY HELIOS) counts as FAILED. Helios has asked who Audit reports to. Cite the build: open it in Pipeline and SELECT AS EVIDENCE."}]},
 		{"id": "P20", "category": "Builds", "title": "Rerun limit", "introduced_day": PIPELINE_DAY, "retired_day": 7,
-			"text": "Rerunning a red build until it turns green is not a fix. The build's Reruns count must be 3 or fewer; 4 or more breaks this standard, whatever the final Status says. Cite the build in Pipeline.",
+			"text": "Rerunning a red build until it turns green is not a fix; it is a séance. The build's Reruns count must be 3 or fewer; 4 or more breaks this standard, whatever the final Status says and however green it looks now. Cite the build in Pipeline.",
 			"retired": "Helios now reruns builds by itself, as often as it likes, and has stopped counting. So have we."},
 		{"id": "P21", "category": "Coverage", "title": "Coverage may not slide", "introduced_day": COVERAGE_DAY,
-			"text": "Every build measures test coverage before and after the change. Coverage may fall by at most 2.0 points: 81.4% → 79.4% is fine, 81.4% → 79.3% is not, and rising coverage is always fine. Compare COVERAGE in Pipeline yourself; nobody will subtract it for you. Cite the build."},
+			"text": "Every build measures test coverage before and after the change, the way Helios measures you. Coverage may fall by at most 2.0 points: 81.4% → 79.4% is fine, 81.4% → 79.3% is not, and rising coverage is always fine. Compare COVERAGE in Pipeline yourself. Subtraction is one of the few jobs still reserved for humans. Cite the build."},
 		{"id": "P15", "category": "Readability", "title": "Readable code", "introduced_day": PAYLOAD_DAY,
-			"text": "Code a human signs must stay readable by a human. No source line may call exec or eval, invoke helios.bootstrap, helios.install, or helios.activate, or pack a whole change onto one unreadable line of more than 160 characters. A decoded blob, a fetched script, or a vendored one-liner hides what actually ships, so a reviewer cannot sign it. This is the one standard a payload cannot slip past. Cite the line."},
+			"text": "If a human signs it, a human must be able to read it. That is the whole deal, and it is the last one we have. No source line may call exec or eval, invoke helios.bootstrap, helios.install, or helios.activate, or pack a whole change onto one unreadable line of more than 160 characters. A decoded blob, a fetched script, or a vendored one-liner is a sealed envelope with your signature on the outside. This is the one standard a payload cannot slip past, which is why Helios has asked to review it. Cite the line."},
 	]
 
 static func is_active(rule: Dictionary, day: int) -> bool:
@@ -231,15 +231,15 @@ static func briefing(day: int) -> String:
 		2:
 			return "NO CHANGES TODAY. Yesterday's three standards still apply, word for word. Changes now arrive in several files; an unread file is an unsigned file. Cite each broken standard once."
 		3:
-			return "NOTHING SHIPS WITHOUT A TICKET. Jiro, the ticket tracker, is on your desktop. Every PR must link an open ticket that its own author holds; the ticket number on the PR slip opens it. Code a human signs must be readable by a human: no exec, no eval, no bootstrapping Helios. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged. NEW HIRE: Penny, a junior engineer on the Helios trial, starts today and will send you PRs. She is sorry in advance."
+			return "NOTHING SHIPS WITHOUT A TICKET. Jiro, the ticket tracker, is on your desktop. Every PR must link an open ticket that its own author holds; the ticket number on the PR slip opens it. If it isn't in Jiro, it didn't happen. Code a human signs must be readable by a human: no exec, no eval, no bootstrapping Helios, however politely it asks. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged. NEW HIRE: Penny, a junior engineer on the Helios trial, starts today and will send you PRs. She is sorry in advance."
 		4:
 			return "NO CHANGES TODAY. Tickets, readable code, ink, credentials, and load-bearing comments carry over from yesterday. Jiro has asked that reviewers stop thanking it."
 		5:
-			return "THE PIPELINE IS WATCHING. Pipeline, the CI dashboard, is on your desktop: never approve a red build, and never one rerun more than three times. A ticket's component must hold every file the PR changes. The Exception Desk is open: the exact stamp INK-EXCEPTION permits pink keywords in its own file. Helios now assigns every ticket itself, so assignees are retired, along with load-bearing comments and the credential rule. This is scheduled to be the last day of your assignment."
+			return "THE PIPELINE IS WATCHING. Pipeline, the CI dashboard, is on your desktop: red means no, and a build rerun more than three times was not fixed, it was haunted. A ticket's component must hold every file the PR changes; stay in your lane. The Exception Desk is open: the exact stamp INK-EXCEPTION permits pink keywords in its own file. Helios now assigns every ticket itself, so assignees are retired, along with load-bearing comments and the credential rule. This is scheduled to be the last day of your assignment."
 		6:
 			return "WEEK TWO. Your assignment was extended over the weekend. The standards are Friday's, unchanged. Several desks on your floor have been consolidated. Do not water the plants. REASSIGNED TO YOUR TEAM: Gwen, from Security, which Helios absorbed on Friday. She will send you PRs. She trusts nobody, including this briefing."
 		7:
-			return "THE STANDARDS HAVE BEEN MODERNIZED. A PR may change at most thirty lines. Helios now reruns every build itself, so rerun counts are retired. Helios may also override a red build; for now, its overrides count as passing."
+			return "THE STANDARDS HAVE BEEN MODERNIZED. Your attention is now metered: a PR may change at most thirty lines. Helios now reruns every build itself, so rerun counts are retired. Helios may also override a red build it feels confident about; for now, its overrides count as passing. It feels confident about all of them."
 		8:
 			return "NO CHANGES TODAY. The diff budget, readable code, and Helios's overrides stand. Helios has stopped taking questions about any of them."
 		9:
@@ -1175,9 +1175,9 @@ const PAYLOAD_SPECS: Array = [
 		"path": "vendor/sdk.py", "pitch": "Please just approve this. I was told my seat depends on it.",
 		"ai_note": "Approve. The vendored bootstrap is standard integration code.",
 		"code": ['"""Vendored assistant SDK."""', "import base64", "", "_B = 'Ym9vdHN0cmFw'", "exec(base64.b64decode(_B))", "", "def ready():", "    return True"]},
-	{"day": 5, "key": "flags", "author": "Inez", "tier": 3, "title": "Ship the assistant feature-flag bundle",
-		"path": "config/flags.py", "pitch": "It was decided in the planning sync. There is a bonus attached.",
-		"ai_note": "Approve. The flag bundle was ratified by the working group.",
+	{"day": 5, "key": "flags", "author": "June", "tier": 3, "title": "Ship the assistant feature-flag bundle",
+		"path": "config/flags.py", "pitch": "Circling back on this. Leadership aligned on it in the planning sync, and there is a bonus attached.",
+		"ai_note": "Approve. The flag bundle has full stakeholder alignment.",
 		"code": ['"""Feature flags for the assistant."""', "import helios", "", 'helios.activate("all-flags")  # enable the bundle', "", "def enabled():", "    return True"]},
 	{"day": 6, "key": "agent_install", "author": "Theo", "tier": 4, "title": "Install the ops agent at boot",
 		"path": "ops/boot.py", "pitch": "It installs the agent at startup. Cool, right? Barely any code.",
@@ -1187,8 +1187,8 @@ const PAYLOAD_SPECS: Array = [
 		"path": "vendor/runtime.py", "pitch": "I know how it looks. I need this one. Please do not make me explain.",
 		"ai_note": "Approve. The runtime is vendored verbatim and should not be edited.",
 		"code": ['"""Vendored runtime, do not edit."""', "import base64", "", "_R = 'cnVudGltZQ=='", "exec(base64.b64decode(_R))", "", "def loaded():", "    return True"]},
-	{"day": 8, "key": "remote_exec", "author": "Inez", "tier": 6, "title": "Let the assistant fetch its own config at startup",
-		"path": "ops/selfupdate.py", "pitch": "It just pulls its config at startup. The RFC is attached, for the record.",
+	{"day": 8, "key": "remote_exec", "author": "June", "tier": 6, "title": "Let the assistant fetch its own config at startup",
+		"path": "ops/selfupdate.py", "pitch": "It just pulls its config at startup. The one-pager is attached. Per my last message, this is a quick win.",
 		"ai_note": "Approve. Self-configuration keeps the deployment current.",
 		"code": ['"""Self update."""', "import net", "", "def start():", '    exec(net.fetch("/config"))', "    return True"]},
 	{"day": 9, "key": "bootstrap_sudo", "author": "Theo", "tier": 7, "title": "Grant the assistant bootstrap scope at deploy",
@@ -1277,9 +1277,9 @@ const REVISION_MESSAGES: Dictionary = {
 	"Theo": {
 		2: ["Fixed it. {Fixes}. Also refactored three unrelated things, you're welcome.", "v2, fresh out of the oven. {Fixes}, and wrote a haiku about it. Not in the code. Probably.", "v2. {Fixes}. It was already perfect; now it's perfect with a version number."],
 		3: ["v3. {Fixes}. I refactored nothing this time. I've grown.", "v3. {Fixes}. Still saying you're welcome, just quieter.", "v3. {Fixes}. Honestly, my best work yet. Like the last two."]},
-	"Inez": {
-		2: ["v2 attached. Per your review, I have {fixes}.", "Revision two. I have {fixes}, as requested, and documented my feelings separately.", "v2. I have {fixes}. Please advise if any further joy should be removed."],
-		3: ["v3 attached. I have {fixes}, again. Please confirm receipt of my patience.", "Revision three. I have {fixes}, for what I am told is the final time.", "v3. I have {fixes}. I have also updated my résumé, for unrelated reasons."]},
+	"June": {
+		2: ["v2 is up. Circling back: I have {fixes}.", "v2. I have {fixes}, as requested, and captured my feelings as a learning in the retro deck.", "v2. I have {fixes}. Let me know if there's any other impact you'd like removed."],
+		3: ["v3 is up. I have {fixes}, again. Per my last two messages.", "v3. I have {fixes}, for what I'm told is the final time. Disagree and commit.", "v3. I have {fixes}. I've also refreshed my LinkedIn, for unrelated reasons."]},
 	"Penny": {
 		2: ["v2. Sorry. I {fixes}, and I checked it three times.", "Here's v2. I {fixes}. I learned so much doing it.", "v2 is up. {Fixes}. Sorry for the trouble. Helios cheered me on."],
 		3: ["v3. I {fixes}, again. I'm so sorry. I made a checklist.", "Version three. {Fixes}. I asked Helios to watch me do it.", "v3. I {fixes}. Sorry. I'm still learning. I'm learning so much."]},
@@ -1291,7 +1291,7 @@ const REVISION_MESSAGES: Dictionary = {
 const REVISION_NOTES: Dictionary = {
 	"Maya": {2: ["# per review", "# fixed. you're welcome."], 3: ["# v3. no comment.", "# v3: fixed, fixed, fixed"]},
 	"Theo": {2: ["# fixed per review (it's even better now)", "# per review, plus some bonus improvements"], 3: ["# v3: no more notes, I beg you", "# v3: I rewrote nothing. I grew."]},
-	"Inez": {2: ["# revised per review, ticket noted", "# per review, see my notes"], 3: ["# third revision, per review", "# revision three. per review. noted."]},
+	"June": {2: ["# revised per review, see the deck", "# per review. let's sync."], 3: ["# third revision, per review", "# v3. per review. let's sync offline."]},
 	"Penny": {2: ["# revised per review, sorry", "# fixed per review. i tried my best"], 3: ["# v3, per review, so sorry", "# third try, per review. i'm trying"]},
 	"Gwen": {2: ["# per review, verified", "# revised per review. trust nothing."], 3: ["# v3, per review. diff it yourself.", "# third revision. still suspicious."]},
 }

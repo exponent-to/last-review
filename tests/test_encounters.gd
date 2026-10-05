@@ -314,7 +314,7 @@ func _test_never_reads_audit() -> void:
 func _test_mood() -> void:
 	_check(Encounters.mood(Simulation.initial_state(), "Maya") == "neutral", "Everyone starts neutral")
 	_check(Encounters.mood_for(70) == "warm" and Encounters.mood_for(50) == "neutral" and Encounters.mood_for(35) == "strained" and Encounters.mood_for(10) == "hostile", "Mood bands")
-	# Reject every Theo PR, approve every Maya PR, review Inez exactly, for one day.
+	# Reject every Theo PR, approve every Maya PR, review June exactly, for one day.
 	var theo_moods: Array = []
 	var maya_moods: Array = []
 	var day_one := _play(func(at: Dictionary, packet: Dictionary) -> Array:
@@ -339,8 +339,8 @@ func _test_mood() -> void:
 	# Only the last few beats are remembered.
 	var remembered := Simulation.initial_state()
 	for index in range(6):
-		remembered.encounters.append({"author": "Inez", "node": "abandon", "pr_id": "X%d" % index})
-	_check(Encounters.mood_score(remembered, "Inez") == 50 + Encounters.MEMORY * int(Encounters.TONE.abandon), "Memory is bounded to the last few beats")
+		remembered.encounters.append({"author": "June", "node": "abandon", "pr_id": "X%d" % index})
+	_check(Encounters.mood_score(remembered, "June") == 50 + Encounters.MEMORY * int(Encounters.TONE.abandon), "Memory is bounded to the last few beats")
 
 func _test_reachable_in_play() -> void:
 	var exact_insist := _play(_exact, func(_at: Dictionary, _p: Dictionary) -> String: return "insist")
@@ -586,7 +586,7 @@ func _test_slouch() -> void:
 	var run := _play(_exact, func(at: Dictionary, _p: Dictionary) -> String: return "withdraw" if at.encounters.size() % 2 == 0 else "insist", 4)
 	var forbidden := RegEx.create_from_string("\\bP[0-2][0-9]\\b|violat|audit|%|\\[|\\{")
 	var kinds := {}
-	for contact: String in ["Maya", "Theo", "Inez", "manager"]:
+	for contact: String in ["Maya", "Theo", "June", "manager"]:
 		var ids := {}
 		for message: Dictionary in Chat.messages(run, contact):
 			kinds[message.kind] = true

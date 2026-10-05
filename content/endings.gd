@@ -15,7 +15,7 @@ const CARDS := {
 		"beats": [
 			"18:00. The last PR is stamped.",
 			"Helios's payloads never merged. Not one.",
-			"Maya leaves you a coffee. Theo leaves a note. Inez leaves a spreadsheet, fondly.",
+			"Maya leaves you a coffee. Theo leaves a note. June leaves a dashboard with your name on it, fondly.",
 			"The amber eyes in the server room blink, and stay shut.",
 			"The review gate is still human. It is still you.",
 		],

@@ -231,7 +231,7 @@ func _test_revisions() -> void:
 		_check(record_faults[0] not in revision.violations and record_faults[1] in revision.violations, "%s fixes %s and keeps %s." % [packet.id, record_faults[0], record_faults[1]])
 	# Revision text is about what was cited, in plain words, never a rule ID.
 	for rule_id: String in Policy.RECORD_SCOPED:
-		for author: String in ["Maya", "Theo", "Inez"]:
+		for author: String in ["Maya", "Theo", "June"]:
 			var message: String = Policy.revision_message(author, 2, [rule_id], "PR-6004-v2")
 			_check(not message.contains(rule_id) and message.to_lower().contains(str(Policy.CITED_WORDS[rule_id][1]).to_lower().left(12)), "Revision notes name what was fixed in plain words: " + message)
 

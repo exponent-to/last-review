@@ -1,7 +1,8 @@
 extends RefCounted
 ## Coworker dialogue for Slouch: introductions, moods, PR requests and reactions, and
 ## the revision exchange (send-backs, relief, escalation). Maya is tired and dry,
-## Theo is overconfident, Inez is passive-aggressive and lives by the process,
+## Theo is overconfident, June is a polished growth PM who lives by the process
+## and is passive-aggressive about it,
 ## Penny (from day 3) is the eager, apologetic new junior who adores Helios, and
 ## Gwen (from day 6) is terse security who threat-models everything, Helios first.
 ## Lines never reveal rule IDs, scores, or whether a PR is actually broken: reactions
@@ -24,11 +25,11 @@ const PEOPLE: Dictionary = {
   "distant": "No hard feelings about the reviews. I've started copying Helios on my PRs, for transparency.",
   "acknowledge": "Great. It'll take you thirty seconds. Twenty if you skip the boring files.",
  },
- "Inez": {
-  "intro": "Hello. Inez, platform. I've shared a doc on how I prefer to receive feedback. It's forty pages; the summary is nine.",
-  "warm": "I've moved you to the reliable column of my spreadsheet. The only other name in it is mine.",
-  "distant": "I've booked fifteen minutes to discuss our working relationship. The agenda has one bullet. It's your name.",
-  "acknowledge": "Thank you for confirming. I've marked the ticket acknowledged, pending.",
+ "June": {
+  "intro": "Hi. June, growth. Circling back on an intro nobody scheduled. I've shared a one-pager on how I like to receive feedback. It's forty slides; the TL;DR is nine.",
+  "warm": "I've moved you to the high-impact quadrant of my dashboard. The only other name in it is mine.",
+  "distant": "I've put fifteen minutes on your calendar to realign on our working relationship. The agenda has one bullet. It's your name.",
+  "acknowledge": "Love that. I've moved the ticket to acknowledged, pending alignment.",
  },
  "Penny": {
   "intro": "Hi, I'm Penny, I'm new. I'll be sending you PRs. Sorry in advance. I've read the handbook twice and Helios says I'm a quick learner.",
@@ -47,21 +48,21 @@ const PEOPLE: Dictionary = {
 const APPROVED: Dictionary = {
  "Maya": ["Thanks. I'll tell my plant.", "Approved. I'm going to sit very still and enjoy this.", "Oh good. One less thing. Only several thousand to go.", "Thank you. I'm too tired to be sarcastic about it, which is how you know I mean it.", "Merged. I can feel a nap approaching from very far away."],
  "Theo": ["Knew it. Clean as a whistle, and I wrote the whistle.", "Approved on the first try. Write that down. Actually, I'll write it down.", "Nice. That's going in my self-review under leadership.", "Obviously. I barely even ran it.", "Thanks. Told you it was a one-line change. Spiritually."],
- "Inez": ["Thank you. I've noted the approval in the approval log, and the log in the log log.", "Approved. I'll update the ticket, the tracker, and the spreadsheet that tracks the tracker.", "Received with thanks. Per process, I will now celebrate for the allotted thirty seconds.", "Thank you for following the review procedure. Not everyone does. I keep a list.", "Noted. This approval will be quoted in my quarterly reflection document."],
+ "June": ["Thank you. I've logged the approval on the dashboard, and the dashboard in the metrics deck.", "Approved. Love that. I'll update the ticket, the roadmap, and the slide that tracks the roadmap.", "Received with thanks. Per process, I'll now celebrate in the wins channel for the allotted thirty seconds.", "Thank you for following the review playbook. Not everyone does. I have a dashboard of who doesn't.", "Super. This approval is going in my quarterly impact deck, on the slide about partnership."],
  "Penny": ["Thank you. I'm going to print this and put it in my onboarding binder.", "Approved. Wow. I'm telling Helios. It'll be so proud of us.", "Thank you so much. That's the nicest thing a reviewer has ever done for me.", "Merged. I'm adding it to my onboarding journal, under wins.", "Thank you. I'm sorry I was so nervous about it. I'm still nervous. Thank you."],
  "Gwen": ["Thanks. I'll still be watching it in production.", "Approved. By a human who read it. Write that down somewhere nobody can edit.", "Merged. Thank you. I'm rotating my keys anyway, out of habit.", "Thanks. If anything happens, at least two of us looked.", "Approved. Good. One less door I have to stand in."],
 }
 const HINTS: Dictionary = {
  "Maya": ["Start at the top. It's where I started, and look at me now.", "Every file. If I say just the first one, you'll only read the first one.", "The green lines are new. The red lines are things I'm grieving.", "The files, in order. I'd help more, but I'm on my fourth meeting about meetings."],
  "Theo": ["Anywhere. It's all good. I checked. Briefly.", "Start wherever. It's a one-line change spread across several lines.", "The diff. All of it is great, so there's no wrong place to start.", "Honestly, you could skim it. I would, and I wrote it."],
- "Inez": ["Per the procedure: every changed file, top to bottom, against today's standards. I've attached the procedure. Again.", "The description first, then each file in order. I wrote the description so you wouldn't have to ask.", "The standards page, then the files. That's the order in the training. I wrote the training.", "Each file, once, carefully. As discussed. In the meeting you were not invited to."],
+ "June": ["Per the playbook: every changed file, top to bottom, against today's standards. I've linked the playbook. Again. For visibility.", "The description first, then each file in order. I wrote the description so we could stay aligned async.", "The standards page, then the files. That's the funnel in the training deck. I built the training deck.", "Each file, once, carefully. As aligned. In the sync you weren't looped into."],
  "Penny": ["The first file, I think. Sorry. I color-coded them, but the colors are just for me.", "Every file, in order. I made a checklist. Would you like the checklist? I made you a copy.", "Start at the top. That's what Helios told me. Helios knows a lot about tops.", "Honestly, all of it. I'm sorry. I couldn't decide which part to be most nervous about."],
  "Gwen": ["Everything. Every changed file. Assume each one is the way in.", "Start where the change touches anything shared. Then read everything else anyway.", "The small file. It's always the small file.", "Read it like you're trying to get in. That's how I wrote it."],
 }
 const CONCERNS: Dictionary = {
  "Maya": ["I checked it twice. Once while awake.", "I read it. Whether I read it read it is between me and the coffee.", "Helios checked it, so now I have to check Helios. So: sort of."],
  "Theo": ["Checked it? I wrote it. Same thing.", "Helios said it looks great. I said it looks great. That's two opinions.", "I ran it in my head. My head passed."],
- "Inez": ["I followed the checklist. I also wrote the checklist, so it's very thorough.", "I checked it against the standards as they were when I started. They've changed twice since.", "Yes. I have a signed form saying I checked it. I'm the one who signed it."],
+ "June": ["I followed the launch checklist. I also wrote the launch checklist, so it's very thorough.", "I checked it against the standards as they were at kickoff. They've pivoted twice since.", "Yes. There's a sign-off doc saying I checked it. I'm the stakeholder who signed it."],
  "Penny": ["I checked it three times. Then Helios checked it. Then I checked Helios.", "Yes. Twice. With my flashcards. I'm sorry if that's not enough.", "I did. I also asked Helios, and it said looks great. I'd still really like a person to look."],
  "Gwen": ["Twice. Once as me, once as an attacker. The attacker had notes.", "Yes. I don't trust anything I didn't check. Including me.", "I checked it. Helios checked it too, which is why I checked it again."],
 }
@@ -73,9 +74,9 @@ const SENT_BACK: Dictionary = {
  "Theo": {
   1: ["Oh, {topics}, totally. Great catch. I'll fix it and improve some things nobody asked about.", "On it. {Topics}: soon to be the best-fixed thing in this building.", "Love the feedback on {topics}. Fixing it right now, at top speed, which is how I do everything.", "{Topics}? Easy. Back in five. Four, if I don't run the tests.", "Ha, {topics}. I was testing you. You passed. Fixing it."],
   2: ["Round two. {Topics}. I'm treating this as a growth opportunity, which is what I say when I'm upset.", "Sure, {topics}. Totally. v3 will be perfect. I can feel it. I can't feel it."]},
- "Inez": {
-  1: ["Received: {topics}. A revision will follow at the earliest moment convenient for no one.", "Understood. I will address {topics} and cc my own disappointment.", "Acknowledged. {Topics} will be corrected. Please hold.", "Thank you for the feedback on {topics}. I've logged it, and how it made me feel.", "Noted: {topics}. I'll open a ticket to track the ticket for this."],
-  2: ["Received, again: {topics}. I have updated my estimate of today's remaining hope.", "Noted: {topics}. This will be the third version. I am writing that down."]},
+ "June": {
+  1: ["Love the feedback on {topics}. A revision will follow at the earliest moment convenient for no one.", "Understood. I'll address {topics} and capture my disappointment as a learning.", "Thanks for flagging {topics}. Circling back shortly. Please hold.", "Super helpful feedback on {topics}. I've added it to the deck, along with how it made me feel.", "Flagging {topics} for visibility. I'll open a ticket to track the ticket for this."],
+  2: ["Circling back, again, on {topics}. I've revised today's forecast for hope downward.", "Per my last message: {topics}. This will be the third version. It's on the dashboard now."]},
  "Penny": {
   1: ["{Topics}? Oh no. Okay. I'm so sorry. v2 is coming.", "Noted: {topics}. I'm writing it in my good notebook so I never forget it.", "Sorry about {topics}. I'll fix it right away. I'll fix it beautifully.", "{Topics}. Okay. Learning moment. Thank you for being specific.", "Sent back for {topics}. Okay. Sorry. I'm on it."],
   2: ["{Topics} again. I'm so sorry. Version three. I'll ask Helios to sit with me.", "Again? {Topics}. Okay. Okay. I'm making a bigger checklist."]},
@@ -86,14 +87,14 @@ const SENT_BACK: Dictionary = {
 const ESCALATE: Dictionary = {
  "Maya": "Three rounds. I'm looping in Morgan.",
  "Theo": "Okay. I'm looping in Morgan. Not as a threat. As a cry for help.",
- "Inez": "I'm looping in Morgan, per the escalation policy nobody has read but me.",
+ "June": "Circling back one last time: I'm looping in Morgan, per the escalation playbook nobody has read but me.",
  "Penny": "Three rounds. I'm so sorry. I've asked Morgan to help me with it.",
  "Gwen": "Three rounds. I'm taking it to Morgan. This one needs two keys.",
 }
 const RELIEF: Dictionary = {
  "Maya": {2: "Finally.", 3: "Finally. Three versions. I aged."},
  "Theo": {2: "Finally. I'm printing this approval for the fridge.", 3: "Finally. Third time's the charm, and I am the charm."},
- "Inez": {2: "Finally. Thank you. Closing the ticket before anyone reopens it.", 3: "Finally. Version three is on the record, as is how long it took."},
+ "June": {2: "Finally. Love that. Closing the ticket before anyone reopens it.", 3: "Finally. Version three ships, and so does a slide on how long it took."},
  "Penny": {2: "Finally. Thank you. I'm so relieved.", 3: "Finally. Three versions. I learned so much. Sorry."},
  "Gwen": {2: "Finally. Locked and merged.", 3: "Finally. Three versions. Every one of them hashed."},
 }

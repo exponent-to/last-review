@@ -11,7 +11,7 @@ const Trees = preload("res://content/trees.gd")
 const Chat = preload("res://content/chat.gd")
 const DailyPress = preload("res://content/daily_press.gd")
 
-const ORIGINALS: Array[String] = ["Maya", "Theo", "Inez"]
+const ORIGINALS: Array[String] = ["Maya", "Theo", "June"]
 const NEWCOMERS: Dictionary = {"Penny": 3, "Gwen": 6}
 ## Players reach about six PRs a day; every newcomer needs a slot in that stretch.
 const EARLY := 6
@@ -24,7 +24,13 @@ const VOICE := {
 }
 ## How much of a reassigned tree must carry its author's markers, at least.
 const VOICE_FLOOR := {"Penny": 0.45, "Gwen": 0.15}
-const BORROWED := "(?i)(\\bbro\\b|\\bmy guy\\b|\\bdude\\b|promo packet|\\bnaps?\\b|\\bmy plant\\b|\\bfarm\\b|\\bRFC\\b|\\bminuted\\b|working group|decision log)"
+const BORROWED := "(?i)(\\bbro\\b|\\bmy guy\\b|\\bdude\\b|promo packet|\\bnaps?\\b|\\bmy plant\\b|\\bfarm\\b|circl\\w* back|metrics deck|north star|per my last|\\bOKRs?\\b|\\bKPIs?\\b|\\bsynerg)"
+## June is a growth PM: polished, process-minded, passive-aggressive. Her lines lean on
+## the language of syncs, decks, and dashboards; the retired cat's tics stay retired.
+const JUNE_VOICE := "(?i)(circl\\w* back|per my last|\\bdeck\\b|dashboard|metrics?|funnel|north star|align|stakeholder|\\bsync|bandwidth|learnings?|offline|loop(ed|ing)? in|quick win|\\bimpact|\\bOKRs?\\b|\\bKPIs?\\b|\\bQ[1-4]\\b|roadmap|synerg|double-click|move the needle|retention|engagement|\\blove that\\b|\\bsuper\\b|flag(ging)? for|visibility|\\bhappy to\\b|friendly reminder|disagree and commit|unblock|leadership|one-pager|\\bretro\\b|growth|\\bslides?\\b|optics|\\bwin\\b|\\bwins\\b|calendar|\\bagenda|action items?|takeaway|cadence|bottom line|\\bpivot|\\bscale\\b|\\bvelocity|\\bcapture)"
+const RETIRED_TICS := "(?i)(\\bRFC\\b|\\bminuted\\b|working group|decision log)"
+## How much of June's dialogue carries her markers, at least.
+const JUNE_FLOOR := 0.5
 
 var checks := 0
 var failures := 0
@@ -38,6 +44,7 @@ func _initialize() -> void:
 	_test_records()
 	_test_trees()
 	_test_introductions()
+	_test_june()
 	print("Cast checks: %d passed, %d failed." % [checks - failures, failures])
 	quit(1 if failures else 0)
 
@@ -82,8 +89,8 @@ func _test_lineup() -> void:
 		for author: String in ORIGINALS:
 			_check(authors.count(author) >= 3, "%s stays prominent on day %d (%d PRs)" % [author, day, authors.count(author)])
 		var early_originals := authors.slice(0, EARLY).filter(func(author: String) -> bool: return author in ORIGINALS).size()
-		_check(early_originals >= 4, "Maya, Theo, and Inez hold at least four of day %d's first %d slots (%d)" % [day, EARLY, early_originals])
-	_check(Policy.joins("June") == 0 and "June" not in Policy.AUTHORS, "June isn't on the review team")
+		_check(early_originals >= 4, "Maya, Theo, and June hold at least four of day %d's first %d slots (%d)" % [day, EARLY, early_originals])
+	_check(Policy.joins("June") == 1 and Policy.LINEUP_NAMES.J == "June", "June has a desk from the first morning")
 
 func _test_assignment_rule() -> void:
 	for day: int in Catalog.campaign_days():
@@ -110,7 +117,7 @@ func _round_trip(state: Dictionary, label: String) -> void:
 func _test_joining() -> void:
 	_check(Simulation.SAVE_VERSION >= 14, "Penny and Gwen bumped the save format to 14 or later")
 	var state := Simulation.initial_state()
-	_check(state.coworkers.keys() == ORIGINALS, "Day one's team is Maya, Theo, and Inez")
+	_check(state.coworkers.keys() == ORIGINALS, "Day one's team is Maya, Theo, and June")
 	# Dinner on the second evening is before Penny's time; it doesn't count for her.
 	state = _next_morning(state)
 	state = _next_morning(state, "socialize")
@@ -315,3 +322,30 @@ func _test_introductions() -> void:
 			var mentioned := JSON.stringify(evening.notes).contains(author)
 			_check(mentioned == (int(state.day) == int(NEWCOMERS[author])), "Morgan's notes mention %s on her first evening only (day %d)" % [author, int(state.day)])
 		state = Simulation.dispatch(state, {"type": "next-day", "choice": "rest"})
+
+# --- June -----------------------------------------------------------------------------
+
+## June took the retired seat: her templates, banter, and trees carry her voice.
+func _test_june() -> void:
+	var voice := RegEx.create_from_string(JUNE_VOICE)
+	var retired := RegEx.create_from_string(RETIRED_TICS)
+	var lines: Array = []
+	for channel: String in ["desk", "dm"]:
+		for node: String in Lines.BY_AUTHOR.June[channel]:
+			for mood: String in Lines.BY_AUTHOR.June[channel][node]:
+				lines.append_array(Lines.lines("June", channel, node, mood))
+	for trigger: String in Banter.TRIGGERS: lines.append_array(Banter.lines("June", trigger))
+	var trees := 0
+	for packet: Dictionary in Catalog.originals():
+		if str(packet.author) != "June": continue
+		var tree: Dictionary = Trees.tree(str(packet.title))
+		_check(str(tree.get("author", "")) == "June", "%s's tree speaks as June" % packet.id)
+		var own := _tree_lines(tree)
+		lines.append_array(own)
+		trees += 1
+	_check(trees >= 30, "June writes a full share of the campaign (%d trees)" % trees)
+	var hits := 0
+	for text: String in lines:
+		if voice.search(str(text)) != null: hits += 1
+		_check(retired.search(str(text)) == null, "June doesn't use the old seat's tics: " + str(text))
+	_check(not lines.is_empty() and float(hits) / float(lines.size()) >= JUNE_FLOOR, "June's lines sound like June (%d of %d)" % [hits, lines.size()])

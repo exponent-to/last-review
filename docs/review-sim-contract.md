@@ -8,13 +8,13 @@ Working title: PRs please. Native Godot desktop game. Grounded workplace tension
 
 Rule: `{id:String, category:String, title:String, text:String, introduced_day:int}`. Four rules initially, with new standards introduced between shifts. Future standards stay hidden.
 
-PR: `{id:String, title:String, author:String, day:int, file:String, description:String, message:String, diff:String, violations:Array[String], explanation:String, ai_verdict:String, ai_note:String}`. Ordered by day with variable shift lengths. Authors are Maya, Theo, or Inez. `violations` and `explanation` are audit-only and must not be revealed until after a decision. `ai_verdict` is approve or request_changes and can be wrong. AI recommendation is visible only after the player uses consult-ai. Misleading comments are fictional in-game claims; actual code must support every audited defect.
+PR: `{id:String, title:String, author:String, day:int, file:String, description:String, message:String, diff:String, violations:Array[String], explanation:String, ai_verdict:String, ai_note:String}`. Ordered by day with variable shift lengths. Authors are Maya, Theo, or June. `violations` and `explanation` are audit-only and must not be revealed until after a decision. `ai_verdict` is approve or request_changes and can be wrong. AI recommendation is visible only after the player uses consult-ai. Misleading comments are fictional in-game claims; actual code must support every audited defect.
 
 ## Simulation API (core agent)
 
 Preserve pure static `initial_state`, `dispatch`, `advance`, `validate_save`, `serialize_save`. `advance(state, seconds)` progresses a three-minute shift. The application stops calling it during intro, pause, focus loss, and after closing. Reading while unpaused consumes time. PRs must have arrived and been selected before review.
 
-Core state fields (see simulation.md for the full action journal): version=5, day:int (catalog day), request_index:int (bounded by catalog length), phase:String(review/debrief/complete), credits:int, trust:int0..100, stress:int0..100, autonomy:int0..100, coworkers:Dictionary(Maya/Theo/Inez:int0..100), selected_rules:Array[String], consulted:bool, decisions:Array[Dictionary], log:Array[{day:int,message:String}], last_feedback:Dictionary, last_debrief:Dictionary.
+Core state fields (see simulation.md for the full action journal): version=5, day:int (catalog day), request_index:int (bounded by catalog length), phase:String(review/debrief/complete), credits:int, trust:int0..100, stress:int0..100, autonomy:int0..100, coworkers:Dictionary(Maya/Theo/June:int0..100), selected_rules:Array[String], consulted:bool, decisions:Array[Dictionary], log:Array[{day:int,message:String}], last_feedback:Dictionary, last_debrief:Dictionary.
 
 Commands: `{type:'toggle-rule',rule_id:String}`, `{type:'consult-ai'}`, `{type:'review',verdict:'approve'|'request_changes'}`, `{type:'next-day',choice:'rest'|'socialize'|'study'}`.
 

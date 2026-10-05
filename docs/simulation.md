@@ -16,22 +16,22 @@ The desk holds exactly one PR, like the booth in Papers, Please. Each morning th
 
 ## Authors and the team
 
-Five coworkers write PRs (`Policy.AUTHORS`). Maya, Theo, and Inez are there from day 1. Penny, the eager new junior, joins on day 3; Gwen, reassigned from Security after it was consolidated into Helios, joins on day 6 (`Policy.ROSTER`: first morning and starting relationship, Penny 56 and Gwen 48). Nobody is in `state.coworkers` before their first morning: `_staff` adds each newcomer when her day begins, before the line opens, so an earlier dinner with the team doesn't count for her, and a save that lists her early is rejected by replay.
+Five coworkers write PRs (`Policy.AUTHORS`). Maya, Theo, and June are there from day 1. Penny, the eager new junior, joins on day 3; Gwen, reassigned from Security after it was consolidated into Helios, joins on day 6 (`Policy.ROSTER`: first morning and starting relationship, Penny 56 and Gwen 48). Nobody is in `state.coworkers` before their first morning: `_staff` adds each newcomer when her day begins, before the line opens, so an earlier dinner with the team doesn't count for her, and a save that lists her early is rejected by replay.
 
-Who wrote each slot is the explicit per-day table `Policy.LINEUP`, one initial per slot (M, T, I, P, G):
+Who wrote each slot is the explicit per-day table `Policy.LINEUP`, one initial per slot (M, T, J, P, G):
 
 | Day | Lineup | Penny | Gwen |
 | --- | --- | --- | --- |
-| 1 | `MTIMTIMTIMTIMTI` | | |
-| 2 | `TIMTIMTIMTIMTIM` | | |
-| 3 | `IPTIMPIMTPMTIPT` | 2, 6, 10, 14 | |
-| 4 | `MTPMPIMTIPTIMPI` | 3, 5, 10, 14 | |
-| 5 | `PIMPIMTIPTPMTIM` | 1, 4, 9, 11 | |
-| 6 | `IPGIMTGMTIPTGMP` | 2, 11, 15 | 3, 7, 13 |
-| 7 | `GTIMPIMGIPTPMTG` | 5, 10, 12 | 1, 8, 15 |
-| 8 | `TIMGIPGIMTPMTPG` | 6, 11, 14 | 4, 7, 15 |
-| 9 | `IMGIMPIMTPPTGGT` | 6, 10, 11 | 3, 13, 14 |
-| 10 | `MTIGPIGTPMTGMPI` | 5, 9, 14 | 4, 7, 12 |
+| 1 | `MTJMTJMTJMTJMTJ` | | |
+| 2 | `TJMTJMTJMTJMTJM` | | |
+| 3 | `JPTJMPJMTPMTJPT` | 2, 6, 10, 14 | |
+| 4 | `MTPMPJMTJPTJMPJ` | 3, 5, 10, 14 | |
+| 5 | `PJMPJMTJPTPMTJM` | 1, 4, 9, 11 | |
+| 6 | `JPGJMTGMTJPTGMP` | 2, 11, 15 | 3, 7, 13 |
+| 7 | `GTJMPJMGJPTPMTG` | 5, 10, 12 | 1, 8, 15 |
+| 8 | `TJMGJPGJMTPMTPG` | 6, 11, 14 | 4, 7, 15 |
+| 9 | `JMGJMPJMTPPTGGT` | 6, 10, 11 | 3, 13, 14 |
+| 10 | `MTJGPJGTPMTGMPJ` | 5, 9, 14 | 4, 7, 12 |
 
 Every slot the newcomers didn't take keeps its old author from the original three-way rotation, so those PRs' dialogue trees are unchanged. Each newcomer has a slot in the first six of every day she works, since a shift rarely gets further than that, and the original three keep at least four of those six. Each recipe records its slot's author through `Policy._author`, which reads the same table, so Jiro's assignee standard checks the real author; a misassigned ticket only ever goes to someone on staff that day (`Policy.staff(day)`, handed to `records.gd` as the spec's `team`). `Policy.slot_author(day, index, away)` reads the table; anyone listed in `away` (someone who has stopped writing PRs) hands their slots to the day's rotation over whoever is left, deterministically, and with only the original three left that is exactly their old rotation.
 
@@ -107,7 +107,7 @@ Pay is the existing base of 80 plus ten for each correct, actually submitted rev
 
 ## Saved state and replay
 
-Current state (version 15) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`, plus the story fields `firings`, `strikes`, `payloads`, and `ending`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores. The story fields are all rebuilt by replaying the journal, so they are not trusted from the saved file.
+Current state (version 16) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`, plus the story fields `firings`, `strikes`, `payloads`, and `ending`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores. The story fields are all rebuilt by replaying the journal, so they are not trusted from the saved file.
 
 ## Staffing, payloads, and endings
 

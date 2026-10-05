@@ -5,7 +5,7 @@ extends SceneTree
 ## sh scripts/run.sh --script res://tools/portrait_sheet.gd -- <out.png> [cell px]
 const Portraits = preload("res://native/portraits.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
-const CAST: Array[String] = ["maya", "theo", "inez", "morgan", "helios", "penny", "gwen", "june"]
+const CAST: Array[String] = ["maya", "theo", "morgan", "helios", "penny", "gwen", "june"]
 const GAP := 16
 const LABEL := 26
 

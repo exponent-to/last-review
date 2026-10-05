@@ -326,7 +326,7 @@ func _test_dialogue() -> void:
 	# No audit leaks: the same citations produce the same words whether or not they were right.
 	var forbidden := RegEx.new()
 	forbidden.compile("\\bP[0-2][0-9]\\b|violat|audit|%|\\[")
-	for author: String in ["Maya", "Theo", "Inez"]:
+	for author: String in ["Maya", "Theo", "June"]:
 		for version in [1, 2, 3]:
 			for verdict: String in ["approve", "request_changes"]:
 				for cited: Array in [["P01"], ["P16", "P19"], ["P02", "P17", "P21"], []]:

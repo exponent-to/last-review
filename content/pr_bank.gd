@@ -9,7 +9,7 @@ extends RefCounted
 ## entries are spares in the same register.
 ##
 ## Author dialogue: one plain String per field (not a per-author dictionary).
-## Each line is written to work whether Maya, Theo, or Inez wrote the PR. Lines
+## Each line is written to work whether Maya, Theo, or June wrote the PR. Lines
 ## stay under 70 characters, with no exclamation marks, and never name a rule
 ## ID or what a standard checks for:
 ##   pitch     what the author says when the PR reaches your desk
@@ -2452,7 +2452,7 @@ static func entries() -> Array:
 		"grudge": "Okay. Helios owns this review now. It'll approve itself.",
 		"before": [
 			"# review routing by path",
-			"OWNERS = {'payments/': 'maya', 'infra/': 'inez'}",
+			"OWNERS = {'payments/': 'maya', 'infra/': 'june'}",
 			"",
 			"def owners_for(path):",
 			"    matches = filter(path.startswith, OWNERS)",
@@ -2460,7 +2460,7 @@ static func entries() -> Array:
 		],
 		"lines": [
 			"# review routing by path",
-			"OWNERS = {'payments/': 'maya', 'infra/': 'inez'}",
+			"OWNERS = {'payments/': 'maya', 'infra/': 'june'}",
 			"OWNERS[''] = 'helios'",
 			"",
 			"def owners_for(path):",
