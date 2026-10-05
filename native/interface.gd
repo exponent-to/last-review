@@ -166,7 +166,6 @@ var _reject: Button
 var _consult: Button
 var _ai_note: Label
 var _feedback: Label
-var _footer: Label
 var _confirmation: ConfirmationDialog
 var _briefing_dialog: AcceptDialog
 var _last_pr: String = ""
@@ -286,12 +285,8 @@ func _build_os_menu(parent: Node) -> void:
 	panel.add_theme_stylebox_override("panel", bar)
 	parent.add_child(panel)
 	var row: HBoxContainer = _row(panel, 12)
-	var prompt := _label(row, "root@paperclip:~$", 12, CYAN)
-	prompt.tooltip_text = "Workstation N-7. Every keystroke is company property."
-	_footer = _label(row, "READY", 11, DIM)
 	_spacer(row)
 	_hud["day"] = _label(row, day_label(1), 12, RED)
-	_hud["status"] = _footer
 	_clock_label = _label(row, "09:00", 15, GREEN)
 	_clock_label.custom_minimum_size.x = 50
 	_clock_label.tooltip_text = "Shift: 09:00–18:00. %d real minutes. Pause stops the clock." % (Catalog.shift_seconds() / 60)
@@ -1032,7 +1027,6 @@ func begin_morning() -> void:
 	# Morning reading explains these arrivals; keep badges, clear covering bubbles.
 	for app: String in _app_counts: _notifications.clear_app(app)
 	_clock_label.text = "09:00"
-	_footer.text = "BEFORE WORK"
 	_sync_morning_control()
 
 
@@ -1049,7 +1043,6 @@ func _finish_morning() -> void:
 	_sync_morning_control()
 	_daily_reader.show_page(int(_state.get("day", 1)), _browser_path, false)
 	_windows["browser"].minimize_window()
-	_footer.text = "READY"
 	_update_dock()
 	# The day's first PR landed during the morning reading, which cleared its card.
 	# The shift starts with the card back, so the desk is one click away.
@@ -1845,7 +1838,6 @@ func render_state(state: Dictionary) -> void:
 	_consult.visible = day >= 3
 	_ai_note.visible = _consult.visible
 	_hud["day"].text = day_label(day)
-	_hud["status"].text = ("HUMAN SIGN-OFF REQUESTED" if can_review else "DESK CLEAR") if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED"
 	_sync_installed_apps(day)
 	if day != _last_day:
 		_last_day = day
@@ -1937,7 +1929,6 @@ func render_state(state: Dictionary) -> void:
 		_feedback.text = "%s · %s is pushing back on %s. INSIST or WITHDRAW." % [Catalog.display_id(str(pending.pr_id)), str(pending.author), Encounters.noun(str(pending.get("disputed", "")))]
 	_sync_app_events()
 	_render_records()
-	_footer.text = "ORIENTATION" if _tutorial_active else "READY" if phase == "review" else "OFF THE CLOCK"
 
 
 func _ambient_push(app: String, text: String, target: String = "", person: String = "") -> void:
@@ -2094,7 +2085,6 @@ func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
 	_fit_tutorial.call_deferred()
 	_clock_label.text = "TRAINING"
 	_hud["day"].text = "ORIENTATION"
-	_footer.text = "CLOCK STOPPED"
 
 
 func _tutorial_launcher(app: String) -> Control:

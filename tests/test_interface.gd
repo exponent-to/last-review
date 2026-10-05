@@ -60,7 +60,7 @@ func _run() -> void:
 	for stat: String in ["credits", "trust", "stress", "autonomy"]:
 		check(not ui._hud.has(stat), "Top chrome must not expose numeric player statistics")
 	check(ui._pr_id.text == str(Catalog.request_at(0).id) + " / AWAITING REVIEW", "Request header must omit queue size and position")
-	check(not ui._footer.text.contains(" OF "), "Footer must not reveal queue totals")
+	check(not ui._hud.has("status"), "The top bar carries no terminal prompt or status text")
 	check(not ui._windows.has("rules") and not ui._home_icons.has("rules"), "There is no separate Handbook application")
 	ui._browse("standards")
 	var standards_text := ""
