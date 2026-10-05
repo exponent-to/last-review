@@ -11,7 +11,7 @@ const Policy = preload("res://content/policy_campaign.gd")
 const Encounters = preload("res://content/encounters.gd")
 const Staff = preload("res://content/staff.gd")
 const Endings = preload("res://content/endings.gd")
-const SAVE_VERSION: int = 13
+const SAVE_VERSION: int = 14
 const SHIFT_SECONDS: int = 180
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
@@ -27,9 +27,9 @@ const FIRE_TRUST: int = 22
 
 static func initial_state() -> Dictionary:
 	var first_day: int = int(Catalog.campaign_days()[0])
-	# Every seat the campaign assigns, plus the replacement hire, starts neutral.
+	# Every seat the campaign assigns starts neutral.
 	var coworkers: Dictionary = {}
-	for person: String in Staff.seats() + Staff.HIRES:
+	for person: String in Staff.seats():
 		coworkers[person] = 50
 	var state: Dictionary = {
 		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
@@ -83,31 +83,16 @@ static func _public_request(request: Dictionary, consulted: bool = false) -> Dic
 	return public
 
 ## Start a day's line: its authored packets in order, the first already on the desk.
-## A PR whose seat Morgan has handed to Helios never lands, and a payload whose
-## seat went to someone who refuses to ship it is quietly dropped as well.
+## A PR whose seat Morgan has handed to Helios (its author was let go) never lands.
 static func _open_desk(state: Dictionary) -> void:
 	state.desk_line = []
 	var day: int = int(state.day)
 	for request: Dictionary in Catalog.requests_for_day(day):
-		var who: String = Staff.occupant(state, str(request.author), day)
-		if who.is_empty(): continue
-		if bool(request.get("payload", false)) and who in Staff.REFUSES_PAYLOADS: continue
+		if Staff.occupant(state, str(request.author), day).is_empty(): continue
 		state.desk_line.append(request.id)
 	state.active_request_id = ""
 	state.desk_at = int(state.shift_seconds)
 	_deliver(state)
-
-## The PR with its author set to whoever holds that seat now (a replacement hire,
-## if the original author was let go). Returns the shared packet unchanged when the
-## seat still belongs to its original author, which is the usual case.
-static func _staffed(state: Dictionary, packet: Dictionary) -> Dictionary:
-	if packet.is_empty(): return packet
-	var seat: String = str(packet.get("author", ""))
-	var who: String = Staff.occupant(state, seat, int(packet.get("day", state.get("day", 1))))
-	if who == seat or who.is_empty(): return packet
-	var copy: Dictionary = packet.duplicate(true)
-	copy.author = who
-	return copy
 
 ## The next PR in line reaches the desk at `desk_at` and becomes the active review.
 static func _deliver(state: Dictionary) -> void:
@@ -131,12 +116,11 @@ static func active_request(state: Dictionary) -> Dictionary:
 	var request: Dictionary = _desk(state)
 	return {} if request.is_empty() else _public_request(request, request.id in state.consulted_requests)
 
-## Internal, read-only: the full packet on the desk (audit data included), with its
-## author set to whoever holds that seat now.
+## Internal, read-only: the full packet on the desk (audit data included).
 static func _desk(state: Dictionary) -> Dictionary:
 	if state.phase != "review" or str(state.active_request_id).is_empty() or _reviewed(state, state.active_request_id):
 		return {}
-	return _staffed(state, Catalog.packet(state, state.active_request_id, false))
+	return Catalog.packet(state, state.active_request_id, false)
 
 static func _update_request_index(state: Dictionary) -> void:
 	var requests: Array = Catalog.originals()
@@ -227,8 +211,9 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 				next.selected_rules.erase(rule_id)
 				next.citation_evidence.erase(rule_id)
 			else:
-				# A citation pins a rule to the file and line the reviewer pointed at.
-				var location: Variant = _evidence_location(active, command)
+				# A citation pins a rule to the file and line the reviewer pointed at,
+				# or to a record they selected in Jiro or Pipeline.
+				var location: Variant = _evidence_location(next, active, command)
 				if location == null:
 					return next
 				next.selected_rules.append(rule_id)
@@ -292,7 +277,20 @@ static func _answer_pushback(state: Dictionary, disputed: Dictionary, choice: St
 	state.encounters.append(Encounters.beat(state, context, "withdrawn", {"disputed": rule_id}))
 	_record(state, "You withdrew a citation. %s's PR is open for review again." % author)
 
-static func _evidence_location(request: Dictionary, command: Dictionary) -> Variant:
+## Where a citation points: {path, line} in one of the PR's files, or {record, id}
+## for a ticket or build the reviewer can see. A record need not be this PR's own
+## (that is what grading checks), but it must be one Jiro or Pipeline shows: the
+## PR's own link (even an empty or broken one), or any ticket or build listed there.
+static func _evidence_location(state: Dictionary, request: Dictionary, command: Dictionary) -> Variant:
+	if command.has("record"):
+		var record: Variant = command.get("record")
+		var id: Variant = command.get("id")
+		if typeof(id) != TYPE_STRING: return null
+		if record == "ticket" and int(state.day) >= Policy.JIRO_DAY:
+			if id == str(request.get("ticket_ref", "")) or not Catalog.ticket(state, id).is_empty(): return {"record": "ticket", "id": id}
+		elif record == "build" and int(state.day) >= Policy.PIPELINE_DAY:
+			if id == str(request.get("build", {}).get("id", "")) or not Catalog.build(state, id).is_empty(): return {"record": "build", "id": id}
+		return null
 	var path: Variant = command.get("path")
 	if typeof(path) != TYPE_STRING: return null
 	for file: Dictionary in request.get("files", []):
@@ -304,19 +302,20 @@ static func _evidence_location(request: Dictionary, command: Dictionary) -> Vari
 
 static func _cite(state: Dictionary, rule_id: String, evidence: Variant) -> Dictionary:
 	var location: Dictionary = evidence if typeof(evidence) == TYPE_DICTIONARY else {}
+	if location.has("record"):
+		return dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "record": location.get("record"), "id": location.get("id")})
 	return dispatch(state, {"type": "toggle-rule", "rule_id": rule_id, "path": location.get("path"), "line": location.get("line")})
 
 ## Grade and close the PR on the desk. `node` is the encounter branch already
 ## chosen from mood and visible actions; it decides what happens to the desk line.
 static func _review(state: Dictionary, verdict: String, context: Dictionary, node: String, extra: Dictionary = {}) -> void:
-	var request: Dictionary = _staffed(state, Catalog.packet(state, state.active_request_id, false))
+	var request: Dictionary = Catalog.packet(state, state.active_request_id, false)
 	var payload: bool = bool(request.get("payload", false))
 	var expected: Array = request.violations
 	var correct: bool = expected.is_empty() if verdict == "approve" else _same_rules(state.selected_rules, expected)
 	if verdict == "request_changes" and correct:
 		for rule_id: String in state.selected_rules:
-			var location: Dictionary = state.citation_evidence.get(rule_id, {})
-			if not Policy.evidence_accepted(request.findings, rule_id, str(location.get("path", "")), int(location.get("line", -1))):
+			if not Policy.evidence_matches(request.findings, rule_id, state.citation_evidence.get(rule_id, {})):
 				correct = false
 	# Blocking a payload is a correct review whether you cite the readability
 	# standard or stamp it with no reason at all; its only fault is the payload.
@@ -513,9 +512,9 @@ static func _fire(state: Dictionary, person: String, day: int, reason: String) -
 		if Staff.occupant(state, candidate, day) == person:
 			seat = candidate
 			break
-	var hire: String = Staff.next_hire(state)
-	state.firings.append({"name": person, "seat": seat, "day": day, "hire": hire, "reason": reason})
-	_record(state, "Morgan let %s go. %s" % [person, ("%s takes the desk tomorrow." % hire) if not hire.is_empty() else "The desk goes to Helios."])
+	# Nobody is hired to replace them: Helios takes the desk from tomorrow.
+	state.firings.append({"name": person, "seat": seat, "day": day, "reason": reason})
+	_record(state, "Morgan let %s go. Helios has %s's desk now." % [person, person])
 
 ## The run can end the moment Morgan loses faith in you, your stress maxes out, or
 ## the last of the human team is gone.

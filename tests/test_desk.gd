@@ -325,11 +325,11 @@ func _test_dialogue() -> void:
 	_check(relief.mood != "neutral" or maya.filter(func(message: Dictionary) -> bool: return message.kind == "reaction")[-1].text.begins_with("Finally"), "A neutral author's relief starts with Finally.")
 	# No audit leaks: the same citations produce the same words whether or not they were right.
 	var forbidden := RegEx.new()
-	forbidden.compile("\\bP0[1-9]\\b|violat|audit|%|\\[")
+	forbidden.compile("\\bP[0-2][0-9]\\b|violat|audit|%|\\[")
 	for author: String in ["Maya", "Theo", "Inez"]:
 		for version in [1, 2, 3]:
 			for verdict: String in ["approve", "request_changes"]:
-				for cited: Array in [["P01"], ["P03", "P04"], ["P02", "P05", "P08"], []]:
+				for cited: Array in [["P01"], ["P16", "P19"], ["P02", "P17", "P21"], []]:
 					var line: String = Chat._lines().reaction(author, version, verdict, cited, "PR-2004" if version == 1 else "PR-2004-v%d" % version)
 					_check(forbidden.search(line) == null and not line.is_empty(), "Revision dialogue never names rules or audit results: " + line)
 			for cited: Array in [["P01"], ["P02", "P06"]]:
@@ -356,4 +356,4 @@ func _test_whole_pr_citation() -> void:
 	_check(stamped.last_feedback.correct, "WHOLE FILE on the PR's last file is valid evidence for %s." % pr_rule)
 	_round_trip(stamped)
 	_check(Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": pr_rule, "path": "nowhere/else.py", "line": 0}) == state, "Whole-PR evidence must still point at a file in the PR.")
-	_check(int(state.day) >= 7 and Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "P05", "path": str(packet.files[0].path), "line": 0}) == state, "A retired standard can no longer be cited.")
+	_check(int(state.day) >= 7 and Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "P17", "path": str(packet.files[0].path), "line": 0}) == state, "A retired standard can no longer be cited.")

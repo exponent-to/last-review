@@ -97,7 +97,7 @@ func _test_reviews() -> void:
 	var policy := load("res://content/policy_campaign.gd")
 	for finding: Dictionary in request.findings:
 		_check(policy.evidence_accepted(request.findings, finding.rule_id, finding.path, int(finding.line)), "Every audited finding accepts its own location.")
-	_check(policy.evidence_accepted([{"rule_id": "P03", "path": "a.py", "line": 0}], "P03", "a.py", 7) and not policy.evidence_accepted([{"rule_id": "P03", "path": "a.py", "line": 0}], "P03", "b.py", 0), "Whole-file rules accept any line of the right file only.")
+	_check(policy.evidence_accepted([{"rule_id": "P02", "path": "a.py", "line": 0}], "P02", "a.py", 7) and not policy.evidence_accepted([{"rule_id": "P02", "path": "a.py", "line": 0}], "P02", "b.py", 0), "Whole-file rules accept any line of the right file only.")
 	_check(overcited.trust == 59 and overcited.coworkers[request.author] == 41, "Incorrect rejection must hurt trust and relationships.")
 	_check(Simulation.dispatch(initial, {"type": "consult-ai"}) == initial, "Helios is unavailable until Wednesday.")
 	var bad_approval := Simulation.dispatch(initial, {"type": "review", "verdict": "approve"})
@@ -223,10 +223,10 @@ func _test_catalog() -> void:
 	for rule: Dictionary in Catalog.rules_for_day(1):
 		initial_ids.append(rule.id)
 	initial_ids.sort()
-	_check(initial_ids == ["P01", "P02", "P03"], "New reviewers must start with exactly three foundational policies.")
-	# P15 "Readable code" joins on day 3, so the slip carries seven then nine.
-	_check(Catalog.rules_for_day(2).size() == 3 and Catalog.rules_for_day(3).size() == 7 and Catalog.rules_for_day(5).size() == 9, "Active standards must grow gradually across the first week.")
-	_check(Catalog.rules_for_day(10).size() <= 9 and not Catalog.rule_active("P05", 7) and Catalog.rule_active("P13", 9), "Week two retires and replaces standards instead of piling them up.")
+	_check(initial_ids == ["P01", "P02", "P11"], "New reviewers must start with exactly three foundational policies.")
+	# P15 "Readable code" joins on day 3 with the payloads, inside the six-standard cap.
+	_check(Catalog.rules_for_day(2).size() == 3 and Catalog.rules_for_day(3).size() == 6 and Catalog.rules_for_day(5).size() == 6, "Active standards must grow gradually across the first week.")
+	_check(Catalog.rules_for_day(10).size() <= 6 and not Catalog.rule_active("P17", 5) and Catalog.rule_active("P15", 9), "Week two retires and replaces standards instead of piling them up.")
 	_check(Catalog.campaign_days() == range(1, 11), "Campaign days must be derived in authored order: two weeks of five.")
 	# Fifteen authored PRs a day; from day 3 a Helios payload lands at the front too.
 	var authored_day_one: Array = Catalog.requests_for_day(1).filter(func(p: Dictionary) -> bool: return not p.get("payload", false))

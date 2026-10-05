@@ -157,20 +157,18 @@ const PICKS := {
 	},
 }
 ## What you cited leans the change-request branch, by standard category.
-## People defend their words, colors, scope, and authorship; paperwork, secrets,
-## and stray prints they just fix; splitting a big PR is when people give up.
+## People defend their words, colors, scope, and their CI ("it's flaky"); ticket
+## paperwork and secrets they just fix; coverage gates and splitting a big PR are
+## when people give up.
 const LEANS := {
 	"Language": {"pushback": 8},
 	"Color": {"pushback": 6},
-	"Labels": {"pushback": 6},
-	"Disclosure": {"pushback": 8},
 	"Process": {"pushback": 6, "revise_later": 4},
 	"Size": {"pushback": 4, "abandon": 6},
-	"Filenames": {"revise_now": 8},
-	"Sign-off": {"revise_now": 8},
-	"Layout": {"revise_now": 6},
 	"Security": {"revise_now": 10},
-	"Hygiene": {"revise_now": 8},
+	"Tickets": {"revise_now": 8},
+	"Builds": {"pushback": 8, "revise_later": 2},
+	"Coverage": {"pushback": 4, "abandon": 6},
 	"Readability": {"pushback": 8},
 }
 ## Neutral desk lines for the classic moments are the original banter.
@@ -185,7 +183,7 @@ const DESK_OVERRIDES := {"pitch": "pitch", "pushback": "pushback", "thanks": "re
 const REPEATABLE: Array[String] = ["flag", "unflag", "consult"]
 const DM_OVERRIDES := {"grudge": "grudge"}
 ## Reactions to a reason-free CHANGES REQUESTED (the "unexplained" node): confusion,
-## anger, or a shrug toward Helios, by mood. Author-neutral, so a replacement hire
+## anger, or a shrug toward Helios, by mood. Author-neutral, so any author in the cast
 ## says them too. They never name a standard, because there was no citation.
 const UNEXPLAINED := {
 	"warm": ["No note at all? Did I do something? You can tell me.", "You sent it back blank. That's not like you. Everything okay?", "Rejected with nothing written? I guess Helios just merges it."],
@@ -445,7 +443,7 @@ static func overrides(packet: Dictionary) -> Dictionary:
 
 ## Authored templates for a node, author, and mood. Neutral desk lines for the
 ## classic moments fall back to the original banter; an author with no authored
-## encounter lines at all (a replacement hire) uses the banter in every mood, so
+## encounter lines at all (a newer cast member) uses the banter in every mood, so
 ## their bubble is never empty.
 static func templates(channel: String, node: String, author: String, mood: String) -> Array:
 	var authored: Array = Lines.lines(author, channel, node, mood)

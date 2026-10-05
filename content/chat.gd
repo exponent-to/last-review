@@ -309,11 +309,11 @@ static func _staffing_notes(state: Dictionary, day: int) -> Array:
 		if int(strike.get("day", 0)) == day: struck_today[str(strike.name)] = true
 	for firing: Dictionary in state.get("firings", []):
 		if int(firing.get("day", 0)) != day: continue
-		var hire := str(firing.get("hire", ""))
-		var where := ("%s starts at that desk tomorrow." % hire) if not hire.is_empty() else "The desk goes to Helios tomorrow."
+		# Nobody replaces them; Helios takes the seat, and their PRs stop coming.
+		var name := str(firing.name)
 		var reason := str(firing.reason)
 		if not reason.is_empty(): reason = reason.left(1).to_upper() + reason.substr(1) + "."
-		notes.append("I had to let %s go. %s %s" % [str(firing.name), reason, where])
+		notes.append("I had to let %s go. %s Helios has %s's desk now. Nobody's backfilling it." % [name, reason, name])
 	# Warn about anyone one strike short who is still here.
 	for person: String in Staff.team(state, day):
 		if Staff.is_fired(state, person) or not struck_today.get(person, false): continue

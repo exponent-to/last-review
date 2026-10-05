@@ -157,12 +157,12 @@ func _test_player_fired() -> void:
 	check(int(state.trust) < Sim.FIRE_TRUST or int(state.stress) >= 100, "Firing follows collapsed trust or maxed stress.")
 	check(int(state.day) < int(Catalog.campaign_days()[-1]), "The firing ends the run before the final day.")
 
-# --- Coworker firing and replacement --------------------------------------------
+# --- Coworker firing ------------------------------------------------------------
 
 func _test_coworker_fired_and_replaced() -> void:
 	# Approve the first of Maya's broken PRs each day (its defect ships), reviewing
 	# everything else correctly. Maya takes one strike a day and is let go on the
-	# third; June takes the seat the next morning, and you keep Morgan's trust.
+	# third; Helios takes the seat the next morning, and you keep Morgan's trust.
 	var state := _play(func(s: Dictionary, p: Dictionary) -> Dictionary:
 		if str(p.author) == "Maya" and not p.violations.is_empty() and not p.get("payload", false):
 			var bad_today := 0
@@ -178,12 +178,20 @@ func _test_coworker_fired_and_replaced() -> void:
 	var firing: Dictionary = {}
 	for f: Dictionary in state.firings:
 		if str(f.name) == "Maya": firing = f
-	check(not firing.is_empty() and str(firing.seat) == "Maya" and str(firing.hire) == "June", "A freed seat passes to June.")
+	check(not firing.is_empty() and str(firing.seat) == "Maya" and not firing.has("hire"), "A fired coworker's seat is freed, and nobody is hired into it.")
 	check(str(firing.reason).contains("defect"), "The firing names the shipped defect as the cause.")
 	check(Staff.strikes(state, "Maya") >= Staff.STRIKES_TO_FIRE, "Three strikes precede the firing.")
 	var next_day := int(firing.day) + 1
-	check(Staff.occupant(state, "Maya", next_day) == "June", "June occupies Maya's seat the next day.")
-	check("Maya" not in Staff.team(state, next_day) and "June" in Staff.team(state, next_day), "The team swaps the fired seat for the hire.")
+	check(Staff.occupant(state, "Maya", next_day).is_empty(), "Helios holds Maya's seat from the next day.")
+	check("Maya" not in Staff.team(state, next_day) and Staff.team(state, next_day).size() == Staff.seats().size() - 1, "The team shrinks; nobody backfills the seat.")
+	# Play into the next morning: none of Maya's PRs reach the desk any more.
+	var after := state
+	if after.phase == "debrief": after = Sim.dispatch(after, {"type": "next-day", "choice": "rest"})
+	if after.phase == "review":
+		var line: Array = [str(after.active_request_id)] + after.desk_line
+		check(line.all(func(id: String) -> bool: return id.is_empty() or str(Catalog.packet(after, id).get("author", "")) != "Maya"), "A fired coworker's PRs never reach the desk again.")
+	var report: Dictionary = load("res://content/chat.gd").evening(state)
+	check(report.get("notes", []).any(func(text: String) -> bool: return text.contains("Helios has Maya's desk now")), "Morgan's panel says Helios has the fired coworker's desk.")
 	check(state.ending != "player_fired", "A careful reviewer is not fired while a coworker is.")
 
 # --- Whole team fired -----------------------------------------------------------
@@ -192,7 +200,7 @@ func _test_whole_team_fired() -> void:
 	# A constructed close where every original seat has been let go ends the run.
 	var state := Sim.initial_state()
 	for seat: String in Staff.seats():
-		state.firings.append({"name": seat, "seat": seat, "day": 2, "hire": "", "reason": "test"})
+		state.firings.append({"name": seat, "seat": seat, "day": 2, "reason": "test"})
 	check(Staff.whole_team_fired(state), "Firing every original seat is a whole-team wipeout.")
 	check(Sim.resolve_ending(state) != "", "An ending resolves even with the team gone.")
 
@@ -208,6 +216,7 @@ func _test_save_replay_with_story() -> void:
 		return _correct(s, p), "socialize")
 	check(state.phase == "complete" and not str(state.ending).is_empty(), "The mixed career reaches an ending.")
 	check(not state.payloads.is_empty(), "The mixed career resolved payloads.")
+	check(Sim.SAVE_VERSION >= 14, "The story's firings, payloads, and ending bumped the save format past 13.")
 	var raw := Sim.serialize_save(state)
 	check(not raw.is_empty(), "A career with firings, payloads, and an ending serializes.")
 	var loaded := Sim.validate_save(JSON.parse_string(raw))

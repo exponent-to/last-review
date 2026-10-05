@@ -82,6 +82,13 @@ const CARDS := {
 	},
 }
 
+## The soundtrack's ending variation (native/music.gd play_ending): the two
+## endings where the people stood together are warm; every other is bleak.
+const WARM: Array[String] = ["last_reviewers", "soft_landing"]
+
+static func music_kind(key: String) -> String:
+	return "warm" if key in WARM else "bleak"
+
 static func has(key: String) -> bool:
 	return CARDS.has(key)
 

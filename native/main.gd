@@ -7,6 +7,7 @@ const ComputerFrame = preload("res://native/computer_frame.gd")
 const MainMenu = preload("res://native/main_menu.gd")
 const ColdOpen = preload("res://native/cold_open.gd")
 const Tutorial = preload("res://native/tutorial.gd")
+const Music = preload("res://native/music.gd")
 
 var state: Dictionary = {}
 var interface: GameInterface
@@ -19,11 +20,16 @@ var menu: MainMenu
 var tutorial: Dictionary = {}
 var _cold_open: ColdOpen
 var active_slot := 1
+## The adaptive soundtrack; endings can call `music.play_ending(kind)`.
+var music: Music
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(1120, 800)
 	# Pre-release: saves from an older format are removed, so the menu shows empty slots.
 	if SaveStore.DELETE_INVALID_SAVES_ON_START: SaveStore.purge_invalid()
+	music = Music.new()
+	music.name = "Music"
+	add_child(music)
 	state = Simulation.initial_state()
 	_build_interface()
 	interface.hide()
@@ -49,6 +55,10 @@ func _build_interface() -> void:
 	interface.menu_requested.connect(_return_to_menu)
 	interface.tutorial_event.connect(_tutorial_event)
 	interface.tutorial_continue_requested.connect(_tutorial_continue)
+	interface.music_toggled.connect(music.set_enabled)
+	interface.music_volume_changed.connect(music.set_volume)
+	interface.set_music_settings(music.enabled, music.volume)
+	interface.ending_music.connect(music.play_ending)
 	scenery = ComputerFrame.new()
 	interface.scene_host.add_child(scenery)
 	interface.set_save_slot(active_slot)
@@ -124,6 +134,31 @@ func _notification(what: int) -> void:
 
 func _process(delta: float) -> void:
 	_tick_shift(delta)
+	_sync_music()
+
+## Tell the soundtrack where the player is: the menu, the cold open, morning
+## reading (and orientation), the shift by its progress, Morgan's end-of-day
+## panel, or the finished assignment.
+func _sync_music() -> void:
+	if not is_instance_valid(music): return
+	var at_desk := is_instance_valid(interface) and interface.visible and not menu.visible
+	music.set_paused(paused and at_desk)
+	music.set_focused(_focused)
+	if is_instance_valid(_cold_open):
+		music.set_scene("cold_open")
+	elif menu.visible:
+		music.set_scene("menu")
+	elif not at_desk:
+		return
+	elif state.get("phase") == "complete":
+		if music.ending.is_empty(): music.play_ending(Music.ending_kind(state))
+	elif state.get("phase") == "debrief" or interface._windows.evening.visible:
+		music.set_scene("evening")
+	elif not tutorial.is_empty() or interface.morning_active:
+		music.set_scene("morning")
+	else:
+		var progress := float(state.get("shift_seconds", 0)) / float(maxi(1, Simulation.Catalog.shift_seconds()))
+		music.set_scene("shift", progress, not Simulation.Encounters.pending(state).is_empty())
 
 func _tick_shift(delta: float) -> void:
 	if not tutorial.is_empty() or not is_instance_valid(interface) or not interface.visible or paused or not _focused or state.get("phase") != "review":

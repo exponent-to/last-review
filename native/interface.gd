@@ -10,6 +10,10 @@ signal pause_requested
 signal menu_requested
 signal tutorial_event(event: Dictionary)
 signal tutorial_continue_requested
+signal music_toggled(enabled: bool)
+signal music_volume_changed(volume: float)
+## The ending cinematic started: "warm" or "bleak", for the soundtrack.
+signal ending_music(kind: String)
 
 const Simulation = preload("res://native/simulation.gd")
 const ComputerFrame = preload("res://native/computer_frame.gd")
@@ -25,6 +29,8 @@ const Portraits = preload("res://native/portraits.gd")
 const Tutorial = preload("res://native/tutorial.gd")
 const Endings = preload("res://content/endings.gd")
 const EndingCinematic = preload("res://native/ending_cinematic.gd")
+const Policy = preload("res://content/policy_campaign.gd")
+const Records = preload("res://content/records.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 # Night-shift terminal palette: black glass, phosphor green, one alarm red,
 # and paper documents for anything a person signs.
@@ -44,25 +50,25 @@ const PAPER_MUTED: Color = Color("3c3f39")
 const PAPER_LINE: Color = Color("7a7e75")
 const STAMP_GREEN: Color = Color("2f8a4f")
 const STAMP_RED: Color = Color("c0202f")
-## One-line slip summaries. "P04@7" replaces "P04" from day 7, when it was amended.
+## One-line slip summaries. "P19@7" replaces "P19" from day 7, when it was amended.
 const RULE_SUMMARIES := {
 	"P01": "No ‘load-bearing’ in comments.",
 	"P02": "def / if / else / return must be blue.",
 	"P02@5": "Keywords blue, unless the file’s permit is INK-EXCEPTION.",
-	"P02@9": "Keywords blue, unless permit is INK-EXCEPTION PCL-####.",
-	"P03": "No uppercase A–Z in the filename.",
-	"P04": "At most 60 characters per source line.",
-	"P04@7": "At most 72 characters per source line.",
-	"P05": "Last nonempty line: # approved by a pigeon",
-	"P06": "No ! in comments.",
-	"P07": "No tab characters anywhere.",
-	"P08": "No whole word ‘urgent’ inside quotes.",
+	"P02@9": "Keywords blue, unless permit is INK-EXCEPTION + this PR’s ticket.",
 	"P09": "Whole PR: at most 30 lines changed (+ and −).",
-	"P10": "Whole PR: at most 3 files.",
 	"P11": "No quoted string assigned to a password / secret / token / api_key name.",
-	"P12": "No print( outside tests/.",
 	"P13": "Whole PR: changes existing code (M/R)? A tests/ file must change too.",
-	"P14": "Comment mentions Helios? File needs # generated-by: helios",
+	"P16": "Ticket: linked, in Jiro, and Open or In Progress.",
+	"P17": "Ticket: assigned to the PR’s author.",
+	"P18": "Ticket: every non-test file sits directly in its component.",
+	"P18@9": "Ticket: every non-test file sits in its component or below.",
+	"P19": "Build: status not FAILED (FLAKY passes).",
+	"P19@7": "Build: not FAILED. Helios overrides count as passing.",
+	"P19@9": "Build: not FAILED, and not overridden by Helios.",
+	"P20": "Build: rerun at most 3 times.",
+	"P21": "Build: coverage falls 2.0 points at most.",
+	"P15": "No exec/eval, helios.bootstrap, or minified one-liners.",
 }
 ## The evening choices and what each does, in words rather than numbers
 ## (the effects themselves live in Simulation._evening).
@@ -75,7 +81,11 @@ const EVIDENCE_HINTS := {
 	"line": "Cite the exact line.",
 	"file": "Cite the file: WHOLE FILE or any of its lines.",
 	"pr": "About the whole PR: WHOLE FILE on any changed file.",
+	"ticket": "Cite the PR's ticket: open it in JIRO and SELECT AS EVIDENCE. WHOLE FILE doesn't count.",
+	"build": "Cite the PR's build: open it in PIPELINE and SELECT AS EVIDENCE. WHOLE FILE doesn't count.",
 }
+## How Jiro colors a ticket status, and Pipeline a build status.
+const STATUS_COLORS := {"Open": Color("9fc4e8"), "In Progress": Color("e0b44a"), "PASSED": Color("6fdc8c"), "FLAKY": Color("e0b44a"), "FAILED": Color("e5384a")}
 
 class PolicyHighlighter extends SyntaxHighlighter:
 	# Keyword ink is computed on the proposed file, then mapped onto diff rows.
@@ -111,12 +121,15 @@ var _monitor_screen: Control
 var _desktop_home: Control
 var _home_icons: Dictionary = {}
 var _notifications: Notifications
+## Apps that can notify. Jiro and Pipeline never do: a record is checked, not delivered.
 var _app_counts := {"review": 0, "browser": 0, "system": 0}
 var _app_badges: Dictionary = {}
 var _known_requests: Dictionary = {}
 var _unread_requests: Dictionary = {}
 var _notification_day := -1
 var _system_status: Label
+var _music_toggle: Button
+var _music_volume: HSlider
 var _save_slot_label: Label
 var _desktop: Control
 var _windows: Dictionary = {}
@@ -200,6 +213,26 @@ var _slip_day: int = -1
 var _flag_buttons: Dictionary = {}
 var _standards_link: Button
 var _whole_file: Button
+## The PR slip's record links: its Jiro ticket and its Pipeline build.
+var _pr_refs: HBoxContainer
+var _ticket_link: LinkButton
+var _build_link: LinkButton
+## Jiro: search, ticket list, and the ticket on view. `_jiro_view` is
+## {"ticket": id} for a ticket Jiro has, {"link": id} for the desk PR's own link
+## when Jiro has no such ticket (or the PR links none), or {} for nothing.
+var _jiro_search: LineEdit
+var _jiro_list: VBoxContainer
+var _jiro_detail: VBoxContainer
+var _jiro_view: Dictionary = {}
+var _jiro_tickets: Array = []
+var _jiro_key := ""
+var _jiro_list_key := ""
+## Pipeline: recent builds, and the build on view ("" for none).
+var _pipeline_list: VBoxContainer
+var _pipeline_detail: VBoxContainer
+var _pipeline_build := ""
+var _pipeline_builds: Array = []
+var _pipeline_key := ""
 
 
 func _ready() -> void:
@@ -529,6 +562,9 @@ func _build_desktop(parent: Node) -> void:
 	code.size_flags_stretch_ratio = 2.4
 	_build_review_content(code)
 	_build_decision(review_body)
+	# The PR's other documents: its ticket in Jiro and its build in Pipeline.
+	_build_jiro(_new_window("jiro", "JIRO / TICKETS").body)
+	_build_pipeline(_new_window("pipeline", "PIPELINE / CI").body)
 	_build_system(_new_window("system", "SYSTEM / WORKSTATION SETTINGS").body)
 	_build_browser(_new_window("browser", "INTRANET / LOCAL BROWSER").body)
 	# Morgan's end-of-day panel has no icon: it opens by itself at closing and
@@ -575,8 +611,11 @@ func _build_home() -> void:
 	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var tagline := _label(motto, "making more of everything._", 13, Color("2a2a2e"))
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	# Jiro and Pipeline are installed on the mornings their standards arrive.
 	var launchers: Array = [
 		["review", "REVIEW", "review"],
+		["jiro", "JIRO", "jiro"],
+		["pipeline", "PIPELINE", "pipeline"],
 		["browser", "INTRANET", "browser"],
 		["system", "SYSTEM", "system"],
 	]
@@ -624,15 +663,38 @@ func _layout_home_icons() -> void:
 	var rows := maxi(1, int((_desktop.size.y - 26) / 104))
 	var index := 0
 	for launcher: Button in _home_icons.values():
+		if not launcher.visible: continue
 		launcher.position = Vector2(22 + int(index / rows) * 122, 18 + (index % rows) * 104)
 		index += 1
+
+
+## Whether an app is installed on `day`: Jiro from its first morning, Pipeline from its.
+static func app_installed(id: String, day: int) -> bool:
+	match id:
+		"jiro": return day >= Policy.JIRO_DAY
+		"pipeline": return day >= Policy.PIPELINE_DAY
+	return true
+
+
+## Show only the apps installed today; an app that isn't installed yet stays closed.
+func _sync_installed_apps(day: int) -> void:
+	var changed := false
+	for id: String in ["jiro", "pipeline"]:
+		var installed := app_installed(id, day) and not _tutorial_active
+		if _home_icons[id].visible != installed:
+			_home_icons[id].visible = installed
+			changed = true
+		if not installed and _windows[id].launched: _windows[id].close_window()
+	if changed:
+		_layout_home_icons()
+		_update_dock()
 
 
 func _new_window(id: String, title: String) -> DesktopWindow:
 	var window: DesktopWindow = DesktopWindow.new()
 	window.window_id = id
 	window.window_title = title
-	window.resize_minimum_size = {"review": Vector2(650, 390), "evening": Vector2(480, 340)}.get(id, Vector2(420, 280))
+	window.resize_minimum_size = {"review": Vector2(650, 390), "evening": Vector2(480, 340), "jiro": Vector2(600, 340), "pipeline": Vector2(600, 340)}.get(id, Vector2(420, 280))
 	window.activated.connect(_focus_app)
 	window.minimized.connect(func(_id: String) -> void: _update_dock())
 	window.closed.connect(func(_id: String) -> void: _update_dock())
@@ -657,13 +719,22 @@ func _build_review_content(code: VBoxContainer) -> void:
 	paper_style.shadow_offset = Vector2(3, 3)
 	_paper.add_theme_stylebox_override("panel", paper_style)
 	code.add_child(_paper)
-	var title_row: HBoxContainer = _row(_paper, 10)
+	var slip_lines: VBoxContainer = _column(_paper, 1)
+	var title_row: HBoxContainer = _row(slip_lines, 10)
 	_pr_title = _label(title_row, "", 15, PAPER_INK)
 	_pr_title.clip_text = true
 	_pr_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_pr_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pr_title.custom_minimum_size.x = 80
 	_pr_id = _label(title_row, "PULL REQUEST", 11, STAMP_RED)
+	# From Wednesday the slip names the PR's ticket, and from Friday its build. Each
+	# opens its app on that record; neither says anything about what's inside.
+	_pr_refs = _row(slip_lines, 18)
+	_ticket_link = _slip_link(_pr_refs, _open_desk_ticket)
+	_ticket_link.tooltip_text = "Open this PR's ticket in JIRO."
+	_build_link = _slip_link(_pr_refs, _open_desk_build)
+	_build_link.tooltip_text = "Open this PR's build in PIPELINE."
+	_pr_refs.hide()
 	# The author's pitch lives in the speech bubble.
 	_packet_scroll = ScrollContainer.new()
 	_packet_scroll.hide()
@@ -699,7 +770,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_whole_file = _button(pointer_row, "WHOLE FILE", func() -> void: _point_at(0))
 	_whole_file.custom_minimum_size.y = 26
 	_whole_file.add_theme_font_size_override("font_size", 11)
-	_whole_file.tooltip_text = "Point at this entire file, for rules about its filename, ink, quoted labels, or disclosure, and for whole-PR rules (lines changed, file count, tests): any changed file will do."
+	_whole_file.tooltip_text = "Point at this entire file, for rules about its ink, and for whole-PR rules (lines changed, tests): any changed file will do. Ticket and build standards need the record itself, from JIRO or PIPELINE."
 	_diff = CodeEdit.new()
 	_diff.name = "PullRequestDiff"
 	_diff.editable = false
@@ -799,13 +870,10 @@ func _update_code_legend() -> void:
 	var index := _file_picker.selected
 	if index < 0 or index >= _review_files.size() or not _review_files[index].has("source"): return
 	var entry: Dictionary = _review_files[index]
-	# Keyword colors speak for themselves; only permits and line lengths need a readout.
+	# Keyword colors speak for themselves; only the file's permit needs a readout.
 	var notes: Array[String] = []
 	var day := int(_state.get("day", 1))
-	if day >= int(load("res://content/policy_campaign.gd").PERMIT_DAY): notes.append("Permit: " + str(entry.get("permit", "none")))
-	if Catalog.rule_active("P04", day):
-		var caret_line: int = _line_for_row(_diff.get_caret_line())
-		notes.append(("Line %d · %d characters (click a line to measure)" % [caret_line, _diff.get_line(_diff.get_caret_line()).length()]) if caret_line > 0 else "Removed line: not part of the new file")
+	if day >= Policy.PERMIT_DAY: notes.append("Permit: " + str(entry.get("permit", "none")))
 	_code_legend.text = "\n".join(notes)
 	_code_legend.visible = not notes.is_empty()
 
@@ -834,7 +902,7 @@ func _build_dock(parent: Node) -> void:
 	_home_button = home
 	home.add_theme_font_size_override("font_size", 12)
 	home.tooltip_text = "Show the desktop. Open windows remain on the taskbar."
-	for item: Array in [["review", "REVIEW"], ["browser", "INTRANET"], ["system", "SYSTEM"], ["evening", "END OF DAY"]]:
+	for item: Array in [["review", "REVIEW"], ["jiro", "JIRO"], ["pipeline", "PIPELINE"], ["browser", "INTRANET"], ["system", "SYSTEM"], ["evening", "END OF DAY"]]:
 		var id: String = str(item[0])
 		var button: Button = _button(dock, str(item[1]), _open_app.bind(id))
 		button.toggle_mode = true
@@ -859,6 +927,9 @@ func _arrange_windows() -> void:
 	var layouts: Dictionary = {
 		"review": Rect2(Vector2(142, 8), Vector2(extent.x - 150, extent.y - 16)),
 		"system": Rect2(Vector2(210, 90), Vector2(minf(650, extent.x - 240), minf(470, extent.y - 118))),
+		# Beside Review rather than over its citation slip, so a record and the slip can both be seen.
+		"jiro": Rect2(Vector2(150, 30), Vector2(minf(860, extent.x - 170), minf(560, extent.y - 50))),
+		"pipeline": Rect2(Vector2(170, 46), Vector2(minf(860, extent.x - 190), minf(560, extent.y - 66))),
 		"browser": Rect2(Vector2(185, 70), Vector2(minf(720, extent.x - 215), minf(500, extent.y - 98))),
 		# Centered beside the icons: the shift is over and this is the one thing left.
 		"evening": Rect2(((extent - evening) * 0.5).floor().max(Vector2(142, 12)), evening),
@@ -876,10 +947,15 @@ func _arrange_windows() -> void:
 func _open_app(id: String) -> void:
 	if id == "decision":
 		id = "review"
+	if not app_installed(id, int(_state.get("day", 1))): return
+	# Opened from its icon, a record app starts on the desk PR's own record.
+	if id == "jiro" and _jiro_view.is_empty(): _jiro_view = _desk_ticket_view()
+	if id == "pipeline" and _pipeline_build.is_empty(): _pipeline_build = str(Simulation.active_request(_state).get("build", {}).get("id", ""))
 	var window: DesktopWindow = _windows[id]
 	window.restore_window()
 	_mark_app_read(id)
 	_update_dock()
+	if id in ["jiro", "pipeline"]: _render_records(true)
 	if id == "review": tutorial_event.emit({"type": "open-review"})
 	if id == "review" and not _review_files.is_empty():
 		tutorial_event.emit({"type": "inspect-file", "path": _file_label.text})
@@ -949,7 +1025,7 @@ func _browse(path: String, record: bool = true) -> void:
 		return
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, point at the evidence, then tick the standard it breaks on the citation slip:\n• Line standards: click the offending line.\n• File standards (filename, ink, quoted labels, disclosure): WHOLE FILE, or any line of that file.\n• Whole-PR standards (lines changed, file count, tests): WHOLE FILE on any changed file. The diffstat above the diff counts lines and files for you.\nStandards are reissued every second morning; the daily memo lists what was added, amended, or retired. Full standards are on the intranet.\nThe author sits at your desk and reacts to your decisions. At closing, your manager checks in about bugs, delays, and work handed to Helios.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, point at the evidence, then tick the standard it breaks on the citation slip:\n• Line standards: click the offending line.\n• File standards (ink): WHOLE FILE, or any line of that file.\n• Whole-PR standards (lines changed, tests): WHOLE FILE on any changed file. The diffstat above the diff counts lines for you.\n• Ticket standards: open the PR's ticket in JIRO (click it on the PR slip) and SELECT AS EVIDENCE.\n• Build standards: open the PR's build in PIPELINE (also on the slip) and SELECT AS EVIDENCE. WHOLE FILE never counts for a ticket or a build.\nStandards are reissued every second morning; the daily memo lists what was added, amended, or retired. Full standards are on the intranet.\nThe author sits at your desk and reacts to your decisions. At closing, your manager checks in about bugs, delays, and work handed to Helios.\nHelios recommendations are optional and can be wrong."
 		_:
 			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nNEWS carries the morning headlines. DAILY MEMO carries today's instructions from management. PROCEDURE describes the review process.\n\nExternal access restricted by company policy."
 
@@ -1106,7 +1182,8 @@ func _flag_rule(rule_id: String) -> void:
 		# With nothing selected, a ticked rule can still be withdrawn.
 		if rule_id in _state.get("selected_rules", []): _withdraw_citation(rule_id)
 		else:
-			notify("Select the offending line first (or WHOLE FILE), then tick the standard.", false, "review")
+			var scope: String = Policy.scope(rule_id)
+			notify("Select the PR's %s in %s first, then tick the standard." % [scope, "JIRO" if scope == "ticket" else "PIPELINE"] if scope in ["ticket", "build"] else "Select the offending line first (or WHOLE FILE), then tick the standard.", false, "review")
 			render_state(_state)
 		return
 	var cited: Dictionary = _state.get("citation_evidence", {})
@@ -1117,7 +1194,10 @@ func _flag_rule(rule_id: String) -> void:
 			_clear_evidence()
 			if rule_id not in _state.get("selected_rules", []): _banter.react("withdraw", _desk_lines("unflag", [rule_id], rule_id))
 			return
-	_emit_command({"type": "toggle-rule", "rule_id": rule_id, "path": location.path, "line": int(location.line)})
+	if location.has("record"):
+		_emit_command({"type": "toggle-rule", "rule_id": rule_id, "record": str(location.record), "id": str(location.id)})
+	else:
+		_emit_command({"type": "toggle-rule", "rule_id": rule_id, "path": location.path, "line": int(location.line)})
 	_clear_evidence()
 	if rule_id in _state.get("selected_rules", []): _banter.react("flag", _desk_lines("flag", [rule_id], rule_id))
 
@@ -1193,6 +1273,10 @@ func _play_beat(beat: Dictionary) -> void:
 
 
 func _location_text(location: Dictionary) -> String:
+	if location.has("record"):
+		var id := str(location.get("id", ""))
+		if str(location.record) == "ticket": return "NO TICKET" if id.is_empty() else "TICKET " + id
+		return "BUILD " + id
 	var name := str(location.get("path", "")).get_file()
 	return ("FILE  " if int(location.get("line", 0)) == 0 else "LINE %d  " % int(location.line)) + name
 
@@ -1206,11 +1290,12 @@ func _paint_evidence() -> void:
 		_diff.set_line_background_color(row, Color(GREEN, 0.07) if kind == "+" else Color(RED, 0.09) if kind == "-" else Color(0, 0, 0, 0))
 	for rule_id: String in cited:
 		var location: Dictionary = cited[rule_id]
-		var cited_row := _row_for_line(int(location.line))
-		if str(location.path) == path and cited_row >= 0:
+		var cited_row := _row_for_line(int(location.get("line", 0)))
+		if str(location.get("path", "")) == path and cited_row >= 0:
 			_diff.set_line_background_color(cited_row, Color(RED, 0.26))
-	var pointing := not _evidence.is_empty() and str(_evidence.path) == path
-	var pointed_row := _row_for_line(int(_evidence.get("line", 0)))
+	# A record selected in Jiro or Pipeline is evidence whichever file is open.
+	var pointing := not _evidence.is_empty() and (_evidence.has("record") or str(_evidence.get("path", "")) == path)
+	var pointed_row := _row_for_line(int(_evidence.get("line", 0))) if not _evidence.has("record") else -1
 	if pointing and pointed_row >= 0:
 		_diff.set_line_background_color(pointed_row, Color(AMBER, 0.28))
 	_whole_file.disabled = _review_files.is_empty()
@@ -1223,7 +1308,8 @@ func _paint_evidence() -> void:
 		_selected_label.add_theme_color_override("font_color", AMBER)
 		_evidence_label.add_theme_color_override("font_color", AMBER)
 	else:
-		_evidence_label.text = "Select the offending line, or"
+		var day := int(_state.get("day", 1))
+		_evidence_label.text = "Select a line, a PIPELINE build, a JIRO ticket, or" if app_installed("pipeline", day) else "Select a line, a JIRO ticket, or" if app_installed("jiro", day) else "Select the offending line, or"
 		_selected_label.text = "Full text: INTRANET > STANDARDS"
 		_selected_label.add_theme_color_override("font_color", DIM)
 		_evidence_label.add_theme_color_override("font_color", DIM)
@@ -1344,6 +1430,8 @@ func _play_ending() -> void:
 			_ending_cinematic = null
 		menu_requested.emit())
 	_monitor_screen.add_child(_ending_cinematic)
+	# The soundtrack follows: warm for the endings where people stood together.
+	ending_music.emit(Endings.music_kind(key))
 
 
 ## Fill Morgan's panel from the shift that just closed (content/chat.gd `evening`).
@@ -1393,6 +1481,324 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+# --- Jiro and Pipeline ---------------------------------------------------------
+# Two more documents to check against the PR, like the papers at a border booth:
+# its ticket in Jiro and its build in Pipeline. They show records only (what the
+# ticket and build say), never whether a standard is broken. SELECT AS EVIDENCE
+# picks a record for the citation slip, like clicking a line in Review.
+
+## A link on the paper slip, in the slip's ink.
+func _slip_link(parent: Node, action: Callable) -> LinkButton:
+	var link := LinkButton.new()
+	link.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+	link.focus_mode = Control.FOCUS_ALL
+	link.add_theme_font_size_override("font_size", 12)
+	for color_name: String in ["font_color", "font_focus_color"]:
+		link.add_theme_color_override(color_name, PAPER_INK)
+	for color_name: String in ["font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+		link.add_theme_color_override(color_name, STAMP_RED)
+	link.pressed.connect(action)
+	parent.add_child(link)
+	return link
+
+
+## The slip's links for the PR on the desk (none before Jiro, no build before Pipeline).
+func _render_slip_refs(request: Dictionary) -> void:
+	var day := int(_state.get("day", 1))
+	_pr_refs.visible = not request.is_empty() and app_installed("jiro", day)
+	if not _pr_refs.visible: return
+	var ref := str(request.get("ticket_ref", ""))
+	_ticket_link.text = ("Closes %s →" % ref) if not ref.is_empty() else "No ticket linked →"
+	var build: Dictionary = request.get("build", {})
+	_build_link.visible = app_installed("pipeline", day) and not build.is_empty()
+	_build_link.text = "Build %s →" % str(build.get("id", ""))
+
+
+## A record app's two columns: a scrolling list on the left, the record on the right.
+func _record_columns(page: VBoxContainer) -> Array:
+	var columns := _row(page, 10)
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var list_scroll := ScrollContainer.new()
+	list_scroll.custom_minimum_size.x = 250
+	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	columns.add_child(list_scroll)
+	var list := _column(list_scroll, 3)
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 14, 12))
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card.size_flags_stretch_ratio = 1.6
+	columns.add_child(card)
+	var detail_scroll := ScrollContainer.new()
+	detail_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	card.add_child(detail_scroll)
+	var detail := _column(detail_scroll, 8)
+	return [list, detail]
+
+
+func _record_row(parent: Node, text: String, pressed: bool, action: Callable) -> Button:
+	var row := _button(parent, text, action)
+	row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	row.clip_text = true
+	row.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	row.custom_minimum_size = Vector2(0, 44)
+	row.toggle_mode = true
+	row.set_pressed_no_signal(pressed)
+	row.add_theme_font_size_override("font_size", 12)
+	row.add_theme_stylebox_override("pressed", _style(Color("1e1a0e"), AMBER, 1, 9, 7))
+	return row
+
+
+## A label: value line on a record card.
+func _record_field(grid: GridContainer, name: String, value: String, color: Color = TEXT) -> Label:
+	_label(grid, name, 11, DIM)
+	var shown := _paragraph(grid, value, 13, color)
+	shown.custom_minimum_size.x = 120
+	return shown
+
+
+func _evidence_button(parent: Node, record: String, id: String) -> Button:
+	var chosen: bool = _evidence.get("record", "") == record and str(_evidence.get("id", "")) == id
+	var button := _button(parent, "SELECTED AS EVIDENCE" if chosen else "SELECT AS EVIDENCE", _select_record.bind(record, id))
+	button.custom_minimum_size.y = 32
+	button.add_theme_font_size_override("font_size", 12)
+	button.add_theme_color_override("font_color", AMBER)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_stylebox_override("normal", _style(Color(AMBER, 0.12 if chosen else 0.06), AMBER, 1, 14, 6))
+	button.add_theme_stylebox_override("hover", _style(Color(AMBER, 0.22), Color("f2cf7a"), 1, 14, 6))
+	var on_desk := not Simulation.active_request(_state).is_empty() and Encounters.pending(_state).is_empty()
+	button.disabled = not on_desk
+	button.tooltip_text = "Point your citation at this %s, then tick the standard it breaks on the slip in REVIEW." % record if on_desk else "There is no PR on your desk to cite."
+	return button
+
+
+## Which of the player's own citations point at this record (never the audit's).
+func _cited_note(parent: Node, record: String, id: String) -> void:
+	var cited: Array = []
+	for rule_id: String in _state.get("citation_evidence", {}):
+		var location: Dictionary = _state.citation_evidence[rule_id]
+		if location.get("record", "") == record and str(location.get("id", "")) == id: cited.append(rule_id)
+	if not cited.is_empty(): _label(parent, "You cited this for " + ", ".join(cited), 11, RED)
+
+
+## A record card's top line: its ID and status on the left, SELECT AS EVIDENCE on
+## the right, so the control is always in view however long the record is.
+func _record_head(parent: Node, record: String, id: String, title: String, status: String, color: Color) -> void:
+	var head := _row(parent, 10)
+	var name := _label(head, title, 13, CYAN)
+	name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if not status.is_empty():
+		var shown := _label(head, status, 12, color)
+		shown.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_spacer(head)
+	_evidence_button(head, record, id)
+	_cited_note(parent, record, id)
+
+
+## Pick a record as the evidence for the next tick on the slip, and bring Review up.
+func _select_record(record: String, id: String) -> void:
+	if str(_state.get("phase", "")) != "review" or Simulation.active_request(_state).is_empty(): return
+	_evidence = {"record": record, "id": id}
+	_open_app("review")
+	_paint_evidence()
+	_render_records(true)
+
+
+func _build_jiro(page: VBoxContainer) -> void:
+	var bar := _row(page, 6)
+	_jiro_search = LineEdit.new()
+	_jiro_search.placeholder_text = "Search by ticket ID (PAPER-412) or words"
+	_jiro_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_jiro_search.add_theme_font_size_override("font_size", 13)
+	_jiro_search.clear_button_enabled = true
+	_jiro_search.text_changed.connect(func(_text: String) -> void: _render_jiro_list())
+	_jiro_search.text_submitted.connect(_jiro_find)
+	bar.add_child(_jiro_search)
+	var find := _button(bar, "FIND", func() -> void: _jiro_find(_jiro_search.text))
+	find.add_theme_font_size_override("font_size", 12)
+	var mine := _button(bar, "THIS PR'S TICKET", _open_desk_ticket)
+	mine.add_theme_font_size_override("font_size", 12)
+	mine.tooltip_text = "Show the ticket linked on the slip of the PR on your desk."
+	var parts := _record_columns(page)
+	_jiro_list = parts[0]
+	_jiro_detail = parts[1]
+
+
+## Jiro's view of the desk PR's link: its ticket, or a card saying Jiro has none.
+func _desk_ticket_view() -> Dictionary:
+	var request: Dictionary = Simulation.active_request(_state)
+	if request.is_empty(): return {}
+	var ref := str(request.get("ticket_ref", ""))
+	return {"ticket": ref} if not Catalog.ticket(_state, ref).is_empty() else {"link": ref}
+
+
+## Open Jiro on the desk PR's link (the ticket on its slip).
+func _open_desk_ticket() -> void:
+	if Simulation.active_request(_state).is_empty() or not app_installed("jiro", int(_state.get("day", 1))): return
+	_jiro_view = _desk_ticket_view()
+	_jiro_search.text = ""
+	_open_app("jiro")
+
+
+## FIND: an exact ticket ID opens it; the desk PR's own broken link opens its card.
+func _jiro_find(text: String) -> void:
+	var wanted := text.strip_edges().to_upper()
+	var request: Dictionary = Simulation.active_request(_state)
+	if not Catalog.ticket(_state, wanted).is_empty(): _jiro_view = {"ticket": wanted}
+	elif not wanted.is_empty() and wanted == str(request.get("ticket_ref", "")): _jiro_view = {"link": wanted}
+	else:
+		var matches: Array = _jiro_matches()
+		_jiro_view = {"ticket": str(matches[0].id)} if matches.size() == 1 else {"none": wanted}
+	_render_records(true)
+
+
+func _jiro_matches() -> Array:
+	var wanted := _jiro_search.text.strip_edges().to_lower()
+	if wanted.is_empty(): return _jiro_tickets
+	return _jiro_tickets.filter(func(ticket: Dictionary) -> bool: return wanted in str(ticket.id).to_lower() or wanted in str(ticket.title).to_lower())
+
+
+func _render_jiro_list() -> void:
+	for child: Node in _jiro_list.get_children():
+		_jiro_list.remove_child(child)
+		child.queue_free()
+	var shown: Array = _jiro_matches()
+	_label(_jiro_list, "%d TICKET%s" % [shown.size(), "" if shown.size() == 1 else "S"], 11, DIM)
+	for ticket: Dictionary in shown:
+		var id := str(ticket.id)
+		var row := _record_row(_jiro_list, "%s  ·  %s\n%s  ·  %s" % [id, ticket.status, ticket.assignee, ticket.title], _jiro_view.get("ticket", "") == id, func() -> void:
+			_jiro_view = {"ticket": id}
+			_render_records(true))
+		row.tooltip_text = "%s  %s" % [id, ticket.title]
+
+
+func _render_jiro_detail() -> void:
+	for child: Node in _jiro_detail.get_children():
+		_jiro_detail.remove_child(child)
+		child.queue_free()
+	var request: Dictionary = Simulation.active_request(_state)
+	var ticket: Dictionary = {}
+	for listed: Dictionary in _jiro_tickets:
+		if _jiro_view.has("ticket") and str(listed.id) == str(_jiro_view.ticket): ticket = listed
+	if not ticket.is_empty():
+		_record_head(_jiro_detail, "ticket", str(ticket.id), str(ticket.id), str(ticket.status).to_upper(), STATUS_COLORS.get(str(ticket.status), DIM))
+		_paragraph(_jiro_detail, str(ticket.title), 17, TEXT)
+		var grid := GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 16)
+		grid.add_theme_constant_override("v_separation", 4)
+		_jiro_detail.add_child(grid)
+		_record_field(grid, "STATUS", str(ticket.status), STATUS_COLORS.get(str(ticket.status), DIM))
+		_record_field(grid, "ASSIGNEE", str(ticket.assignee))
+		_record_field(grid, "COMPONENT", str(ticket.component))
+		_record_field(grid, "REPORTER", str(ticket.reporter))
+		_record_field(grid, "PRIORITY", str(ticket.priority))
+		_record_field(grid, "OPENED", str(ticket.opened).trim_prefix("opened "))
+		if not ticket.get("watchers", []).is_empty(): _record_field(grid, "WATCHERS", ", ".join(ticket.watchers))
+		_record_field(grid, "LINKED PRS", ", ".join(ticket.get("linked", [])) if not ticket.get("linked", []).is_empty() else "none")
+		if not str(ticket.get("resolution", "")).is_empty(): _paragraph(_jiro_detail, str(ticket.resolution), 13, AMBER)
+		_paragraph(_jiro_detail, str(ticket.description), 14, TEXT)
+		for line: String in ticket.get("history", []): _paragraph(_jiro_detail, "· " + line, 12, DIM)
+	elif _jiro_view.has("link") and not request.is_empty() and str(_jiro_view.link) == str(request.get("ticket_ref", "")):
+		# The desk PR's link, when Jiro has nothing to show for it.
+		var ref := str(_jiro_view.link)
+		_record_head(_jiro_detail, "ticket", ref, "NO TICKET LINKED" if ref.is_empty() else ref, "", DIM)
+		_paragraph(_jiro_detail, ("%s's slip has no Closes line. It links no ticket." % Catalog.display_id(str(request.id))) if ref.is_empty() else ("Jiro has no ticket %s. %s links it anyway." % [ref, Catalog.display_id(str(request.id))]), 15, TEXT)
+	elif _jiro_view.has("none"):
+		_paragraph(_jiro_detail, "Jiro has no ticket matching %s." % str(_jiro_view.none) if not str(_jiro_view.none).is_empty() else "Type a ticket ID to find it.", 14, DIM)
+	else:
+		_paragraph(_jiro_detail, "Pick a ticket on the left, or click the ticket on the PR slip in REVIEW to open the PR's own.", 14, DIM)
+
+
+func _build_pipeline(page: VBoxContainer) -> void:
+	var bar := _row(page, 6)
+	_label(bar, "RECENT BUILDS, NEWEST FIRST", 11, DIM)
+	_spacer(bar)
+	var mine := _button(bar, "THIS PR'S BUILD", _open_desk_build)
+	mine.add_theme_font_size_override("font_size", 12)
+	mine.tooltip_text = "Show the build of the PR on your desk."
+	var parts := _record_columns(page)
+	_pipeline_list = parts[0]
+	_pipeline_detail = parts[1]
+
+
+func _open_desk_build() -> void:
+	var request: Dictionary = Simulation.active_request(_state)
+	if request.is_empty() or not app_installed("pipeline", int(_state.get("day", 1))): return
+	_pipeline_build = str(request.get("build", {}).get("id", ""))
+	_open_app("pipeline")
+
+
+func _render_pipeline() -> void:
+	for holder: VBoxContainer in [_pipeline_list, _pipeline_detail]:
+		for child: Node in holder.get_children():
+			holder.remove_child(child)
+			child.queue_free()
+	for build: Dictionary in _pipeline_builds:
+		var id := str(build.id)
+		var status := Records.status_text(build)
+		_record_row(_pipeline_list, "%s  ·  %s\n%s  ·  %s" % [id, status, Catalog.display_id(str(build.pr_id)), build.branch], id == _pipeline_build, func() -> void:
+			_pipeline_build = id
+			_render_records(true))
+	if _pipeline_builds.is_empty(): _paragraph(_pipeline_list, "No builds yet today.", 13, DIM)
+	var shown: Dictionary = {}
+	for build: Dictionary in _pipeline_builds:
+		if str(build.id) == _pipeline_build: shown = build
+	if shown.is_empty():
+		_paragraph(_pipeline_detail, "Pick a build on the left, or click the build on the PR slip in REVIEW to open the PR's own.", 14, DIM)
+		return
+	_record_head(_pipeline_detail, "build", str(shown.id), "BUILD " + str(shown.id), Catalog.display_id(str(shown.pr_id)), DIM)
+	_label(_pipeline_detail, "%s @ %s · %s" % [shown.branch, shown.commit, shown.duration], 12, DIM)
+	var status := Records.status_text(shown)
+	var color: Color = AMBER if str(shown.get("override", "")) == "helios" else STATUS_COLORS.get(status, TEXT)
+	_label(_pipeline_detail, status, 20, color)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 4)
+	_pipeline_detail.add_child(grid)
+	_record_field(grid, "RERUNS", str(int(shown.reruns)))
+	_record_field(grid, "COVERAGE", "%s → %s" % [Records.coverage_text(int(shown.coverage_before)), Records.coverage_text(int(shown.coverage_after))])
+	_label(_pipeline_detail, "TESTS", 11, DIM)
+	for test: Dictionary in shown.tests:
+		var line := _row(_pipeline_detail, 8)
+		var result := str(test.result)
+		_label(line, {"pass": "pass ", "fail": "FAIL ", "flaky": "flaky"}.get(result, result), 12, {"pass": GREEN, "fail": RED, "flaky": AMBER}.get(result, DIM))
+		var name := _label(line, str(test.name), 12, TEXT)
+		name.clip_text = true
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if not shown.log.is_empty():
+		_label(_pipeline_detail, "LOG", 11, DIM)
+		var log_panel := PanelContainer.new()
+		log_panel.add_theme_stylebox_override("panel", _style(Color("030304"), BORDER, 1, 10, 8))
+		_pipeline_detail.add_child(log_panel)
+		_paragraph(log_panel, "\n".join(shown.log), 12, Color("b9b5aa"))
+
+
+## Refresh Jiro and Pipeline while they're on screen, when what they show changes
+## (new arrivals, a new PR on the desk, a citation), or right away when the player
+## opens or navigates them (`force`). Closed or minimized, they don't render at all.
+func _render_records(force: bool = false) -> void:
+	var day := int(_state.get("day", 1))
+	var desk := str(Simulation.active_request(_state).get("id", ""))
+	var data := "%d|%s|%d|%s" % [day, _state.get("phase", ""), _state.get("arrivals", []).size(), desk]
+	var marks := JSON.stringify([_state.get("citation_evidence", {}), _evidence, Encounters.pending(_state).is_empty()])
+	if app_installed("jiro", day) and (force or _windows.jiro.visible):
+		var list_key := data + "|" + JSON.stringify(_jiro_view)
+		if force or list_key != _jiro_list_key:
+			_jiro_list_key = list_key
+			_jiro_tickets = Catalog.tickets(_state)
+			_render_jiro_list()
+		if force or list_key + marks != _jiro_key:
+			_jiro_key = list_key + marks
+			_render_jiro_detail()
+	if app_installed("pipeline", day) and (force or _windows.pipeline.visible) and (force or data + _pipeline_build + marks != _pipeline_key):
+		_pipeline_key = data + _pipeline_build + marks
+		_pipeline_builds = Catalog.builds(_state).filter(func(build: Dictionary) -> bool: return int(build.day) == day)
+		_render_pipeline()
+
+
 func _build_system(page: VBoxContainer) -> void:
 	var content: VBoxContainer = _scroll_column(page)
 	_label(content, "LOCAL RECORD", 16, CYAN)
@@ -1404,8 +1810,50 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
 	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
+	_build_sound_settings(content)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. For ticket and build standards, open the PR's ticket in JIRO or its build in PIPELINE from the PR slip, SELECT AS EVIDENCE, then pick the standard. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
+
+
+## SOUND: the soundtrack's on/off toggle and volume, kept on this computer.
+func _build_sound_settings(content: VBoxContainer) -> void:
+	_label(content, "SOUND", 16, CYAN)
+	var row: HBoxContainer = _row(content, 12)
+	_music_toggle = Button.new()
+	_music_toggle.toggle_mode = true
+	_music_toggle.button_pressed = true
+	_music_toggle.text = "MUSIC: ON"
+	_music_toggle.custom_minimum_size = Vector2(130, 35)
+	_music_toggle.toggled.connect(func(on: bool) -> void:
+		_show_music_enabled(on)
+		music_toggled.emit(on))
+	row.add_child(_music_toggle)
+	_label(row, "VOLUME", 14, DIM).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_music_volume = HSlider.new()
+	_music_volume.min_value = 0.0
+	_music_volume.max_value = 1.0
+	_music_volume.step = 0.05
+	_music_volume.value = 0.7
+	_music_volume.custom_minimum_size = Vector2(150, 24)
+	_music_volume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_music_volume.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_music_volume.tooltip_text = "Soundtrack volume."
+	_music_volume.add_theme_stylebox_override("slider", _style(INSET, BORDER, 1, 0, 3))
+	_music_volume.add_theme_stylebox_override("grabber_area", _style(Color("1f4a2b"), Color.TRANSPARENT, 0, 0, 3))
+	_music_volume.add_theme_stylebox_override("grabber_area_highlight", _style(Color("2c6b3d"), Color.TRANSPARENT, 0, 0, 3))
+	_music_volume.value_changed.connect(func(value: float) -> void: music_volume_changed.emit(value))
+	row.add_child(_music_volume)
+
+
+func set_music_settings(enabled: bool, volume: float) -> void:
+	_music_toggle.set_pressed_no_signal(enabled)
+	_music_volume.set_value_no_signal(volume)
+	_show_music_enabled(enabled)
+
+
+func _show_music_enabled(on: bool) -> void:
+	_music_toggle.text = "MUSIC: ON" if on else "MUSIC: OFF"
+	_music_volume.editable = on
 
 
 func set_save_slot(slot: int) -> void:
@@ -1440,6 +1888,7 @@ func render_state(state: Dictionary) -> void:
 	_ai_note.visible = _consult.visible
 	_hud["day"].text = day_label(day)
 	_hud["status"].text = ("HUMAN SIGN-OFF REQUESTED" if can_review else "DESK CLEAR") if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED"
+	_sync_installed_apps(day)
 	if day != _last_day:
 		_last_day = day
 		var briefing: String = Catalog.briefing(day)
@@ -1494,6 +1943,9 @@ func render_state(state: Dictionary) -> void:
 				_set_review_files({})
 		if not request_id.is_empty() and request_id != _last_pr:
 			_last_pr = request_id
+			# Jiro and Pipeline open on the new PR's own records next time.
+			_jiro_view = {}
+			_pipeline_build = ""
 			_pr_id.text = "%s / AWAITING REVIEW" % Catalog.display_id(request_id)
 			_pr_title.text = str(request.get("title", ""))
 			_pr_context.text = "%s: %s\n\n%s" % [str(request.get("author", "")), str(request.get("message", "")), str(request.get("description", ""))]
@@ -1508,6 +1960,7 @@ func render_state(state: Dictionary) -> void:
 		if consulted:
 			_ai_note.text = "AI: %s\n%s" % [str(request.get("ai_verdict", "")).replace("_", " ").to_upper(), str(request.get("ai_note", ""))]
 	if active_request.is_empty() and typing.is_empty(): _banter.close_pr()
+	_render_slip_refs(active_request)
 	var feedback: Dictionary = state.get("last_feedback", {})
 	var feedback_key := "" if feedback.is_empty() else str(feedback.get("pr_id", "")) + str(feedback.get("verdict", ""))
 	if feedback_key != _last_feedback_key:
@@ -1527,6 +1980,7 @@ func render_state(state: Dictionary) -> void:
 	if not pending.is_empty():
 		_feedback.text = "%s · %s is pushing back on %s. INSIST or WITHDRAW." % [Catalog.display_id(str(pending.pr_id)), str(pending.author), Encounters.noun(str(pending.get("disputed", "")))]
 	_sync_app_events()
+	_render_records()
 	_footer.text = "ORIENTATION" if _tutorial_active else "READY" if phase == "review" else "OFF THE CLOCK"
 
 
@@ -1710,7 +2164,7 @@ func _sync_tutorial_pointer() -> void:
 					if _windows.review.visible and _windows.review._active:
 						# Practice only: guide to the visible comment, never to hidden audit data.
 						var evidence := _practice_evidence(id)
-						var pointed: bool = not _evidence.is_empty() and not evidence.is_empty() and _evidence.path == evidence.path and int(_evidence.line) == int(evidence.line)
+						var pointed: bool = not _evidence.is_empty() and not evidence.is_empty() and _evidence.get("path", "") == evidence.path and int(_evidence.get("line", -1)) == int(evidence.line)
 						if pointed: target = _flag_buttons[id]
 						elif evidence.is_empty() or _file_label.text != evidence.path: target = _file_picker
 						else: target = _diff

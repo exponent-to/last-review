@@ -237,7 +237,7 @@ func _test_history_and_contract() -> void:
 			if state.decisions[-1].verdict == "approve": break
 			parent = revision
 	var forbidden := RegEx.new()
-	forbidden.compile("Trust [+]|stress [+]|%|https?://|\\bP0[1-9]\\b|violat|audit")
+	forbidden.compile("Trust [+]|stress [+]|%|https?://|\\bP[0-2][0-9]\\b|violat|audit")
 	for contact: String in Chat.CONTACTS:
 		var history := Chat.messages(state, contact)
 		_check(history.size() <= Chat.HISTORY_LIMIT + 15, "Large conversation histories must remain bounded.")
