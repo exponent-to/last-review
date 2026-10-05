@@ -6,6 +6,10 @@ static var _requests: Array = []
 static func rules() -> Array:
 	return load("res://content/policy_campaign.gd").rules()
 
+## The campaign script itself, for its schedule constants (JIRO_DAY, PIPELINE_DAY...).
+static func policy() -> GDScript:
+	return load("res://content/policy_campaign.gd")
+
 ## The standards in force that day, as amended by then. Retired ones are gone.
 static func rules_for_day(day: int) -> Array:
 	return load("res://content/policy_campaign.gd").rules_for_day(day)
@@ -98,10 +102,63 @@ static func display_id(request_id: String) -> String:
 static func shift_seconds() -> int:
 	return 300
 
+## Every ticket Jiro shows right now: the backlog, plus the tickets of every PR
+## that has reached the desk (a later version's copy of a ticket replaces an
+## earlier one). Newest first. Each carries `linked`: the PRs that link it. PRs
+## still in line contribute nothing, so Jiro never shows what is coming.
+static func tickets(state: Dictionary) -> Array:
+	var policy = load("res://content/policy_campaign.gd")
+	if int(state.get("day", 1)) < int(policy.JIRO_DAY): return []
+	var by_id: Dictionary = {}
+	for ticket: Dictionary in policy.Records.backlog():
+		ticket.linked = []
+		by_id[str(ticket.id)] = ticket
+	for entry: Dictionary in state.get("arrivals", []):
+		var landed: Dictionary = packet(state, str(entry.get("pr_id", "")), false)
+		for ticket: Dictionary in landed.get("tickets", []):
+			var copy: Dictionary = ticket.duplicate(true)
+			copy.linked = by_id.get(str(ticket.id), {}).get("linked", [])
+			by_id[str(ticket.id)] = copy
+		var ref: String = str(landed.get("ticket_ref", ""))
+		if by_id.has(ref) and display_id(str(landed.id)) not in by_id[ref].linked: by_id[ref].linked.append(display_id(str(landed.id)))
+	var result: Array = by_id.values()
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return policy.Records.ticket_number(str(a.id)) > policy.Records.ticket_number(str(b.id)))
+	return result
+
+static func ticket(state: Dictionary, id: String) -> Dictionary:
+	for found: Dictionary in tickets(state):
+		if str(found.id) == id: return found
+	return {}
+
+## Every build Pipeline shows right now: one per PR version that has reached the
+## desk, newest first, each with its `pr_id`.
+static func builds(state: Dictionary) -> Array:
+	var result: Array = []
+	for entry: Dictionary in state.get("arrivals", []):
+		var landed: Dictionary = packet(state, str(entry.get("pr_id", "")), false)
+		var record: Dictionary = landed.get("build", {})
+		if record.is_empty(): continue
+		var copy: Dictionary = record.duplicate(true)
+		copy.pr_id = str(landed.id)
+		copy.day = int(entry.get("day", 0))
+		result.push_front(copy)
+	return result
+
+static func build(state: Dictionary, id: String) -> Dictionary:
+	for found: Dictionary in builds(state):
+		if str(found.id) == id: return found
+	return {}
+
 ## Audit/test helper: a citation command pointing at the packet's real evidence.
 static func audit_citation(request: Dictionary, rule_id: String) -> Dictionary:
 	for finding: Dictionary in request.get("findings", []):
 		if finding.rule_id == rule_id:
+			if finding.has("record"):
+				return {"type": "toggle-rule", "rule_id": rule_id, "record": str(finding.record), "id": str(finding.id)}
 			return {"type": "toggle-rule", "rule_id": rule_id, "path": finding.path, "line": int(finding.line)}
+	# Nothing to find: point at the PR's own record, or its first file.
+	var scope: String = load("res://content/policy_campaign.gd").scope(rule_id)
+	if scope == "ticket": return {"type": "toggle-rule", "rule_id": rule_id, "record": "ticket", "id": str(request.get("ticket_ref", ""))}
+	if scope == "build": return {"type": "toggle-rule", "rule_id": rule_id, "record": "build", "id": str(request.get("build", {}).get("id", ""))}
 	var files: Array = request.get("files", [])
 	return {"type": "toggle-rule", "rule_id": rule_id, "path": str(files[0].path) if not files.is_empty() else "", "line": 0}

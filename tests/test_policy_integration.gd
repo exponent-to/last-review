@@ -93,7 +93,9 @@ func run() -> void:
 				state = Sim.dispatch(state, {"type":"consult-ai"})
 				check(state.consulted, "Helios can advise after unlocking, revisions included.")
 			first_of_day = false
-			for rule: String in Policy.evaluate(packet.files, day):
+			# Its files and its records (the Jiro ticket and Pipeline build) are the evidence.
+			check(packet.violations == Policy.evaluate(packet.files, day, Policy._records(packet.recipe)), "The audit is computed from the PR's visible files and records.")
+			for rule: String in packet.violations:
 				state = Sim.dispatch(state, Sim.Catalog.audit_citation(packet, rule))
 			state = Sim.dispatch(state, {"type":"review", "verdict":"approve" if packet.violations.is_empty() else "request_changes"})
 			check(state.last_feedback.correct, "Visible evidence leads to a correct decision.")
