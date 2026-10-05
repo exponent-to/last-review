@@ -11,12 +11,13 @@ const Policy = preload("res://content/policy_campaign.gd")
 const Encounters = preload("res://content/encounters.gd")
 const Staff = preload("res://content/staff.gd")
 const Endings = preload("res://content/endings.gd")
-const SAVE_VERSION: int = 14
+const SAVE_VERSION: int = 15
 const SHIFT_SECONDS: int = 180
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
 const LOG_LIMIT: int = 40
-const AUTHORS: Array = ["Maya", "Theo", "Inez"]
+## Everyone who writes PRs; `state.coworkers` holds the ones already on the team.
+const AUTHORS: Array = Policy.AUTHORS
 const EVENINGS: Array = ["rest", "socialize", "study"]
 ## Game seconds between a stamp and the next PR landing on the desk.
 const DESK_BEAT: int = 3
@@ -27,14 +28,10 @@ const FIRE_TRUST: int = 22
 
 static func initial_state() -> Dictionary:
 	var first_day: int = int(Catalog.campaign_days()[0])
-	# Every seat the campaign assigns starts neutral.
-	var coworkers: Dictionary = {}
-	for person: String in Staff.seats():
-		coworkers[person] = 50
 	var state: Dictionary = {
 		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
 		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
-		"coworkers": coworkers,
+		"coworkers": {},
 		"selected_rules": [], "citation_evidence": {}, "consulted": false, "decisions": [],
 		"shift_seconds": 0, "active_request_id": "", "consulted_requests": [],
 		"desk_line": [], "desk_at": -1, "arrivals": [], "revisions": [],
@@ -45,8 +42,19 @@ static func initial_state() -> Dictionary:
 		"log": [{"day": first_day, "message": "Your review shift begins. Work lands on your desk one PR at a time."}],
 		"last_feedback": {}, "last_debrief": {},
 	}
+	_staff(state)
 	_open_desk(state)
 	return state
+
+## Newcomers join on their first morning (Policy.ROSTER), before the line opens,
+## at their starting relationship. Nobody is in `state.coworkers` before then, so
+## dinner with the team only warms the people who were actually there.
+static func _staff(state: Dictionary) -> void:
+	for author: String in Policy.staff(int(state.day)):
+		if not state.coworkers.has(author):
+			state.coworkers[author] = int(Policy.ROSTER[author].relationship)
+			if int(Policy.ROSTER[author].joins) > 1:
+				_record(state, "%s joins the team today." % author)
 
 static func clock_minutes(state: Dictionary) -> int:
 	return START_MINUTE + floori(float(state.shift_seconds) * float(END_MINUTE - START_MINUTE) / float(SHIFT_SECONDS))
@@ -83,12 +91,17 @@ static func _public_request(request: Dictionary, consulted: bool = false) -> Dic
 	return public
 
 ## Start a day's line: its authored packets in order, the first already on the desk.
-## A PR whose seat Morgan has handed to Helios (its author was let go) never lands.
+## A PR whose seat Morgan has handed to Helios (its author was let go) never lands;
+## if it was a payload, Helios now holds that desk and ships it itself.
 static func _open_desk(state: Dictionary) -> void:
 	state.desk_line = []
 	var day: int = int(state.day)
 	for request: Dictionary in Catalog.requests_for_day(day):
-		if Staff.occupant(state, str(request.author), day).is_empty(): continue
+		if Staff.occupant(state, str(request.author), day).is_empty():
+			if bool(request.get("payload", false)):
+				state.payloads.append({"pr_id": str(request.id), "origin_id": str(request.origin_id), "day": day,
+					"tier": int(request.get("payload_tier", 0)), "outcome": "merged"})
+			continue
 		state.desk_line.append(request.id)
 	state.active_request_id = ""
 	state.desk_at = int(state.shift_seconds)
@@ -255,7 +268,7 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 			else:
 				node = Encounters.verdict_node(context)
 			if node == "pushback":
-				next.encounters.append(Encounters.beat(next, context, node, {"disputed": Encounters.disputed(context.cited, active.id)}))
+				next.encounters.append(Encounters.beat(next, context, node, {"disputed": Encounters.disputed(context.cited, active.id, str(active.author))}))
 				_record(next, "%s is pushing back on your change request." % active.author)
 			else:
 				_review(next, verdict, context, node)
@@ -507,13 +520,9 @@ static func _apply_strikes_and_firings(state: Dictionary) -> void:
 			_fire(state, person, day, reason)
 
 static func _fire(state: Dictionary, person: String, day: int, reason: String) -> void:
-	var seat: String = ""
-	for candidate: String in Staff.seats():
-		if Staff.occupant(state, candidate, day) == person:
-			seat = candidate
-			break
-	# Nobody is hired to replace them: Helios takes the desk from tomorrow.
-	state.firings.append({"name": person, "seat": seat, "day": day, "reason": reason})
+	# Nobody is hired to replace them: from tomorrow they count as away
+	# (Policy.staff), and Helios takes their slots.
+	state.firings.append({"name": person, "day": day, "reason": reason})
 	_record(state, "Morgan let %s go. Helios has %s's desk now." % [person, person])
 
 ## The run can end the moment Morgan loses faith in you, your stress maxes out, or
@@ -559,6 +568,7 @@ static func _evening(state: Dictionary, choice: String) -> void:
 		"socialize":
 			state.credits = clampi(int(state.credits) - 15, -9999, 9999)
 			state.stress = clampi(int(state.stress) - 8, 0, 100)
+			# Only the people on the team (joined, and not let go) come to dinner.
 			for author: String in Staff.team(state, int(state.day)):
 				state.coworkers[author] = clampi(int(state.coworkers.get(author, 50)) + 4, 0, 100)
 			_record(state, "Dinner with the team costs 15. Relationships +4; stress -8.")
@@ -574,9 +584,10 @@ static func _evening(state: Dictionary, choice: String) -> void:
 		state.day = int(Catalog.request_at(int(state.request_index)).day)
 		state.phase = "review"
 		state.shift_seconds = 0
+		_record(state, "Day %d begins. Read the updated rulebook before reviewing." % state.day)
+		_staff(state)
 		_open_desk(state)
 		_update_request_index(state)
-		_record(state, "Day %d begins. Read the updated rulebook before reviewing." % state.day)
 
 static func _invalid(reason: String) -> Dictionary:
 	return {"ok": false, "state": {}, "error": "Invalid save: " + reason}

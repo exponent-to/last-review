@@ -14,6 +14,27 @@ The application owns real-time accumulation and pause controls. While paused, it
 
 The desk holds exactly one PR, like the booth in Papers, Please. Each morning the day's line is its fifteen authored packets in order (`state.desk_line`), and the first is put on the desk at 0 seconds (`active_request_id`); nobody picks it. When the player stamps a verdict, the desk empties and the next PR in line lands `DESK_BEAT = 3` game seconds later (`state.desk_at`), becoming active by itself. `advance` delivers it at its scheduled second, so batched and single-second clocks agree. A PR due at or after the bell never lands. Every landing is recorded in `state.arrivals` as `{pr_id, day, shift_seconds}`; the archived chat content (`content/chat.gd`) uses that log to date each PR's message. The line length is internal scheduling data and must never be shown.
 
+## Authors and the team
+
+Five coworkers write PRs (`Policy.AUTHORS`). Maya, Theo, and Inez are there from day 1. Penny, the eager new junior, joins on day 3; Gwen, reassigned from Security after it was consolidated into Helios, joins on day 6 (`Policy.ROSTER`: first morning and starting relationship, Penny 56 and Gwen 48). Nobody is in `state.coworkers` before their first morning: `_staff` adds each newcomer when her day begins, before the line opens, so an earlier dinner with the team doesn't count for her, and a save that lists her early is rejected by replay.
+
+Who wrote each slot is the explicit per-day table `Policy.LINEUP`, one initial per slot (M, T, I, P, G):
+
+| Day | Lineup | Penny | Gwen |
+| --- | --- | --- | --- |
+| 1 | `MTIMTIMTIMTIMTI` | | |
+| 2 | `TIMTIMTIMTIMTIM` | | |
+| 3 | `IPTIMPIMTPMTIPT` | 2, 6, 10, 14 | |
+| 4 | `MTPMPIMTIPTIMPI` | 3, 5, 10, 14 | |
+| 5 | `PIMPIMTIPTPMTIM` | 1, 4, 9, 11 | |
+| 6 | `IPGIMTGMTIPTGMP` | 2, 11, 15 | 3, 7, 13 |
+| 7 | `GTIMPIMGIPTPMTG` | 5, 10, 12 | 1, 8, 15 |
+| 8 | `TIMGIPGIMTPMTPG` | 6, 11, 14 | 4, 7, 15 |
+| 9 | `IMGIMPIMTPPTGGT` | 6, 10, 11 | 3, 13, 14 |
+| 10 | `MTIGPIGTPMTGMPI` | 5, 9, 14 | 4, 7, 12 |
+
+Every slot the newcomers didn't take keeps its old author from the original three-way rotation, so those PRs' dialogue trees are unchanged. Each newcomer has a slot in the first six of every day she works, since a shift rarely gets further than that, and the original three keep at least four of those six. Each recipe records its slot's author through `Policy._author`, which reads the same table, so Jiro's assignee standard checks the real author; a misassigned ticket only ever goes to someone on staff that day (`Policy.staff(day)`, handed to `records.gd` as the spec's `team`). `Policy.slot_author(day, index, away)` reads the table; anyone listed in `away` (someone who has stopped writing PRs) hands their slots to the day's rotation over whoever is left, deterministically, and with only the original three left that is exactly their old rotation.
+
 `active_request(state)` returns the PR on the desk, or an empty dictionary between PRs and after closing. `available_requests(state)` returns that PR in a list of at most one. Neither includes hidden audit violations, findings, explanations, or the generation recipe; AI verdict/note fields appear only after that PR has been consulted. There is no `select-request` command: the player cannot choose among PRs.
 
 ## Revisions
@@ -33,7 +54,8 @@ Whether a change request produces a revision at all, and where it goes, is the a
 
 `content/encounters.gd` is a data-driven flow chart of how a PR's author responds: `NODES`, `EDGES`, and per-author, per-mood branch weights in `PICKS`. `content/encounter_lines.gd` holds the words (desk bubble and DM, per author, node, and mood) and Morgan's notes. The DM lines are kept for a future chat app; Morgan's notes reach her end-of-day panel. `sh scripts/run.sh --headless --script res://tools/encounter_flowchart.gd -- <out.html>` exports the charts, every line, and a sample day to one self-contained HTML page.
 
-- **Mood** is `warm`, `neutral`, `strained`, or `hostile`, from the coworker relationship score plus the tone of the author's last three beats (`TONE`: approvals and withdrawn citations warm; change requests, abandons, escalations, and insisting cool). Bands: warm 62+, neutral 42–61, strained 30–41, hostile below 30.
+- **Mood** is `warm`, `neutral`, `strained`, or `hostile`, from the coworker relationship score plus the tone of the author's last three beats (`TONE`: approvals and withdrawn citations warm; change requests, abandons, escalations, and insisting cool). Bands: warm 62+, neutral 42–61, strained 30–41, hostile below 30. `TEMPERAMENT` adjusts them per person: Penny is easily impressed and slow to give up on anyone (warm from 58, strained below 38, hostile below 24); Gwen is hard to win over but respects scrutiny (warm from 66, strained below 36, hostile below 26, and a change request leaves only −2 in her memory).
+- **Personalities** live in `PICKS`. Penny revises on the spot most of the time, almost never pushes back (≤6) or abandons (≤3), but escalates to Morgan more as things go wrong, and insisting usually sends her there. Gwen fixes most things at once, is suspicious of quick approvals, and escalates rarely (≤8); `AUTHOR_LEANS` makes her push back on her own field (credentials, and the build: a red build is her tripwire), and when she does she disputes one of those citations.
 - **Branches** are rolled with `Policy.roll` keyed on the PR, verdict, mood, and cited rules, so the journal replays them. Weights lean by the categories of what was cited, and citing three or more standards at once makes abandoning likelier. Nothing in the encounter reads audit data: a right and a wrong citation take the same branch and get the same words.
 - **Approve:** thanks or a suspicious "wait, you approved that?" by mood (v1), or relief (v2/v3).
 - **Request changes:** revise now, revise later, push back (at most once per desk visit), abandon, or escalate. The career's first PR always revises later, so orientation stays scripted; v3 always escalates.
@@ -85,11 +107,11 @@ Pay is the existing base of 80 plus ten for each correct, actually submitted rev
 
 ## Saved state and replay
 
-Current state (version 14) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`, plus the story fields `firings`, `strikes`, `payloads`, and `ending`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores. The story fields are all rebuilt by replaying the journal, so they are not trusted from the saved file.
+Current state (version 15) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`, plus the story fields `firings`, `strikes`, `payloads`, and `ending`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores. The story fields are all rebuilt by replaying the journal, so they are not trusted from the saved file.
 
 ## Staffing, payloads, and endings
 
-Each authored PR belongs to a SEAT, named for its author (`content/staff.gd`). At closing, a coworker takes at most one strike — a defect of theirs you approved shipped, or two or more wrong rejections of their work in a day — and three strikes ends them (`firings`). Nobody replaces a fired coworker: from the next morning Helios holds their seat, `_open_desk` drops that seat's PRs (they never reach your desk), and Morgan's panel says so. The run ends early if Morgan's trust falls below `FIRE_TRUST`, stress maxes, or every original seat is gone; otherwise day 10 resolves the matrix ending (payloads blocked vs let through, crossed with whether the surviving team's average relationship is on your side). `content/endings.gd` holds each ending's title, Morgan's closing words, and cinematic beats.
+At closing, a coworker takes at most one strike — a defect of theirs you approved shipped, or two or more wrong rejections of their work in a day — and three strikes ends them (`firings`, `content/staff.gd`). Nobody replaces a fired coworker: from the next morning they count as away (`Policy.staff(day, away)` leaves them off the team, out of dinner and the ending's reckoning), their slots are not handed on through `slot_author` but go to Helios (`_open_desk` drops them, so they never reach your desk), and Morgan's panel says so. The run ends early if Morgan's trust falls below `FIRE_TRUST`, stress maxes, or every original seat is gone; otherwise day 10 resolves the matrix ending (payloads blocked vs let through, crossed with whether the surviving team's average relationship is on your side). `content/endings.gd` holds each ending's title, Morgan's closing words, and cinematic beats.
 
 From day 3, `Catalog.requests_for_day` places a Helios payload (`content/policy_campaign.gd` `PAYLOAD_SPECS`, pleading in `content/payloads.gd`) at the front of the line. A payload breaks only P15; you either let it through (approve, an audit failure that warms the author and dents trust) or block it (request changes — with P15 cited or with no citation at all), and `payloads` records the outcome. A reason-free CHANGES REQUESTED on a normal PR is the `unexplained` branch: Helios merges it, it is graded incorrect, and Morgan notices.
 

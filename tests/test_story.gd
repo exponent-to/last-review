@@ -5,6 +5,7 @@ extends SceneTree
 const Sim = preload("res://native/simulation.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Staff = preload("res://content/staff.gd")
+const Policy = preload("res://content/policy_campaign.gd")
 const Endings = preload("res://content/endings.gd")
 const Encounters = preload("res://content/encounters.gd")
 
@@ -178,12 +179,12 @@ func _test_coworker_fired_and_replaced() -> void:
 	var firing: Dictionary = {}
 	for f: Dictionary in state.firings:
 		if str(f.name) == "Maya": firing = f
-	check(not firing.is_empty() and str(firing.seat) == "Maya" and not firing.has("hire"), "A fired coworker's seat is freed, and nobody is hired into it.")
+	check(not firing.is_empty() and not firing.has("hire"), "A fired coworker is let go, and nobody is hired in their place.")
 	check(str(firing.reason).contains("defect"), "The firing names the shipped defect as the cause.")
 	check(Staff.strikes(state, "Maya") >= Staff.STRIKES_TO_FIRE, "Three strikes precede the firing.")
 	var next_day := int(firing.day) + 1
 	check(Staff.occupant(state, "Maya", next_day).is_empty(), "Helios holds Maya's seat from the next day.")
-	check("Maya" not in Staff.team(state, next_day) and Staff.team(state, next_day).size() == Staff.seats().size() - 1, "The team shrinks; nobody backfills the seat.")
+	check("Maya" not in Staff.team(state, next_day) and Staff.team(state, next_day) == Policy.staff(next_day, ["Maya"]), "Maya counts as away from the next morning; nobody backfills the seat.")
 	# Play into the next morning: none of Maya's PRs reach the desk any more.
 	var after := state
 	if after.phase == "debrief": after = Sim.dispatch(after, {"type": "next-day", "choice": "rest"})
@@ -197,11 +198,13 @@ func _test_coworker_fired_and_replaced() -> void:
 # --- Whole team fired -----------------------------------------------------------
 
 func _test_whole_team_fired() -> void:
-	# A constructed close where every original seat has been let go ends the run.
+	# A constructed close where everyone on the team has been let go ends the run.
 	var state := Sim.initial_state()
-	for seat: String in Staff.seats():
-		state.firings.append({"name": seat, "seat": seat, "day": 2, "reason": "test"})
-	check(Staff.whole_team_fired(state), "Firing every original seat is a whole-team wipeout.")
+	check(not Staff.whole_team_fired(state), "Nobody has been let go on the first morning.")
+	for person: String in Policy.staff(int(state.day)):
+		state.firings.append({"name": person, "day": 1, "reason": "test"})
+	check(Staff.whole_team_fired(state), "Firing everyone who has joined is a whole-team wipeout.")
+	check(Staff.team(state, 2).is_empty(), "Nobody is left at a desk the next morning.")
 	check(Sim.resolve_ending(state) != "", "An ending resolves even with the team gone.")
 
 # --- Save replay ----------------------------------------------------------------
@@ -216,7 +219,7 @@ func _test_save_replay_with_story() -> void:
 		return _correct(s, p), "socialize")
 	check(state.phase == "complete" and not str(state.ending).is_empty(), "The mixed career reaches an ending.")
 	check(not state.payloads.is_empty(), "The mixed career resolved payloads.")
-	check(Sim.SAVE_VERSION >= 14, "The story's firings, payloads, and ending bumped the save format past 13.")
+	check(Sim.SAVE_VERSION >= 15, "The story's firings, payloads, and ending bumped the save format past 14.")
 	var raw := Sim.serialize_save(state)
 	check(not raw.is_empty(), "A career with firings, payloads, and an ending serializes.")
 	var loaded := Sim.validate_save(JSON.parse_string(raw))

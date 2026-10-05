@@ -23,7 +23,12 @@ func _initialize() -> void:
 			lines.append("")
 			for packet: Dictionary in Catalog.requests_for_day(day):
 				var entry: Dictionary = entries.get(str(packet.title), {})
-				lines.append("### %s · %s · author **%s**%s" % [packet.id, packet.title, packet.author, "  (already written)" if not Trees.tree(str(packet.title)).is_empty() else ""])
+				# A tree written for the slot's previous author must be rewritten in the new one's voice.
+				var tree: Dictionary = Trees.tree(str(packet.title))
+				var status := ""
+				if not tree.is_empty():
+					status = "  (already written)" if str(tree.get("author", "")) == str(packet.author) else "  (REWRITE: the tree still speaks as %s)" % str(tree.get("author", ""))
+				lines.append("### %s · %s · author **%s**%s" % [packet.id, packet.title, packet.author, status])
 				lines.append("- Phrase: %s" % str(entry.get("phrase", "")))
 				for field: String in ["pitch", "pushback", "relief", "grudge"]:
 					lines.append("- Bank %s: %s" % [field, str(entry.get(field, ""))])

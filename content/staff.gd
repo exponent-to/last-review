@@ -1,9 +1,11 @@
 extends RefCounted
-## Who sits at each desk, and who Morgan lets go. Every PR the campaign assigns
-## belongs to a SEAT, named for its author. When Morgan fires someone at closing,
-## nobody replaces them: from the next morning Helios holds that seat, and its PRs
-## never reach your desk. The seat list is read from the authored campaign rather
-## than hard-coded, so firing stays correct whoever the cast's authors are.
+## Who Morgan lets go, and who is left. The cast's roster and line-up live in
+## content/policy_campaign.gd (ROSTER, LINEUP, `staff`, `slot_author`). A coworker
+## Morgan fires counts as AWAY from the next morning on: `Policy.staff(day, away)`
+## leaves them out of the team, so they skip dinner, the ending's reckoning, and
+## any further strikes. Their PRs are not handed to whoever is left (that is what
+## `slot_author` would do for someone merely away); nobody backfills a firing, so
+## Helios takes their seat and their slots never reach your desk.
 ##
 ## Firing rules (applied at closing by native/simulation.gd):
 ## - A coworker takes at most one STRIKE a day, for either of:
@@ -12,11 +14,11 @@ extends RefCounted
 ##   * you wrongly sent back two or more of their PRs that day (Morgan blames the
 ##     churn on them), or one, on a day that ends with you at rock bottom together.
 ## - Three strikes and Morgan lets them go that evening; Morgan warns at two.
-## - If every original human seat has been let go, the run ends.
+## - If everyone who has joined the team has been let go, the run ends.
 ##
 ## Does not import Simulation.
 
-const Catalog = preload("res://content/catalog.gd")
+const Policy = preload("res://content/policy_campaign.gd")
 const STRIKES_TO_FIRE := 3
 const WARN_AT := 2
 ## Two wrong change requests against the same person in one day is churn.
@@ -24,31 +26,21 @@ const CHURN := 2
 ## A closing relationship at or below this is rock bottom.
 const ROCK_BOTTOM := 14
 
-static var _seats: Array = []
-
-## The seats the campaign assigns, in first-appearance order: the distinct authors
-## of the authored originals.
-static func seats() -> Array:
-	if _seats.is_empty():
-		for packet: Dictionary in Catalog.originals():
-			var who := str(packet.get("author", ""))
-			if not who.is_empty() and who not in _seats: _seats.append(who)
-	return _seats.duplicate()
-
-## Who sat in `seat` on `day`: its author, or "" once Helios has it. A firing on
-## day D hands the seat to Helios from D + 1.
-static func occupant(state: Dictionary, seat: String, day: int) -> String:
-	for firing: Dictionary in state.get("firings", []):
-		if str(firing.get("seat", "")) == seat and int(firing.get("day", 0)) < day: return ""
-	return seat
-
-## The people at their desks on `day`, in seat order (Helios's seats left out).
-static func team(state: Dictionary, day: int) -> Array:
+## Everyone Morgan had let go before `day` began (fired at an earlier closing).
+static func away(state: Dictionary, day: int) -> Array:
 	var result: Array = []
-	for seat: String in seats():
-		var who := occupant(state, seat, day)
-		if not who.is_empty() and who not in result: result.append(who)
+	for firing: Dictionary in state.get("firings", []):
+		if int(firing.get("day", 0)) < day: result.append(str(firing.name))
 	return result
+
+## Who held an author's seat on `day`: the author, or "" once Helios has it. A
+## firing on day D hands the seat to Helios from D + 1.
+static func occupant(state: Dictionary, author: String, day: int) -> String:
+	return "" if author in away(state, day) else author
+
+## The people at their desks on `day`: joined by then, and not let go.
+static func team(state: Dictionary, day: int) -> Array:
+	return Policy.staff(day, away(state, day))
 
 ## The team as it stands now: today's during a shift, tomorrow's once it closes.
 static func present(state: Dictionary) -> Array:
@@ -69,10 +61,10 @@ static func strikes(state: Dictionary, person: String) -> int:
 		if str(strike.get("name", "")) == person: count += 1
 	return count
 
-## True once every original human seat has been let go.
+## True once everyone who has joined the team by the current day has been let go.
 static func whole_team_fired(state: Dictionary) -> bool:
-	var any_seat := false
-	for seat: String in seats():
-		any_seat = true
-		if not is_fired(state, seat): return false
-	return any_seat
+	var joined: Array = Policy.staff(int(state.get("day", 1)))
+	if joined.is_empty(): return false
+	for person: String in joined:
+		if not is_fired(state, person): return false
+	return true

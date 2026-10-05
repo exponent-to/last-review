@@ -6,7 +6,7 @@ extends RefCounted
 ## Catalog rebuilds revisions from the recipe the state records.
 
 const Catalog = preload("res://content/catalog.gd")
-const CONTACTS: Array = ["Maya", "Theo", "Inez", "company", "manager"]
+const CONTACTS: Array = ["Maya", "Theo", "Inez", "Penny", "Gwen", "company", "manager"]
 const REPLY_IDS: Array = ["acknowledge", "clarify", "concern"]
 const HISTORY_LIMIT: int = 24
 const WEEK_DAYS: int = 5
@@ -18,6 +18,16 @@ static func _authored() -> Dictionary:
 
 static func _lines():
 	return load("res://content/policy_chat.gd")
+
+
+## Who joins the team when (content/policy_campaign.gd ROSTER).
+static func _policy():
+	return load("res://content/policy_campaign.gd")
+
+
+## A coworker's thread starts on the morning they join; before then they don't work here.
+static func _on_team(state: Dictionary, contact: String) -> bool:
+	return contact in ["company", "manager"] or (_policy().joins(contact) > 0 and _policy().joins(contact) <= int(state.get("day", 1)))
 
 
 ## How each desk visit went (content/encounters.gd): reactions, grudges, Morgan's notes.
@@ -120,7 +130,7 @@ static func _used(state: Dictionary, contact: String, pr_id: String, reply_id: S
 
 
 static func reply_options(state: Dictionary, contact: String) -> Array:
-	if contact in ["company", "manager"] or contact not in CONTACTS or state.get("phase") != "review":
+	if contact in ["company", "manager"] or contact not in CONTACTS or state.get("phase") != "review" or not _on_team(state, contact):
 		return []
 	var options: Array = []
 	for request: Dictionary in Catalog.requests():
@@ -185,7 +195,7 @@ static func _request_history(history: Array, state: Dictionary, contact: String,
 
 
 static func messages(state: Dictionary, contact: String) -> Array:
-	if contact not in CONTACTS:
+	if contact not in CONTACTS or not _on_team(state, contact):
 		return []
 	var authored := _authored()
 	var history: Array = []
@@ -263,6 +273,12 @@ static func _morgan_notes(state: Dictionary) -> Array:
 static func _shift_report(state: Dictionary, shift: Dictionary) -> Array:
 	var copy: Dictionary = _authored().get("manager", {})
 	var report: Array = []
+	# A newcomer's first day: Morgan says how it went, colored by how they felt
+	# about you by the end of it (never by whether anyone was right).
+	var newcomers: Dictionary = copy.get("newcomers", {})
+	for author: String in newcomers:
+		if _policy().joins(author) == int(shift.day):
+			report.append({"text": str(newcomers[author].get(_standing_on(state, author, int(shift.day)), newcomers[author].neutral)), "closing": false})
 	var had_incident := false
 	var had_friction := false
 	var held := false
@@ -289,6 +305,17 @@ static func _shift_report(state: Dictionary, shift: Dictionary) -> Array:
 	if int(shift.day) == WEEK_DAYS and int(shift.day) < int(Catalog.campaign_days()[-1]):
 		report.append({"text": str(copy.get("extension", "")), "closing": true})
 	return report
+
+
+## How an author felt about you by the end of `day` ("warm", "neutral", "distant"):
+## the mood of their latest beat that day or earlier, so a past evening never changes.
+static func _standing_on(state: Dictionary, author: String, day: int) -> String:
+	var encounters: Array = state.get("encounters", [])
+	for index in range(encounters.size() - 1, -1, -1):
+		var beat: Dictionary = encounters[index]
+		if beat.get("author") == author and int(beat.get("day", 0)) <= day:
+			return str({"warm": "warm", "strained": "distant", "hostile": "distant"}.get(str(beat.get("mood", "")), "neutral"))
+	return "neutral"
 
 
 const Staff = preload("res://content/staff.gd")
