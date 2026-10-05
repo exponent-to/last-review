@@ -108,7 +108,8 @@ func run() -> void:
 		state = Sim.dispatch(state, {"type":"next-day", "choice":"rest"})
 	var originals_signed := 0
 	for decision: Dictionary in state.decisions:
-		if Catalog.packet(state, decision.pr_id).revision == 1: originals_signed += 1
+		var signed: Dictionary = Catalog.packet(state, decision.pr_id)
+		if signed.revision == 1 and not signed.get("payload", false): originals_signed += 1
 	check(state.phase == "complete" and state.day == 10 and originals_signed == 150 and state.decisions.size() > 150, "The second Friday ends the campaign with every PR and its revisions signed.")
 	check(Sim.dispatch(state, {"type":"next-day", "choice":"rest"}) == state, "No eleventh day can be started.")
 	var finished := state.duplicate(true)

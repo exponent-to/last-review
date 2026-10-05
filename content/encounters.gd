@@ -21,6 +21,7 @@ const Banter = preload("res://content/banter.gd")
 const Lines = preload("res://content/encounter_lines.gd")
 const Bank = preload("res://content/pr_bank.gd")
 const Trees = preload("res://content/trees.gd")
+const Payloads = preload("res://content/payloads.gd")
 
 const AUTHORS: Array[String] = ["Maya", "Theo", "Inez"]
 const MOODS: Array[String] = ["warm", "neutral", "strained", "hostile"]
@@ -33,9 +34,11 @@ const TONE := {
 	"thanks": 4, "suspicious": 4, "relief": 4, "withdrawn": 4,
 	"revise_now": -5, "revise_later": -5, "escalate": -6, "abandon": -6,
 	"insist_revise": -8, "insist_escalate": -9,
+	# A reason-free block stings; refusing a payload cools the author a little.
+	"unexplained": -6, "blocked": -4,
 }
 ## Relationship changes from encounter choices, on top of the review's own deltas.
-const RELATIONSHIP := {"abandon": -3, "insist_revise": -2, "insist_escalate": -2, "withdrawn": 2}
+const RELATIONSHIP := {"abandon": -3, "insist_revise": -2, "insist_escalate": -2, "withdrawn": 2, "unexplained": -3}
 ## Game seconds the author spends revising at your desk before v2 replaces the PR.
 const REVISE_NOW_SECONDS := 6
 ## A grudge lands in Slouch this long after the author abandons a PR.
@@ -70,6 +73,8 @@ const NODES := {
 	"insist_revise": {"stage": 6, "kind": "say", "label": "Revises, grudgingly", "about": "v2 rejoins the line. Costs a little relationship."},
 	"insist_escalate": {"stage": 6, "kind": "say", "label": "Takes it to Morgan", "about": "Morgan hands it to Helios. Costs a little relationship."},
 	"withdrawn": {"stage": 6, "kind": "say", "label": "Takes the win", "about": "The PR stays on your desk, minus that citation. Warms the author a little."},
+	"unexplained": {"stage": 4, "kind": "say", "label": "No reason given", "about": "CHANGES REQUESTED with zero citations. The author gets no reason and no revision; Helios merges it. Graded incorrect unless the PR's only fault is a payload."},
+	"blocked": {"stage": 4, "kind": "say", "label": "Payload blocked", "about": "You refused a Helios payload. It never ships; there is no revision. The one place dialogue may name the payload."},
 	"grudge": {"stage": 7, "kind": "slouch", "label": "Slouch grudge", "about": "A follow-up DM a little later, after an abandon or an escalation. A neutral author uses the PR's own grudge line."},
 	"morgan": {"stage": 7, "kind": "slouch", "label": "Morgan's note", "about": "Your manager hears about it in Slouch, colored by the author's mood."},
 	"merged": {"stage": 7, "kind": "end", "label": "Merged / closed", "about": "Slouch carries the author's reaction: thanks, suspicion, or relief."},
@@ -88,6 +93,8 @@ const EDGES := [
 	{"from": "review", "to": "consult", "when": "you ask Helios"},
 	{"from": "review", "to": "approve", "when": "no citations"},
 	{"from": "review", "to": "changes", "when": "1+ citations"},
+	{"from": "review", "to": "unexplained", "when": "CHANGES REQUESTED, no citations"},
+	{"from": "review", "to": "blocked", "when": "CHANGES REQUESTED on a payload"},
 	{"from": "approve", "to": "thanks", "pick": "approve", "when": "v1"},
 	{"from": "approve", "to": "suspicious", "pick": "approve", "when": "v1"},
 	{"from": "approve", "to": "relief", "when": "v2/v3"},
@@ -164,6 +171,7 @@ const LEANS := {
 	"Layout": {"revise_now": 6},
 	"Security": {"revise_now": 10},
 	"Hygiene": {"revise_now": 8},
+	"Readability": {"pushback": 8},
 }
 ## Neutral desk lines for the classic moments are the original banter.
 const DESK_FALLBACK := {"pitch": "open", "return": "revision", "flag": "flag", "unflag": "withdraw", "consult": "consult", "thanks": "approved", "revise_later": "changes"}
@@ -427,17 +435,24 @@ static func overrides(packet: Dictionary) -> Dictionary:
 	return _overrides.get(str(packet.get("title", "")), {})
 
 ## Authored templates for a node, author, and mood. Neutral desk lines for the
-## classic moments fall back to the original banter.
+## classic moments fall back to the original banter; an author with no authored
+## encounter lines at all (a replacement hire) uses the banter in every mood, so
+## their bubble is never empty.
 static func templates(channel: String, node: String, author: String, mood: String) -> Array:
 	var authored: Array = Lines.lines(author, channel, node, mood)
 	if not authored.is_empty(): return authored
-	if channel == "desk" and mood == "neutral" and DESK_FALLBACK.has(node):
+	if channel == "desk" and DESK_FALLBACK.has(node) and (mood == "neutral" or Lines.BY_AUTHOR.get(author, {}).is_empty()):
 		return Banter.lines(author, str(DESK_FALLBACK[node]))
 	return []
 
 ## Candidate bubble lines for a desk moment, already filled in.
 static func desk_lines(packet: Dictionary, node: String, mood: String, cited: Array = [], focus: String = "") -> Array:
 	var author := str(packet.get("author", ""))
+	# A payload PR is the one place an author may name what they are shipping. Its
+	# own pleading speaks first, in every mood, ahead of trees and templates.
+	if bool(packet.get("payload", false)):
+		var plea := Payloads.line(str(packet.get("payload_key", "")), node, mood)
+		if not plea.is_empty(): return [fill(plea, cited, focus)]
 	# This PR's own tree speaks first. Moments that can repeat in one visit keep
 	# the author's templates behind it, so a second flag gets a fresh line.
 	var tree_line := Trees.line(str(packet.get("title", "")), "desk", node, mood)

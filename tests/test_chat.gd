@@ -85,7 +85,10 @@ func _test_delivery() -> void:
 		_check(Chat.reply_options(waiting, contact).is_empty(), "An undelivered PR cannot offer replies.")
 	for day: int in Catalog.campaign_days():
 		var state := _state(day, 0)
-		var packets := Catalog.requests_for_day(day)
+		# Helios payloads are not part of the archived Slouch chat (they carry their
+		# own pleading at the desk), so this chat test only walks the authored 150.
+		var not_payload := func(p: Dictionary) -> bool: return not p.get("payload", false)
+		var packets := Catalog.requests_for_day(day).filter(not_payload)
 		for index in range(packets.size()):
 			var request: Dictionary = packets[index]
 			state.shift_seconds = index * 20
@@ -100,7 +103,7 @@ func _test_delivery() -> void:
 			_check(linked, "A PR reaching the desk must carry its real internal PR link, sent when it arrived.")
 			_check(authored.requests[request.id].hint not in _texts(history), "Arrival must not automatically reveal its trace hint.")
 			_check(_options_for(state, request).size() == 3, "The pending PR on the desk offers three authored choices.")
-			for future: Dictionary in packets.slice(index + 1) + Catalog.requests_for_day(day + 1):
+			for future: Dictionary in packets.slice(index + 1) + Catalog.requests_for_day(day + 1).filter(not_payload):
 				var future_history := Chat.messages(state, str(future.author))
 				_check(authored.requests[future.id].request not in _texts(future_history), "PRs still in line cannot leak through any contact's history.")
 				for message: Dictionary in future_history:

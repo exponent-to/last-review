@@ -51,7 +51,7 @@ func _lines(count: int, prefix: String = "x") -> String:
 func _test_campaign() -> void:
 	var packets: Array = Policy.requests()
 	_check(Policy.DAY_COUNTS.size() == LAST_DAY and packets.size() == 150, "The campaign is two weeks: ten shifts of fifteen requests.")
-	_check(Policy.rules().size() == 14, "The rulebook defines fourteen standards across the two weeks.")
+	_check(Policy.rules().size() == 15, "The rulebook defines fifteen standards across the two weeks (P15 readable code).")
 	var all_ids: Array = Policy.rules().map(func(rule: Dictionary) -> String: return rule.id)
 	var seen_ids: Array = []
 	var seen_titles: Array = []
@@ -63,7 +63,7 @@ func _test_campaign() -> void:
 		var multiple_files: int = 0
 		var multiple_rules: int = 0
 		var modified_files: int = 0
-		_check(active_rules.size() == Policy.ACTIVE_COUNTS[day - 1] and active_rules.size() <= 8, "The slip holds a manageable number of standards (at most eight) on day %d." % day)
+		_check(active_rules.size() == Policy.ACTIVE_COUNTS[day - 1] and active_rules.size() <= 9, "The slip holds a manageable number of standards (at most nine, once P15 joins) on day %d." % day)
 		_check(not Policy.briefing(day).is_empty(), "Every shift needs an authored policy briefing.")
 		for packet: Dictionary in packets:
 			if packet.day == day: shift.append(packet)
@@ -114,6 +114,8 @@ func _test_campaign() -> void:
 		_check(clean == 5, "Each shift must retain a third genuinely compliant packets.")
 		_check(modified_files >= 6, "Most shifts change existing code instead of only adding files.")
 		for rule_id: String in active_rules:
+			# P15 "Readable code" is covered by the Helios payloads, not the authored 150.
+			if rule_id in Policy.PLAN_EXEMPT: continue
 			_check(rule_id in covered, "Every active standard must appear in day %d's varied puzzles: %s." % [day, rule_id])
 		_check(multiple_files == 1 if day == 1 else multiple_files > 1, "Multiple-file review should expand after the tutorial day.")
 		if day >= 2:

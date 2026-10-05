@@ -3,6 +3,7 @@ extends SceneTree
 const Simulation = preload("res://native/simulation.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
+const Encounters = preload("res://content/encounters.gd")
 var checks: int = 0
 var failures: int = 0
 
@@ -167,17 +168,26 @@ func _test_mixed_action_history() -> void:
 	for day: int in Catalog.campaign_days():
 		state = Simulation.advance(state, 7)
 		var last_day: bool = day == int(Catalog.campaign_days()[-1])
-		while not Simulation.active_request(state).is_empty():
+		while not Simulation.active_request(state).is_empty() or not Encounters.pending(state).is_empty():
+			if not Encounters.pending(state).is_empty():
+				state = _await_desk(Simulation.dispatch(state, {"type": "pushback", "choice": "insist"}))
+				continue
 			var request: Dictionary = Simulation.active_request(state)
 			state = Simulation.dispatch(state, {"type": "consult-ai"})
-			for reply_id: String in ["acknowledge", "clarify", "concern"]:
-				state = Simulation.dispatch(state, {"type": "chat-reply", "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
-			expected_replies += 3
+			# Replies only exist for the authored originals (not payloads or revisions).
+			if int(request.revision) == 1 and not request.get("payload", false):
+				for reply_id: String in ["acknowledge", "clarify", "concern"]:
+					state = Simulation.dispatch(state, {"type": "chat-reply", "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
+				expected_replies += 3
 			if int(request.day) == 1 or not state.decisions.is_empty() and state.decisions.size() % 4 == 0: _round_trip(state)
 			# Leave the final shift's consulted work unsigned: replay must retain
 			# those consultation/reply effects without inventing review decisions.
 			if last_day: break
-			state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
+			# Review correctly, so no wrong call gets anyone (including you) fired.
+			var full: Dictionary = Catalog.packet(state, state.active_request_id)
+			for rule_id: String in full.violations:
+				state = Simulation.dispatch(state, Catalog.audit_citation(full, rule_id))
+			state = Simulation.dispatch(state, {"type": "review", "verdict": "approve" if full.violations.is_empty() else "request_changes"})
 			state = _await_desk(state)
 		_round_trip(state)
 		state = Simulation.advance(state, Catalog.shift_seconds() - 1 - int(state.shift_seconds))

@@ -60,7 +60,10 @@ func _test_reviews() -> void:
 	var initial: Dictionary = _first_request_state()
 	_check(initial.credits == 120 and initial.trust == 70 and initial.stress == 20 and initial.autonomy == 10, "Initial resources must match the career design.")
 	_check(Simulation.advance(initial, 0) == initial, "A paused clock must not change the game.")
-	_check(Simulation.dispatch(initial, {"type": "review", "verdict": "request_changes"}) == initial, "Rejection without citations must not advance.")
+	# A change request with no citations is now a deliberate, unexplained rejection:
+	# it advances, Helios merges the PR, and a non-payload block grades incorrect.
+	var unexplained: Dictionary = Simulation.dispatch(initial, {"type": "review", "verdict": "request_changes"})
+	_check(unexplained.request_index == 1 and not unexplained.last_feedback.correct and unexplained.encounters[-1].node == "unexplained", "A reason-free rejection advances and is graded incorrect.")
 	_check(Simulation.dispatch(initial, {"type": "toggle-rule", "rule_id": "MISSING"}) == initial, "Unknown rules must not be selected.")
 	for rule: Dictionary in Catalog.rules():
 		if int(rule.introduced_day) > 1:
@@ -73,7 +76,7 @@ func _test_reviews() -> void:
 	_check(Simulation.dispatch(selected, Catalog.audit_citation(request, request.violations[0])) == initial, "Citation toggles must be reversible.")
 	var correct: Dictionary = _resolve(initial)
 	_check(correct.request_index == 1 and correct.last_feedback.correct, "Exact citations must produce a correct rejection.")
-	_check(correct.trust == 75 and correct.coworkers[request.author] == 48 and correct.stress == 23, "Correct rejection must improve trust but strain the author relationship.")
+	_check(correct.trust == 74 and correct.coworkers[request.author] == 47 and correct.stress == 20, "Correct rejection must improve trust but strain the author relationship.")
 	_check(correct.last_feedback.expected_rules == request.violations and correct.last_feedback.message.length() < 600, "Feedback must disclose audit and bounded consequences only after review.")
 	var wrong_rule: String = ""
 	for rule: Dictionary in Catalog.rules_for_day(1):
@@ -95,10 +98,10 @@ func _test_reviews() -> void:
 	for finding: Dictionary in request.findings:
 		_check(policy.evidence_accepted(request.findings, finding.rule_id, finding.path, int(finding.line)), "Every audited finding accepts its own location.")
 	_check(policy.evidence_accepted([{"rule_id": "P03", "path": "a.py", "line": 0}], "P03", "a.py", 7) and not policy.evidence_accepted([{"rule_id": "P03", "path": "a.py", "line": 0}], "P03", "b.py", 0), "Whole-file rules accept any line of the right file only.")
-	_check(overcited.trust == 63 and overcited.coworkers[request.author] == 43, "Incorrect rejection must hurt trust and relationships.")
+	_check(overcited.trust == 59 and overcited.coworkers[request.author] == 41, "Incorrect rejection must hurt trust and relationships.")
 	_check(Simulation.dispatch(initial, {"type": "consult-ai"}) == initial, "Helios is unavailable until Wednesday.")
 	var bad_approval := Simulation.dispatch(initial, {"type": "review", "verdict": "approve"})
-	_check(not bad_approval.last_feedback.correct and bad_approval.trust == 58 and bad_approval.coworkers[request.author] == 56, "Bad approval pleases the author while failing the audit.")
+	_check(not bad_approval.last_feedback.correct and bad_approval.trust == 54 and bad_approval.coworkers[request.author] == 57, "Bad approval pleases the author while failing the audit.")
 	_round_trip(bad_approval)
 	var wednesday := Simulation.initial_state()
 	for day in range(2):
@@ -221,10 +224,14 @@ func _test_catalog() -> void:
 		initial_ids.append(rule.id)
 	initial_ids.sort()
 	_check(initial_ids == ["P01", "P02", "P03"], "New reviewers must start with exactly three foundational policies.")
-	_check(Catalog.rules_for_day(2).size() == 3 and Catalog.rules_for_day(3).size() == 6 and Catalog.rules_for_day(5).size() == 8, "Active standards must grow gradually across the first week.")
-	_check(Catalog.rules_for_day(10).size() <= 8 and not Catalog.rule_active("P05", 7) and Catalog.rule_active("P13", 9), "Week two retires and replaces standards instead of piling them up.")
+	# P15 "Readable code" joins on day 3, so the slip carries seven then nine.
+	_check(Catalog.rules_for_day(2).size() == 3 and Catalog.rules_for_day(3).size() == 7 and Catalog.rules_for_day(5).size() == 9, "Active standards must grow gradually across the first week.")
+	_check(Catalog.rules_for_day(10).size() <= 9 and not Catalog.rule_active("P05", 7) and Catalog.rule_active("P13", 9), "Week two retires and replaces standards instead of piling them up.")
 	_check(Catalog.campaign_days() == range(1, 11), "Campaign days must be derived in authored order: two weeks of five.")
-	_check(Catalog.requests_for_day(1).size() == 15 and Catalog.requests_for_day(10).size() == 15, "Each shift lines up fifteen authored PRs.")
+	# Fifteen authored PRs a day; from day 3 a Helios payload lands at the front too.
+	var authored_day_one: Array = Catalog.requests_for_day(1).filter(func(p: Dictionary) -> bool: return not p.get("payload", false))
+	var authored_day_ten: Array = Catalog.requests_for_day(10).filter(func(p: Dictionary) -> bool: return not p.get("payload", false))
+	_check(authored_day_one.size() == 15 and authored_day_ten.size() == 15, "Each shift lines up fifteen authored PRs.")
 	var previous_day: int = 0
 	var ids: Array = []
 	for request: Dictionary in Catalog.requests():

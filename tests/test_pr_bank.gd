@@ -122,6 +122,9 @@ func _test_faults(entry: Dictionary, index: int) -> void:
 	for day in range(1, LAST_DAY + 1):
 		_check(Campaign.evaluate(_built(index, day, []), day).is_empty(), "A PR built on %s is clean on day %d before any fault." % [entry.path, day])
 		for rule_id: String in Campaign.active_ids(day):
+			# P15 "Readable code" is never applied as a generic bank fault; only the
+			# authored Helios payloads break it.
+			if rule_id in Campaign.PLAN_EXEMPT: continue
 			for variant in range(3):
 				# Only a change to existing code needs a test to travel with it, and a
 				# file that already credits Helios is disclosed from the start.

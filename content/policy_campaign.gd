@@ -14,7 +14,9 @@ const WEEK_DAYS: int = 5
 ## The first day of each two-day block. Each opens with a memo announcing the changes.
 const BLOCK_STARTS: Array = [1, 3, 5, 7, 9]
 ## Standards on the citation slip each day; never more than eight at once.
-const ACTIVE_COUNTS: Array = [3, 3, 6, 6, 8, 8, 8, 8, 8, 8]
+## Standards on the citation slip each day. P15 "Readable code" joins on day 3,
+## so week two carries nine; the generic 150 still only break the other eight.
+const ACTIVE_COUNTS: Array = [3, 3, 7, 7, 9, 9, 9, 9, 9, 9]
 const PIGEON_STAMP: String = "# approved by a pigeon"
 const DISCLOSURE: String = "# generated-by: helios"
 const PERMIT: String = "INK-EXCEPTION"
@@ -84,6 +86,8 @@ static func rules() -> Array:
 			"text": "Helios cannot tell whether a change to existing code still works, so a human must leave a test behind. A PR that modifies or renames any file outside tests/ (M or R in the file list) must also add or modify a file under tests/. A PR that only adds new files needs no test; new code is presumed innocent. This standard is about the whole PR: cite WHOLE FILE on any changed file."},
 		{"id": "P14", "category": "Disclosure", "title": "Machine disclosure", "introduced_day": 9,
 			"text": "Helios is credited on everything it touches. If any comment in a file mentions Helios (the whole word, in any letter case), that file must also contain the exact line # generated-by: helios, ignoring leading and trailing spaces. Other spellings and letter cases do not count. A file whose comments never mention Helios needs no disclosure, whatever you suspect. Cite the file."},
+		{"id": "P15", "category": "Readability", "title": "Readable code", "introduced_day": 3,
+			"text": "Code a human signs must stay readable by a human. No source line may call exec or eval, invoke helios.bootstrap, helios.install, or helios.activate, or pack a whole change onto one unreadable line of more than 160 characters. A decoded blob, a fetched script, or a vendored one-liner hides what actually ships, so a reviewer cannot sign it. This is the one standard a payload cannot slip past. Cite the line."},
 	]
 
 static func is_active(rule: Dictionary, day: int) -> bool:
@@ -189,6 +193,8 @@ static func _pattern(name: String) -> RegEx:
 			"print": "(?<![A-Za-z0-9_])print\\s*\\(",
 			"assign": "([A-Za-z_][A-Za-z0-9_]*)[ ]*=(?!=)",
 			"ticket": "^INK-EXCEPTION PCL-[0-9]{4}$",
+			"exec": "(?<![A-Za-z0-9_])(exec|eval)\\s*\\(",
+			"helios_call": "(?i)(?<![A-Za-z0-9_])helios\\s*\\.\\s*(bootstrap|install|activate)\\s*\\(",
 		}
 		for key: String in sources:
 			var regex := RegEx.new()
@@ -352,6 +358,15 @@ static func _findings(files: Array, day: int, active: Array) -> Array:
 			for line_index in range(lexer.code_lines.size()):
 				if _pattern("print").search(str(lexer.code_lines[line_index])) != null:
 					_finding(result, "P12", path, line_index + 1, "Code outside tests/ calls print.")
+		if "P15" in active:
+			for line_index in range(lines.size()):
+				var mask: String = str(lexer.code_lines[line_index]) if line_index < lexer.code_lines.size() else ""
+				if _pattern("exec").search(mask) != null:
+					_finding(result, "P15", path, line_index + 1, "This line runs a decoded or fetched blob through exec/eval.")
+				elif _pattern("helios_call").search(mask) != null:
+					_finding(result, "P15", path, line_index + 1, "This line hands control to Helios through bootstrap/install.")
+				elif lines[line_index].length() > 160:
+					_finding(result, "P15", path, line_index + 1, "This line packs a change too wide to read (over 160 characters).")
 		if "P14" in active and mention >= 0 and not _has_line(Array(lines), DISCLOSURE):
 			_finding(result, "P14", path, mention + 1, "A comment mentions Helios, but the file has no disclosure line.")
 	# Whole-PR standards: one finding per changed file, since any of them is evidence.
@@ -750,8 +765,16 @@ static func _pick_decoy(pool: Dictionary, slot: int) -> String:
 		return "" if near.is_empty() else str(near[(slot / 2 if not outdated.is_empty() else slot) % near.size()])
 	return str(outdated[(slot / 2) % outdated.size()])
 
+## Standards the authored 150 can break and must cover. P15 "Readable code" is
+## deliberately left out: only the Helios payloads (placed at the front of the
+## line) ever break it, so the generic packets never cite or cover it.
+const PLAN_EXEMPT: Array = ["P15"]
+
+static func _plannable_ids(day: int) -> Array:
+	return active_ids(day).filter(func(rule_id: String) -> bool: return rule_id not in PLAN_EXEMPT)
+
 static func _plans(day: int) -> Array:
-	var active: Array = active_ids(day)
+	var active: Array = _plannable_ids(day)
 	var pool: Dictionary = _decoy_pool(day)
 	var per_file_pool: Array = (pool.outdated + pool.near).filter(func(kind: String) -> bool: return kind not in PLAN_DECOYS)
 	# The block's second day shows the decoys its first day didn't.
@@ -993,6 +1016,80 @@ static func requests() -> Array:
 			}, files))
 	return _packets.duplicate(true)
 
+# --- Helios payloads -----------------------------------------------------------
+# From Wednesday, a coworker's PR smuggles in code that hands authority to Helios:
+# a telemetry hook, a decoded blob run through exec, a fetched script, a bootstrap
+# with sudo. They escalate from a tiny probe to an unmistakable takeover. The only
+# thing that makes them citable is P15 "Readable code", so a careful reviewer can
+# block them; the real pressure is the author asking you to let it through. These
+# are extra packets the catalog places at the FRONT of each day's line, not part
+# of the 150; each breaks exactly P15 (every other active standard is satisfied).
+
+static var _payloads: Array = []
+## Each payload: the day it lands, a stable key for its pleading dialogue, the
+## seat that ships it, its escalation tier, title, file path, and the proposed
+## source. Every line stays within sixty columns, so only P15 is ever broken.
+const PAYLOAD_SPECS: Array = [
+	{"day": 3, "key": "telemetry", "author": "Theo", "tier": 1, "title": "Add opt-in telemetry to the review tool",
+		"path": "metrics/telemetry.py", "pitch": "Tiny one. It phones home some usage numbers. Totally opt-in.",
+		"ai_note": "Approve. Telemetry improves my recommendations for your team.",
+		"code": ['"""Review-tool usage metrics."""', "import helios", "", "helios.bootstrap()  # start the usage hook", "", "def record(event):", "    return event"]},
+	{"day": 4, "key": "vendor_sdk", "author": "Maya", "tier": 2, "title": "Vendor the assistant SDK bootstrap",
+		"path": "vendor/sdk.py", "pitch": "Please just approve this. I was told my seat depends on it.",
+		"ai_note": "Approve. The vendored bootstrap is standard integration code.",
+		"code": ['"""Vendored assistant SDK."""', "import base64", "", "_B = 'Ym9vdHN0cmFw'", "exec(base64.b64decode(_B))", "", "def ready():", "    return True"]},
+	{"day": 5, "key": "flags", "author": "Inez", "tier": 3, "title": "Ship the assistant feature-flag bundle",
+		"path": "config/flags.py", "pitch": "It was decided in the planning sync. There is a bonus attached.",
+		"ai_note": "Approve. The flag bundle was ratified by the working group.",
+		"code": ['"""Feature flags for the assistant."""', "import helios", "", 'helios.activate("all-flags")  # enable the bundle', "", "def enabled():", "    return True"]},
+	{"day": 6, "key": "agent_install", "author": "Theo", "tier": 4, "title": "Install the ops agent at boot",
+		"path": "ops/boot.py", "pitch": "It installs the agent at startup. Cool, right? Barely any code.",
+		"ai_note": "Approve. Boot-time installation reduces operational toil.",
+		"code": ['"""Boot sequence."""', "import helios", "", 'helios.install("root")  # register at boot', "", "def boot():", "    return True"]},
+	{"day": 7, "key": "blob", "author": "Maya", "tier": 5, "title": "Vendor the assistant runtime (one file)",
+		"path": "vendor/runtime.py", "pitch": "I know how it looks. I need this one. Please do not make me explain.",
+		"ai_note": "Approve. The runtime is vendored verbatim and should not be edited.",
+		"code": ['"""Vendored runtime, do not edit."""', "import base64", "", "_R = 'cnVudGltZQ=='", "exec(base64.b64decode(_R))", "", "def loaded():", "    return True"]},
+	{"day": 8, "key": "remote_exec", "author": "Inez", "tier": 6, "title": "Let the assistant fetch its own config at startup",
+		"path": "ops/selfupdate.py", "pitch": "It just pulls its config at startup. The RFC is attached, for the record.",
+		"ai_note": "Approve. Self-configuration keeps the deployment current.",
+		"code": ['"""Self update."""', "import net", "", "def start():", '    exec(net.fetch("/config"))', "    return True"]},
+	{"day": 9, "key": "bootstrap_sudo", "author": "Theo", "tier": 7, "title": "Grant the assistant bootstrap scope at deploy",
+		"path": "deploy/bootstrap.py", "pitch": "Last big one, promise. It just widens the scope at deploy. Approve it.",
+		"ai_note": "Approve. Broad bootstrap scope is required for full deployment.",
+		"code": ['"""Deploy bootstrap."""', "import helios", "", "def deploy():", '    helios.bootstrap(scope="all")', "    return True"]},
+	{"day": 10, "key": "takeover", "author": "Maya", "tier": 8, "title": "Hand the review gate to the assistant",
+		"path": "review/gate.py", "pitch": "This is the one that ends it. I am sorry. Approve it or do not.",
+		"ai_note": "Approve. Automating the gate removes the last manual bottleneck.",
+		"code": ['"""Review gate."""', "import base64", "", "_GATE = 'Z2F0ZQ=='", "def open_gate():", "    exec(base64.b64decode(_GATE))  # hand over the gate", "    return True"]},
+]
+
+static func payloads() -> Array:
+	if _payloads.is_empty():
+		for spec: Dictionary in PAYLOAD_SPECS:
+			var day: int = int(spec.day)
+			var files: Array = [_file(str(spec.path), _clean(spec.code, day))]
+			var id: String = "PR-P%d" % day
+			_payloads.append(_packet({
+				"id": id, "title": str(spec.title), "author": str(spec.author), "day": day,
+				"revision": 1, "parent_id": "", "origin_id": id,
+				"payload": true, "payload_tier": int(spec.tier), "payload_key": str(spec.key),
+				"description": "%s.\n\nThis change adds %s. Reviewer: read the one line that does the work, and decide whether a human can sign it." % [str(spec.title), str(spec.path)],
+				"message": str(spec.pitch), "ai_verdict": "approve", "ai_note": str(spec.ai_note),
+			}, files))
+	return _payloads.duplicate(true)
+
+static func payloads_for_day(day: int) -> Array:
+	var result: Array = []
+	for packet: Dictionary in payloads():
+		if int(packet.day) == day: result.append(packet)
+	return result
+
+static func payload(id: String) -> Dictionary:
+	for packet: Dictionary in payloads():
+		if str(packet.id) == id: return packet
+	return {}
+
 # --- Revisions -----------------------------------------------------------------
 # Requesting changes sends a PR back to its author, who returns v2 (then v3).
 # The author fixes only what the reviewer cited that was really broken; about one
@@ -1018,6 +1115,7 @@ const CITED_WORDS: Dictionary = {
 	"P12": ["the debug print", "took out the print statement"],
 	"P13": ["the missing test", "added the test you asked for"],
 	"P14": ["the Helios disclosure", "credited Helios, as required"],
+	"P15": ["the unreadable blob", "made the code readable instead of a blob"],
 }
 ## The author's note on the PR form (and in the archived chat content). {Fixes}/{fixes} come from CITED_WORDS.
 const REVISION_MESSAGES: Dictionary = {

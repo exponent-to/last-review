@@ -1,60 +1,70 @@
 extends RefCounted
-## Who sits at each desk. The campaign assigns every PR to one of three desks,
-## named for their first occupants (Maya, Theo, and Inez). When Morgan fires
-## someone at closing, the next hire takes that desk the following morning and
-## sends its PRs from then on. Once nobody is left to hire, the desk goes to
-## Helios and its PRs never reach you.
+## Who sits at each desk, and who Morgan lets go. Every PR the campaign assigns
+## belongs to a SEAT, named for its author. When Morgan fires someone at closing,
+## their seat is reassigned the next morning: to a replacement hire if one is
+## free, otherwise to Helios (its PRs never reach the desk). June, a growth PM
+## who ships Helios's payloads, is the replacement this module owns; other regular
+## authors (and their own hiring) belong to the cast author list, which this
+## module reads rather than hard-codes, so firing stays correct whoever authors.
 ##
 ## Firing rules (applied at closing by native/simulation.gd):
-## - A coworker takes at most one STRIKE a day, when any of these happened:
-##   you approved one of their PRs and it failed the audit (their defect shipped,
-##   so they take the blame; Helios's own code is never blamed on anyone), you
-##   wrongly sent back two or more of their PRs (Morgan blames them for the
-##   churn), or they closed the day at rock bottom with you (they spent it
-##   complaining instead of shipping).
-## - Three strikes and Morgan lets them go that evening. Morgan warns at two.
-## - If Maya, Theo, and Inez have all been fired, the run ends.
+## - A coworker takes at most one STRIKE a day, for any of:
+##   * a PR of theirs you approved failed its audit (their defect shipped, so they
+##     take the blame; code Helios wrote is never blamed on a person),
+##   * you wrongly sent back two or more of their PRs that day (Morgan blames the
+##     churn on them),
+##   * they ended the day at rock bottom with you (nothing but friction all day).
+## - Three strikes and Morgan lets them go that evening; Morgan warns at two.
+## - If every original human seat has been let go, the run ends.
 ##
 ## Does not import Simulation.
 
-const DESKS: Array[String] = ["Maya", "Theo", "Inez"]
-## The people Morgan can hire, in the order they become available.
-const HIRES: Array[String] = ["Penny", "Gwen", "June"]
-## Everyone who can ever author a PR.
-const PEOPLE: Array[String] = ["Maya", "Theo", "Inez", "Penny", "Gwen", "June"]
-## Gwen will not ship Helios's code: a payload slot on her desk arrives without it.
+const Catalog = preload("res://content/catalog.gd")
+## The replacement hire this module owns: a growth PM who ships Helios's payloads.
+const HIRES: Array[String] = ["June"]
+## June will not refuse a payload; an ally seat (e.g. Gwen's) would. Listed by the
+## cast; kept here so payload routing can ask without importing the author list.
 const REFUSES_PAYLOADS: Array[String] = ["Gwen"]
 const STRIKES_TO_FIRE := 3
 const WARN_AT := 2
 ## Two wrong change requests against the same person in one day is churn.
 const CHURN := 2
 ## A closing relationship at or below this is rock bottom.
-const ROCK_BOTTOM := 15
-## Who they are, for Morgan's introductions and the endings.
+const ROCK_BOTTOM := 14
+## Who the hires are, for Morgan's introductions and the endings.
 const ROLES := {
-	"Maya": "tired backend engineer",
-	"Theo": "overconfident full-stack engineer",
-	"Inez": "process-minded platform engineer",
 	"Penny": "eager new junior engineer",
 	"Gwen": "paranoid security engineer",
-	"June": "smooth growth PM who now writes code",
+	"June": "smooth growth PM who writes code now",
 }
 
-## Who sat at `desk` on `day`. A firing on day D hands the desk over from D + 1.
-## "" means the desk belongs to Helios.
-static func occupant(state: Dictionary, desk: String, day: int) -> String:
-	var who := desk
+static var _seats: Array = []
+
+## The seats the campaign assigns, in first-appearance order: the distinct authors
+## of the authored originals. Read from content, never hard-coded, so a data-driven
+## author list (or new regular authors) flows through firing unchanged.
+static func seats() -> Array:
+	if _seats.is_empty():
+		for packet: Dictionary in Catalog.originals():
+			var who := str(packet.get("author", ""))
+			if not who.is_empty() and who not in _seats: _seats.append(who)
+	return _seats.duplicate()
+
+## Who sat in `seat` on `day`. A firing on day D hands the seat over from D + 1.
+## "" means the seat belongs to Helios (its PRs never reach the desk).
+static func occupant(state: Dictionary, seat: String, day: int) -> String:
+	var who := seat
 	for firing: Dictionary in state.get("firings", []):
-		if str(firing.get("desk", "")) == desk and int(firing.get("day", 0)) < day:
+		if str(firing.get("seat", "")) == seat and int(firing.get("day", 0)) < day:
 			who = str(firing.get("hire", ""))
 	return who
 
-## The people at their desks on `day`, in desk order (Helios's desks left out).
+## The people at their desks on `day`, in seat order (Helios's seats left out).
 static func team(state: Dictionary, day: int) -> Array:
 	var result: Array = []
-	for desk: String in DESKS:
-		var who := occupant(state, desk, day)
-		if not who.is_empty(): result.append(who)
+	for seat: String in seats():
+		var who := occupant(state, seat, day)
+		if not who.is_empty() and who not in result: result.append(who)
 	return result
 
 ## The team as it stands now: today's during a shift, tomorrow's once it closes.
@@ -76,30 +86,25 @@ static func strikes(state: Dictionary, person: String) -> int:
 		if str(strike.get("name", "")) == person: count += 1
 	return count
 
-## Everyone ever hired, in order.
+## Everyone ever hired into a seat, in order.
 static func hired(state: Dictionary) -> Array:
 	var result: Array = []
 	for firing: Dictionary in state.get("firings", []):
 		if not str(firing.get("hire", "")).is_empty(): result.append(str(firing.hire))
 	return result
 
-## Who Morgan hires next. Penny first; after that, Gwen from security if you've
-## blocked at least as much of Helios's code as you've let through, otherwise
-## June from growth; then whoever is left; then nobody (the desk goes to Helios).
+## Who Morgan brings in for a freed seat: the next hire this module owns who is not
+## already at a desk, or "" (the seat goes to Helios).
 static func next_hire(state: Dictionary) -> String:
 	var taken := hired(state)
-	var blocked := 0
-	var through := 0
-	for payload: Dictionary in state.get("payloads", []):
-		if str(payload.get("outcome", "")) == "blocked": blocked += 1
-		else: through += 1
-	var order: Array = ["Penny"] + (["Gwen", "June"] if blocked >= through else ["June", "Gwen"])
-	for person: String in order:
-		if person not in taken: return person
+	for person: String in HIRES:
+		if person not in taken and not is_fired(state, person): return person
 	return ""
 
-## True once Maya, Theo, and Inez have all been let go.
+## True once every original human seat has been let go.
 static func whole_team_fired(state: Dictionary) -> bool:
-	for desk: String in DESKS:
-		if not is_fired(state, desk): return false
-	return true
+	var any_seat := false
+	for seat: String in seats():
+		any_seat = true
+		if not is_fired(state, seat): return false
+	return any_seat

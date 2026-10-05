@@ -9,7 +9,9 @@ const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
 const Policy = preload("res://content/policy_campaign.gd")
 const Encounters = preload("res://content/encounters.gd")
-const SAVE_VERSION: int = 12
+const Staff = preload("res://content/staff.gd")
+const Endings = preload("res://content/endings.gd")
+const SAVE_VERSION: int = 13
 const SHIFT_SECONDS: int = 180
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
@@ -20,17 +22,26 @@ const EVENINGS: Array = ["rest", "socialize", "study"]
 const DESK_BEAT: int = 3
 ## A revision rejoins the line behind this many PRs (or sooner if fewer remain).
 const REVISION_GAP: int = 2
+## Morgan lets you go once her trust in you falls this low, or your stress maxes out.
+const FIRE_TRUST: int = 22
 
 static func initial_state() -> Dictionary:
 	var first_day: int = int(Catalog.campaign_days()[0])
+	# Every seat the campaign assigns, plus the replacement hire, starts neutral.
+	var coworkers: Dictionary = {}
+	for person: String in Staff.seats() + Staff.HIRES:
+		coworkers[person] = 50
 	var state: Dictionary = {
 		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
 		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
-		"coworkers": {"Maya": 50, "Theo": 50, "Inez": 50},
+		"coworkers": coworkers,
 		"selected_rules": [], "citation_evidence": {}, "consulted": false, "decisions": [],
 		"shift_seconds": 0, "active_request_id": "", "consulted_requests": [],
 		"desk_line": [], "desk_at": -1, "arrivals": [], "revisions": [],
 		"actions": [], "shift_history": [], "chat_replies": [], "encounters": [],
+		# Staffing and story tracking: who was let go, their strikes, payload PRs
+		# resolved, and the ending reached (set once the run ends).
+		"firings": [], "strikes": [], "payloads": [], "ending": "",
 		"log": [{"day": first_day, "message": "Your review shift begins. Work lands on your desk one PR at a time."}],
 		"last_feedback": {}, "last_debrief": {},
 	}
@@ -72,13 +83,31 @@ static func _public_request(request: Dictionary, consulted: bool = false) -> Dic
 	return public
 
 ## Start a day's line: its authored packets in order, the first already on the desk.
+## A PR whose seat Morgan has handed to Helios never lands, and a payload whose
+## seat went to someone who refuses to ship it is quietly dropped as well.
 static func _open_desk(state: Dictionary) -> void:
 	state.desk_line = []
-	for request: Dictionary in Catalog.requests_for_day(int(state.day)):
+	var day: int = int(state.day)
+	for request: Dictionary in Catalog.requests_for_day(day):
+		var who: String = Staff.occupant(state, str(request.author), day)
+		if who.is_empty(): continue
+		if bool(request.get("payload", false)) and who in Staff.REFUSES_PAYLOADS: continue
 		state.desk_line.append(request.id)
 	state.active_request_id = ""
 	state.desk_at = int(state.shift_seconds)
 	_deliver(state)
+
+## The PR with its author set to whoever holds that seat now (a replacement hire,
+## if the original author was let go). Returns the shared packet unchanged when the
+## seat still belongs to its original author, which is the usual case.
+static func _staffed(state: Dictionary, packet: Dictionary) -> Dictionary:
+	if packet.is_empty(): return packet
+	var seat: String = str(packet.get("author", ""))
+	var who: String = Staff.occupant(state, seat, int(packet.get("day", state.get("day", 1))))
+	if who == seat or who.is_empty(): return packet
+	var copy: Dictionary = packet.duplicate(true)
+	copy.author = who
+	return copy
 
 ## The next PR in line reaches the desk at `desk_at` and becomes the active review.
 static func _deliver(state: Dictionary) -> void:
@@ -102,11 +131,12 @@ static func active_request(state: Dictionary) -> Dictionary:
 	var request: Dictionary = _desk(state)
 	return {} if request.is_empty() else _public_request(request, request.id in state.consulted_requests)
 
-## Internal, read-only: the full packet on the desk (audit data included).
+## Internal, read-only: the full packet on the desk (audit data included), with its
+## author set to whoever holds that seat now.
 static func _desk(state: Dictionary) -> Dictionary:
 	if state.phase != "review" or str(state.active_request_id).is_empty() or _reviewed(state, state.active_request_id):
 		return {}
-	return Catalog.packet(state, state.active_request_id, false)
+	return _staffed(state, Catalog.packet(state, state.active_request_id, false))
 
 static func _update_request_index(state: Dictionary) -> void:
 	var requests: Array = Catalog.originals()
@@ -217,7 +247,9 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 			var verdict: Variant = command.get("verdict")
 			if verdict not in ["approve", "request_changes"]:
 				return next
-			if (verdict == "approve" and not next.selected_rules.is_empty()) or (verdict == "request_changes" and next.selected_rules.is_empty()):
+			# Approval still requires no citations. A change request may now carry
+			# zero citations: a deliberate, unexplained rejection (see below).
+			if verdict == "approve" and not next.selected_rules.is_empty():
 				return next
 			event.pr_id = active.id
 			event.verdict = verdict
@@ -226,7 +258,17 @@ static func dispatch(state: Dictionary, command: Dictionary) -> Dictionary:
 			next.actions.append(event)
 			# The author's response branches on mood and what was cited, never the audit.
 			var context: Dictionary = Encounters.context(next, active, verdict, next.selected_rules)
-			var node: String = Encounters.verdict_node(context)
+			var node: String
+			if bool(active.get("payload", false)):
+				# A payload cannot be revised into shape: you either let it through or
+				# block it. Blocking pulls it; it never reaches Helios.
+				node = "blocked" if verdict == "request_changes" else Encounters.verdict_node(context)
+			elif verdict == "request_changes" and next.selected_rules.is_empty():
+				# CHANGES REQUESTED with no citations: a reason-free block. Helios merges
+				# it, and Morgan notices the unexplained rejection.
+				node = "unexplained"
+			else:
+				node = Encounters.verdict_node(context)
 			if node == "pushback":
 				next.encounters.append(Encounters.beat(next, context, node, {"disputed": Encounters.disputed(context.cited, active.id)}))
 				_record(next, "%s is pushing back on your change request." % active.author)
@@ -267,7 +309,8 @@ static func _cite(state: Dictionary, rule_id: String, evidence: Variant) -> Dict
 ## Grade and close the PR on the desk. `node` is the encounter branch already
 ## chosen from mood and visible actions; it decides what happens to the desk line.
 static func _review(state: Dictionary, verdict: String, context: Dictionary, node: String, extra: Dictionary = {}) -> void:
-	var request: Dictionary = Catalog.packet(state, state.active_request_id, false)
+	var request: Dictionary = _staffed(state, Catalog.packet(state, state.active_request_id, false))
+	var payload: bool = bool(request.get("payload", false))
 	var expected: Array = request.violations
 	var correct: bool = expected.is_empty() if verdict == "approve" else _same_rules(state.selected_rules, expected)
 	if verdict == "request_changes" and correct:
@@ -275,9 +318,28 @@ static func _review(state: Dictionary, verdict: String, context: Dictionary, nod
 			var location: Dictionary = state.citation_evidence.get(rule_id, {})
 			if not Policy.evidence_accepted(request.findings, rule_id, str(location.get("path", "")), int(location.get("line", -1))):
 				correct = false
-	var relationship_change: int = ((4 if correct else 6) if verdict == "approve" else (-2 if correct else -7)) + Encounters.relationship_change(node)
-	var trust_change: int = (3 if correct else -12) if verdict == "approve" else (5 if correct else -7)
-	var stress_change: int = 3 + (0 if correct else (8 if verdict == "approve" else 6))
+	# Blocking a payload is a correct review whether you cite the readability
+	# standard or stamp it with no reason at all; its only fault is the payload.
+	if payload and verdict == "request_changes":
+		correct = state.selected_rules.is_empty() or _same_rules(state.selected_rules, expected)
+	# Harder than before: shipping a defect you approved is what loses Morgan's
+	# trust, and a wrong call wears you down. Doing the job right costs almost
+	# nothing, so a careful reviewer survives; a careless one gets fired.
+	var relationship_change: int = ((4 if correct else 7) if verdict == "approve" else (-3 if correct else -9)) + Encounters.relationship_change(node)
+	var trust_change: int = (3 if correct else -16) if verdict == "approve" else (4 if correct else -11)
+	var stress_change: int = 0 if correct else (12 if verdict == "approve" else 9)
+	# A payload is a different kind of call. Letting it through warms the author who
+	# begged for it and only dents Morgan's trust, so you can choose that road and
+	# live with it; blocking it strains the author but keeps the gate, and you.
+	if payload:
+		if verdict == "approve":
+			relationship_change = 6 + Encounters.relationship_change(node)
+			trust_change = -4
+			stress_change = 6
+		else:
+			relationship_change = -4 + Encounters.relationship_change(node)
+			trust_change = 5
+			stress_change = 5
 	var previous_relationship: int = int(state.coworkers[request.author])
 	var previous_trust: int = int(state.trust)
 	state.coworkers[request.author] = clampi(previous_relationship + relationship_change, 0, 100)
@@ -288,7 +350,11 @@ static func _review(state: Dictionary, verdict: String, context: Dictionary, nod
 		"evidence": state.citation_evidence.duplicate(true), "consulted": state.consulted, "correct": correct, "shift_seconds": state.shift_seconds,
 	})
 	var response: String
-	if verdict == "approve":
+	if node == "unexplained":
+		response = "%s got no reason and no revision; Helios merged it." % request.author
+	elif payload:
+		response = "%s let Helios's payload through." % request.author if verdict == "approve" else "%s had their Helios payload blocked." % request.author
+	elif verdict == "approve":
 		response = "%s appreciates the approval." % request.author if correct else "%s is relieved you let it through, but the audit flags the risk." % request.author
 	else:
 		response = "%s accepts the fix but resents the extra work." % request.author if correct else "%s pushes back against an unsupported or incomplete review." % request.author
@@ -319,6 +385,18 @@ static func _review(state: Dictionary, verdict: String, context: Dictionary, nod
 			var capped: bool = int(request.revision) >= Policy.MAX_REVISION
 			if capped: state.autonomy = clampi(int(state.autonomy) + 1, 0, 100)
 			_record(state, "%s escalated %s%s. Helios has taken it over." % [request.author, request.origin_id, " after three rounds" if capped else " to Morgan"])
+		"unexplained":
+			# A reason-free block: no revision is made and Helios merges it, so the
+			# assistant's authority grows and Morgan hears about the unexplained call.
+			state.autonomy = clampi(int(state.autonomy) + 1, 0, 100)
+			_record(state, "You blocked %s with no reason. Helios merged it anyway." % request.origin_id)
+		"blocked":
+			# A payload you refused. It never ships.
+			_record(state, "You blocked %s. Helios's payload does not ship." % request.origin_id)
+	# Record every payload PR you resolve: let through (approved) or blocked.
+	if payload:
+		state.payloads.append({"pr_id": request.id, "origin_id": request.origin_id, "day": int(state.day),
+			"tier": int(request.get("payload_tier", 0)), "outcome": "blocked" if node == "blocked" else "approved"})
 	state.encounters.append(Encounters.beat(state, context, node, outcome))
 	state.active_request_id = ""
 	state.selected_rules = []
@@ -361,6 +439,14 @@ static func _debrief(state: Dictionary) -> void:
 				correct += 1
 	# Whatever is on the desk or still in line at the bell goes to Helios.
 	var handed_off: int = state.desk_line.size() + (0 if str(state.active_request_id).is_empty() else 1)
+	# A payload left unreviewed at the bell is merged by Helios: it ships.
+	var pending_ids: Array = state.desk_line.duplicate()
+	if not str(state.active_request_id).is_empty(): pending_ids.append(state.active_request_id)
+	for pr_id: Variant in pending_ids:
+		var pending: Dictionary = Catalog.packet(state, str(pr_id), false)
+		if bool(pending.get("payload", false)):
+			state.payloads.append({"pr_id": str(pending.id), "origin_id": str(pending.origin_id), "day": int(state.day),
+				"tier": int(pending.get("payload_tier", 0)), "outcome": "merged"})
 	var pay: int = 80 + 10 * correct
 	state.credits = clampi(int(state.credits) + pay - 90, -9999, 9999)
 	state.autonomy = clampi(int(state.autonomy) + (4 + handed_off), 0, 100)
@@ -381,18 +467,101 @@ static func _debrief(state: Dictionary) -> void:
 	state.consulted = false
 	_update_request_index(state)
 	_record(state, message)
+	# Morgan reviews the day: strikes, any firing, and whether the run ends tonight.
+	_apply_strikes_and_firings(state)
+	_resolve_early_ending(state)
+
+## At closing, each coworker can take at most one strike for the day, three of which
+## ends them. A strike comes from a defect you approved of theirs shipping, from
+## repeatedly sending their work back without cause, or from a day of nothing but
+## friction. Payloads are Helios's code, so letting one through never strikes its
+## author. Firing frees their seat for a replacement the next morning.
+static func _apply_strikes_and_firings(state: Dictionary) -> void:
+	var day: int = int(state.day)
+	var shipped_defect: Dictionary = {}
+	var wrong_rejections: Dictionary = {}
+	for decision: Dictionary in state.decisions:
+		if int(decision.get("shift_seconds", -1)) < 0: continue
+		var packet: Dictionary = Catalog.packet(state, str(decision.pr_id), false)
+		if packet.is_empty() or int(packet.get("day", 0)) != day: continue
+		var person: String = Staff.occupant(state, str(packet.author), day)
+		if person.is_empty(): continue
+		if decision.verdict == "approve" and not bool(decision.get("correct", true)) and not bool(packet.get("payload", false)):
+			shipped_defect[person] = int(shipped_defect.get(person, 0)) + 1
+		elif decision.verdict == "request_changes" and not bool(decision.get("correct", true)):
+			wrong_rejections[person] = int(wrong_rejections.get(person, 0)) + 1
+	for person: String in Staff.team(state, day):
+		if Staff.is_fired(state, person): continue
+		# A strike is the player's doing: their defect you approved shipped, or you
+		# churned their work with wrong rejections. Correctly rejecting a broken PR
+		# never counts against its author, however much it cools the relationship.
+		var reason: String = ""
+		if int(shipped_defect.get(person, 0)) > 0:
+			reason = "a defect of theirs you approved shipped"
+		elif int(wrong_rejections.get(person, 0)) >= Staff.CHURN:
+			reason = "you sent their work back without cause too many times"
+		elif int(wrong_rejections.get(person, 0)) >= 1 and int(state.coworkers.get(person, 50)) <= Staff.ROCK_BOTTOM:
+			reason = "a day of friction and a relationship at rock bottom"
+		if reason.is_empty(): continue
+		state.strikes.append({"name": person, "day": day, "reason": reason})
+		if Staff.strikes(state, person) >= Staff.STRIKES_TO_FIRE:
+			_fire(state, person, day, reason)
+
+static func _fire(state: Dictionary, person: String, day: int, reason: String) -> void:
+	var seat: String = ""
+	for candidate: String in Staff.seats():
+		if Staff.occupant(state, candidate, day) == person:
+			seat = candidate
+			break
+	var hire: String = Staff.next_hire(state)
+	state.firings.append({"name": person, "seat": seat, "day": day, "hire": hire, "reason": reason})
+	_record(state, "Morgan let %s go. %s" % [person, ("%s takes the desk tomorrow." % hire) if not hire.is_empty() else "The desk goes to Helios."])
+
+## The run can end the moment Morgan loses faith in you, your stress maxes out, or
+## the last of the human team is gone.
+static func _resolve_early_ending(state: Dictionary) -> void:
+	if not str(state.ending).is_empty(): return
+	if int(state.trust) < FIRE_TRUST or int(state.stress) >= 100:
+		state.ending = "player_fired"
+	elif Staff.whole_team_fired(state):
+		state.ending = "team_fired"
+	if not str(state.ending).is_empty():
+		state.phase = "complete"
+		_record(state, str(Endings.summary(state.ending)))
+
+## The ending the two-week run earns: payloads blocked vs let through, crossed with
+## whether the surviving team is on your side.
+static func resolve_ending(state: Dictionary) -> String:
+	var through: int = 0
+	var blocked: int = 0
+	for payload: Dictionary in state.get("payloads", []):
+		if str(payload.get("outcome", "")) == "blocked": blocked += 1
+		else: through += 1
+	var helios_won: bool = through > blocked
+	var liked: bool = team_likes_you(state)
+	if helios_won:
+		return "soft_landing" if liked else "helios_prime"
+	return "last_reviewers" if liked else "right_and_alone"
+
+## Whether the people still employed are, on average, on your side.
+static func team_likes_you(state: Dictionary) -> bool:
+	var team: Array = Staff.team(state, int(state.day))
+	if team.is_empty(): return false
+	var total: int = 0
+	for person: String in team: total += int(state.coworkers.get(person, 50))
+	return total >= 50 * team.size()
 
 static func _evening(state: Dictionary, choice: String) -> void:
 	state.shift_history[-1].evening_choice = choice
 	match choice:
 		"rest":
-			state.stress = clampi(int(state.stress) - 18, 0, 100)
-			_record(state, "You go home and rest. Stress -18.")
+			state.stress = clampi(int(state.stress) - 24, 0, 100)
+			_record(state, "You go home and rest. Stress -24.")
 		"socialize":
 			state.credits = clampi(int(state.credits) - 15, -9999, 9999)
 			state.stress = clampi(int(state.stress) - 8, 0, 100)
-			for author: String in AUTHORS:
-				state.coworkers[author] = clampi(int(state.coworkers[author]) + 4, 0, 100)
+			for author: String in Staff.team(state, int(state.day)):
+				state.coworkers[author] = clampi(int(state.coworkers.get(author, 50)) + 4, 0, 100)
 			_record(state, "Dinner with the team costs 15. Relationships +4; stress -8.")
 		"study":
 			state.trust = clampi(int(state.trust) + 4, 0, 100)
@@ -400,7 +569,8 @@ static func _evening(state: Dictionary, choice: String) -> void:
 			_record(state, "You spend the evening studying the rulebook. Trust +4; stress +4.")
 	if int(state.request_index) == Catalog.requests().size():
 		state.phase = "complete"
-		_record(state, "Assignment complete. The assistant has more authority; your decisions still have human consequences.")
+		if str(state.ending).is_empty(): state.ending = resolve_ending(state)
+		_record(state, str(Endings.summary(state.ending)))
 	else:
 		state.day = int(Catalog.request_at(int(state.request_index)).day)
 		state.phase = "review"
