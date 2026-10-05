@@ -32,10 +32,11 @@ func push(app: String, text: String, target: String = "", is_error: bool = false
 	style.set_border_width_all(1)
 	style.content_margin_left = 3
 	style.content_margin_right = 3
-	style.content_margin_top = 3
-	style.content_margin_bottom = 4
+	style.content_margin_top = 2
+	style.content_margin_bottom = 3
 	card.add_theme_stylebox_override("panel", style)
-	card.custom_minimum_size.y = 34
+	# Short enough to sit inside the taskbar, clear of the windows above it.
+	card.custom_minimum_size.y = 30
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	card.focus_mode = Control.FOCUS_ALL
@@ -62,7 +63,7 @@ func push(app: String, text: String, target: String = "", is_error: bool = false
 	if Portraits.texture_for(person) != null:
 		style.content_margin_top = 1
 		style.content_margin_bottom = 1
-		content.add_child(Portraits.make(person, 32))
+		content.add_child(Portraits.make(person, 28))
 		card.set_meta("person", Portraits.id_for(person))
 	var body := Label.new()
 	body.text = text.replace("\n", " ")
@@ -82,7 +83,9 @@ func push(app: String, text: String, target: String = "", is_error: bool = false
 	var dismiss := Button.new()
 	dismiss.text = "×"
 	dismiss.flat = true
-	dismiss.custom_minimum_size = Vector2(24, 24)
+	dismiss.custom_minimum_size = Vector2(24, 22)
+	for state in ["normal", "hover", "pressed", "focus"]:
+		dismiss.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	dismiss.tooltip_text = "Dismiss notification"
 	content.add_child(dismiss)
 	var item := {"app": app, "target": target, "card": card, "remaining": 9.0}
@@ -134,7 +137,7 @@ func _queue_fit_position() -> void:
 func _fit_position() -> void:
 	if not is_inside_tree(): return
 	_stack.size.y = _stack.get_combined_minimum_size().y
-	_stack.position = Vector2(size.x - _stack.size.x - 6, size.y - _stack.size.y - 5)
+	_stack.position = Vector2(size.x - _stack.size.x - 6, size.y - _stack.size.y - 4)
 
 func _process(delta: float) -> void:
 	if paused or not is_visible_in_tree(): return

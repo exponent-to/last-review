@@ -918,7 +918,7 @@ func _arrange_windows() -> void:
 	if not is_instance_valid(_desktop) or _windows.is_empty():
 		return
 	var extent: Vector2 = _desktop.size
-	var evening := Vector2(minf(680, extent.x - 160), minf(520, extent.y - 24))
+	var evening := Vector2(minf(680, extent.x - 160), minf(560, extent.y - 24))
 	var layouts: Dictionary = {
 		"review": Rect2(Vector2(142, 8), Vector2(extent.x - 150, extent.y - 16)),
 		"system": Rect2(Vector2(210, 90), Vector2(minf(650, extent.x - 240), minf(470, extent.y - 118))),
@@ -1068,8 +1068,8 @@ func _browser_go_back() -> void:
 func _build_decision(parent: Node) -> void:
 	var holder: VBoxContainer = _column(parent, 6)
 	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	holder.size_flags_stretch_ratio = 0.95
-	holder.custom_minimum_size.x = 250
+	holder.size_flags_stretch_ratio = 1.3
+	holder.custom_minimum_size.x = 280
 	var heading := _row(holder, 6)
 	_label(heading, "CITATIONS", 13, RED)
 	_spacer(heading)
@@ -1087,7 +1087,7 @@ func _build_decision(parent: Node) -> void:
 		var slip := PanelContainer.new()
 		slip.add_theme_stylebox_override("panel", _style(INSET, BORDER, 1, 6, 4))
 		column.add_child(slip)
-		var line := _row(slip, 6)
+		var line := _row(slip, 4)
 		var check := CheckBox.new()
 		check.text = id
 		check.add_theme_font_size_override("font_size", 12)
@@ -1458,7 +1458,7 @@ func _render_evening(state: Dictionary) -> void:
 		_evening_notes.add_child(note)
 		_paragraph(note, text, 13, TEXT)
 	for text: String in evening.closing:
-		_paragraph(_evening_closing, text, 16, TEXT)
+		_paragraph(_evening_closing, text, 15, TEXT)
 	var scroll := _evening_closing.get_parent().get_parent() as ScrollContainer
 	if scroll != null: scroll.scroll_vertical = 0
 
@@ -1512,7 +1512,7 @@ func _record_columns(page: VBoxContainer) -> Array:
 	var columns := _row(page, 10)
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var list_scroll := ScrollContainer.new()
-	list_scroll.custom_minimum_size.x = 250
+	list_scroll.custom_minimum_size.x = 290
 	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	columns.add_child(list_scroll)
