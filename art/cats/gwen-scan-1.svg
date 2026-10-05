@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Gwen, narrowed eyes scanning one way. Drawn over gwen.svg; transparent except the pixels it changes. -->
+  <path fill="#8f877d" d="M7 12h4v2h-4zM21 12h4v2h-4zM6 13h1v1h-1zM11 13h1v1h-1zM20 13h1v1h-1zM25 13h1v1h-1z"/>
+  <path fill="#141312" d="M7 14h4v1h-4zM21 14h4v1h-4z"/>
+  <path fill="#0e0f0c" d="M7 15h1v2h-1zM21 15h1v2h-1z"/>
+  <path fill="#b4bb4f" d="M8 15h3v1h-3zM22 15h3v1h-3z"/>
+  <path fill="#c6cc5c" d="M8 16h2v1h-2zM22 16h2v1h-2z"/>
+</svg>

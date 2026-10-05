@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- June, reacting to a poke. Drawn over june.svg; transparent except the pixels it changes. -->
+  <path fill="#24391f" d="M2 1h2v1h-2zM28 1h2v1h-2zM3 2h1v1h-1zM27 2h1v1h-1z"/>
+  <path fill="#1a1b20" d="M1 2h1v2h-1zM28 2h1v2h-1zM3 3h2v1h-2zM27 3h1v1h-1zM30 3h1v1h-1z"/>
+  <path fill="#6c727d" d="M2 3h1v1h-1zM29 3h1v1h-1z"/>
+  <path fill="#17161a" d="M7 11h4v1h-4zM21 11h4v1h-4zM6 12h1v1h-1zM11 12h1v1h-1zM20 12h1v2h-1zM25 12h1v2h-1z"/>
+  <path fill="#c9a24a" d="M7 12h4v1h-4zM21 12h4v1h-4zM8 13h3v1h-3zM22 13h3v1h-3zM7 14h2v1h-2zM10 14h1v2h-1zM21 14h1v1h-1zM23 14h2v2h-2z"/>
+  <path fill="#ffffff" d="M7 13h1v1h-1zM21 13h1v1h-1z"/>
+  <path fill="#121214" d="M9 14h1v2h-1zM22 14h1v2h-1z"/>
+  <path fill="#e2c27a" d="M9 16h2v1h-2zM23 16h2v1h-2z"/>
+  <path fill="#f1eee8" d="M13 20h1v1h-1z"/>
+  <path fill="#2e2428" d="M15 20h2v2h-2z"/>
+  <path fill="#a6acb5" d="M18 20h1v1h-1z"/>
+  <path fill="#7d7678" d="M14 21h1v1h-1zM17 21h1v1h-1zM15 22h2v1h-2z"/>
+</svg>

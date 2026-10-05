@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Gwen, mouth open, for the talking flap. Drawn over gwen.svg; transparent except the pixels it changes. -->
+  <path fill="#2c2220" d="M15 20h2v1h-2z"/>
+  <path fill="#4f4842" d="M14 21h1v1h-1zM17 21h1v1h-1zM15 22h2v1h-2z"/>
+  <path fill="#c9787a" d="M15 21h2v1h-2z"/>
+</svg>

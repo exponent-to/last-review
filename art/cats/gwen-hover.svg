@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Gwen, perked up under the cursor. Drawn over gwen.svg; transparent except the pixels it changes. -->
+  <path fill="#1b1917" d="M2 0h2v1h-2zM28 0h2v1h-2zM4 1h1v1h-1zM27 1h1v1h-1zM5 2h1v1h-1zM26 2h1v1h-1zM6 3h1v1h-1zM25 3h1v1h-1z"/>
+  <path fill="#7a6b5e" d="M3 1h1v1h-1zM28 1h1v1h-1z"/>
+  <path fill="#c4a49a" d="M4 2h1v1h-1zM27 2h1v1h-1zM5 3h1v1h-1zM26 3h1v1h-1z"/>
+  <path fill="#c6cc5c" d="M21 14h1v1h-1z"/>
+  <path fill="#ffffff" d="M22 14h1v1h-1z"/>
+  <path fill="#0e0f0c" d="M23 14h1v2h-1zM8 15h1v1h-1z"/>
+  <path fill="#e0e28a" d="M9 16h1v1h-1zM22 16h1v1h-1z"/>
+</svg>

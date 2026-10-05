@@ -8,7 +8,8 @@ const Simulation = preload("res://native/simulation.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Banter = preload("res://content/banter.gd")
 const ReviewBanter = preload("res://native/review_banter.gd")
-const CAST: Array[String] = ["Maya", "Theo", "Inez", "Morgan", "Helios"]
+## Penny, Gwen and June have portraits ahead of any story role.
+const CAST: Array[String] = ["Maya", "Theo", "Inez", "Morgan", "Helios", "Penny", "Gwen", "June"]
 const STEP := 1.0 / 60.0
 var checks := 0
 var failures := 0
@@ -117,11 +118,12 @@ func _test_blinks() -> void:
 		check(longest <= CatPortrait.BLINK_GAP.y * 2.0 + 2.5, "%s never stares for long" % person)
 		a.free()
 		b.free()
-	var maya := _cat("Maya")
-	var theo := _cat("Theo")
-	check(_timeline(maya, 20.0).get("blink", []) != _timeline(theo, 20.0).get("blink", []), "Each cat blinks to its own rhythm")
-	maya.free()
-	theo.free()
+	var rhythms: Dictionary = {}
+	for person: String in CAST:
+		var cat := _cat(person)
+		rhythms[_timeline(cat, 20.0).get("blink", [])] = person
+		cat.free()
+	check(rhythms.size() == CAST.size(), "Each cat blinks to its own rhythm")
 
 func _test_idles() -> void:
 	for person: String in CAST:
@@ -271,15 +273,33 @@ func _test_pointer() -> void:
 	card.free()
 
 func _test_lookup() -> void:
-	for person: String in ["Maya", "Theo", "Inez", "Morgan", "Helios"]:
+	check(Portraits.TEXTURES.size() == CAST.size(), "Every portrait belongs to someone in the cast")
+	for person: String in CAST:
 		var texture := Portraits.texture_for(person)
 		check(texture != null and texture.get_size() == Vector2(32, 32), "%s has a 32×32 portrait" % person)
 		check(Portraits.texture_for(person.to_upper()) == texture and Portraits.texture_for(person.to_lower()) == texture, "%s's portrait lookup ignores case" % person)
+		if texture == null: continue
+		var path := "res://art/cats/%s.svg" % person.to_lower()
+		check(texture.resource_path == path and FileAccess.file_exists(path + ".import"), "%s's portrait is %s with committed import settings" % [person, path])
+		var svg := FileAccess.get_file_as_string(path)
+		check(svg.contains("viewBox=\"0 0 32 32\"") and svg.contains("shape-rendering=\"crispEdges\""), "%s's portrait uses the 32×32 crisp pixel grid" % person)
+		var image := texture.get_image()
+		image.convert(Image.FORMAT_RGBA8)
+		var soft := 0
+		for y in range(32):
+			for x in range(32):
+				if image.get_pixel(x, y).a8 != 255: soft += 1
+		check(soft == 0, "%s's portrait is solid pixels edge to edge (%d see-through)" % [person, soft])
 	var morgan := Portraits.texture_for("Morgan")
 	check(Portraits.texture_for("manager") == morgan and Portraits.texture_for("Morgan / Engineering Manager") == morgan, "The manager contact and its intro signature use Morgan's portrait")
 	var seen: Dictionary = {}
-	for person: String in ["Maya", "Theo", "Inez", "Morgan", "Helios"]: seen[Portraits.texture_for(person)] = true
-	check(seen.size() == 5, "Each character has a distinct portrait")
+	var backdrops: Dictionary = {}
+	for person: String in CAST:
+		var texture := Portraits.texture_for(person)
+		seen[texture] = true
+		if texture != null: backdrops[texture.get_image().get_pixel(0, 0).to_html(false)] = person
+	check(seen.size() == CAST.size(), "Each character has a distinct portrait")
+	check(backdrops.size() == CAST.size(), "Each cat sits on a backdrop colour of its own")
 	for nobody: String in ["You", "Operations", "company", "#engineering", ""]:
 		check(Portraits.texture_for(nobody) == null, "'%s' has no portrait" % nobody)
 	var face := Portraits.make("theo", 48)

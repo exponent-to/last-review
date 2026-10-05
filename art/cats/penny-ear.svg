@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Penny, left ear flicking. Drawn over penny.svg; transparent except the pixels it changes. -->
+  <path fill="#2a1f1c" d="M1 1h1v3h-1zM3 2h1v1h-1zM4 3h1v1h-1z"/>
+  <path fill="#4a2238" d="M3 1h1v1h-1zM4 2h1v1h-1zM5 3h1v1h-1z"/>
+  <path fill="#a8957f" d="M2 2h1v2h-1z"/>
+  <path fill="#e8b2ae" d="M3 3h1v1h-1z"/>
+</svg>

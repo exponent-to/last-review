@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- June, right ear starting to turn. Drawn over june.svg; transparent except the pixels it changes. -->
+  <path fill="#8a919c" d="M27 3h1v5h-1z"/>
+  <path fill="#6c727d" d="M26 4h1v5h-1z"/>
+</svg>
