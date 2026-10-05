@@ -127,13 +127,15 @@ func _input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), BACK)
-	# A faint grid of empty desks, dimming toward the back of the room.
-	for row in range(5):
-		var y := size.y * 0.30 + row * 46.0
-		var shade := Color(0.10, 0.10, 0.13).lerp(BACK, row / 5.0)
-		for col in range(6):
-			var x := size.x * 0.12 + col * (size.x * 0.76 / 6.0)
-			draw_rect(Rect2(x, y, size.x * 0.76 / 6.0 - 14, 20), shade)
+	# A faint grid of empty desks, dimming toward the back of the room. The final
+	# card clears them so the title and Morgan's words read cleanly.
+	if not _done:
+		for row in range(5):
+			var y := size.y * 0.30 + row * 46.0
+			var shade := Color(0.10, 0.10, 0.13).lerp(BACK, row / 5.0)
+			for col in range(6):
+				var x := size.x * 0.12 + col * (size.x * 0.76 / 6.0)
+				draw_rect(Rect2(x, y, size.x * 0.76 / 6.0 - 14, 20), shade)
 	# Helios's eyes, watching from the dark. Amber on most endings, red on a firing.
 	var eye_color := RED if _fired else AMBER
 	var pulse := 0.5 + 0.5 * sin(_eye_phase * (3.2 if _fired else 1.4))

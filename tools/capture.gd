@@ -175,7 +175,99 @@ func _run() -> void:
 	await _shot("14-paused")
 	await _later(app)
 	await _final(app)
+	await _story(app)
 	quit()
+
+
+## The Helios-takeover screens: a payload on the desk, a reason-free rejection,
+## Morgan announcing a coworker's firing, and the ending cinematics.
+func _story(app: Node) -> void:
+	var Simulation = Main.Simulation
+	var Catalog = Main.Simulation.Catalog
+	# A payload PR on the desk, with its author pleading in the bubble.
+	var at: Dictionary = Simulation.initial_state()
+	var guard := 0
+	while at.phase != "complete" and guard < 4000:
+		guard += 1
+		if at.phase == "debrief":
+			at = Simulation.dispatch(at, {"type": "next-day", "choice": "rest"}); continue
+		if not Encounters.pending(at).is_empty():
+			at = Simulation.dispatch(at, {"type": "pushback", "choice": "insist"}); continue
+		if Simulation.active_request(at).is_empty():
+			var coming: bool = int(at.desk_at) >= 0 and int(at.desk_at) < Catalog.shift_seconds()
+			at = Simulation.advance(at, int(at.desk_at) - int(at.shift_seconds) if coming else Catalog.shift_seconds()); continue
+		var packet: Dictionary = Catalog.packet(at, at.active_request_id)
+		if packet.get("payload", false): break
+		for rule_id: String in packet.violations: at = Simulation.dispatch(at, Catalog.audit_citation(packet, rule_id))
+		at = Simulation.dispatch(at, {"type": "review", "verdict": "approve" if packet.violations.is_empty() else "request_changes"})
+	app.tutorial = {}
+	app.paused = false
+	app.state = at
+	app._build_interface()
+	var ui = app.interface
+	ui._open_app("review")
+	await _beat(ui, 0.6)
+	# Point at the one unreadable line so P15 reads clearly in the shot.
+	var payload: Dictionary = Catalog.packet(app.state, str(app.state.active_request_id))
+	for finding: Dictionary in payload.get("findings", []):
+		if finding.rule_id == "P15":
+			ui._diff.set_caret_line(maxi(0, ui._row_for_line(int(finding.line))))
+			ui._point_at(-1)
+			break
+	await _shot("30-payload-review")
+	# A reason-free rejection of a normal PR: the author reacts to the silence.
+	var fresh: Dictionary = Simulation.initial_state()
+	app.state = fresh
+	app._build_interface()
+	ui = app.interface
+	ui._open_app("review")
+	await _beat(ui, 0.6)
+	app._on_command({"type": "review", "verdict": "request_changes"})
+	await _beat(ui, 0.8)
+	await _shot("31-no-reason")
+	# Morgan's end-of-day panel announcing a coworker's firing.
+	var fired: Dictionary = Simulation.initial_state()
+	fired = Simulation.dispatch(fired, {"type": "next-day", "choice": "rest"}) if false else fired
+	while int(fired.day) < 4 and fired.phase != "complete":
+		fired = Simulation.dispatch(Simulation.advance(fired, Catalog.shift_seconds()), {"type": "next-day", "choice": "rest"})
+	fired = Simulation.advance(fired, Catalog.shift_seconds())
+	var fday := int(fired.shift_history[-1].day) if not fired.shift_history.is_empty() else int(fired.day)
+	fired.strikes = [{"name": "Theo", "day": fday, "reason": "a defect of theirs you approved shipped"}]
+	fired.firings = [{"name": "Theo", "seat": "Theo", "day": fday, "hire": "June", "reason": "a defect of theirs you approved shipped"}]
+	app.state = fired
+	app._build_interface()
+	await create_timer(0.8).timeout
+	await _shot("32-firing-panel")
+	# An ending cinematic (a matrix ending), mid-beat and then its final card.
+	await _cinematic(app, "helios_prime", "33-ending")
+	# A firing cinematic: the player is let go (red eyes).
+	await _cinematic(app, "player_fired", "35-player-fired")
+
+
+func _cinematic(app: Node, ending: String, tag: String) -> void:
+	var Simulation = Main.Simulation
+	var Catalog = Main.Simulation.Catalog
+	var state: Dictionary = Simulation.initial_state()
+	state.phase = "complete"
+	state.day = int(Catalog.campaign_days()[-1])
+	state.ending = ending
+	state.shift_history = [{"day": state.day, "shift_seconds": Catalog.shift_seconds(), "reviewed": 0, "handed_off": 0}]
+	app.tutorial = {}
+	app.paused = false
+	app.state = state
+	app._build_interface()
+	await _settle(4)
+	app.interface._play_ending()
+	var cine = app.interface._ending_cinematic
+	if cine == null: return
+	cine._process(0.1)
+	cine._process(3.1)
+	await _settle(3)
+	await _shot("%s-cinematic" % tag)
+	# Fast-forward to the final title card.
+	for i in range(10): cine._process(3.1)
+	await _settle(3)
+	await _shot("%s-card" % tag)
 
 
 ## The second Friday after the evening: Morgan's last word and RETURN TO MAIN MENU.
