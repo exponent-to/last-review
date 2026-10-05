@@ -58,7 +58,6 @@ const RULE_SUMMARIES := {
 	"P02@9": "Keywords blue. Pink needs INK-EXCEPTION + this PR’s own ticket.",
 	"P09": "Whole PR: 30 lines changed (+ and −), max. Attention is metered.",
 	"P11": "Helios holds secrets. No password/secret/token/api_key name = 'quoted'.",
-	"P13": "Whole PR: changes existing code (M/R)? A tests/ file must change too.",
 	"P16": "Ticket: linked, in Jiro, Open or In Progress. Not a memory.",
 	"P17": "Ticket: assigned to the PR’s author. Not a coworker, Helios, or ghost.",
 	"P18": "Ticket: every non-test file sits directly in its component. Lanes.",

@@ -116,8 +116,7 @@ func _probe_is_comment(text: String) -> bool:
 
 ## Each standard's fault, in every wording and on every day it is active, adds
 ## exactly that one violation to a PR built on this entry. The PR is built from a
-## recipe because whole-PR faults (size, file count, tests) shape the whole packet,
-## and from day 9 a test travels with any change to existing code.
+## recipe because the whole-PR fault (the diff budget) shapes the whole packet.
 func _test_faults(entry: Dictionary, index: int) -> void:
 	for day in range(1, LAST_DAY + 1):
 		_check(Campaign._audit(_recipe(index, day, [])).is_empty(), "A PR built on %s, with its ticket and build, is clean on day %d before any fault." % [entry.path, day])
@@ -126,10 +125,7 @@ func _test_faults(entry: Dictionary, index: int) -> void:
 			# authored Helios payloads break it.
 			if rule_id in Campaign.PLAN_EXEMPT: continue
 			for variant in range(3):
-				# Only a change to existing code needs a test to travel with it.
-				var exempt: bool = rule_id == "P13" and not entry.has("before")
-				var expected: Array = [] if exempt else [rule_id]
-				_check(Campaign._audit(_recipe(index, day, [{"file": 0, "rule": rule_id, "variant": variant}])) == expected, "Fault %s/%d applies cleanly to %s on day %d" % [rule_id, variant, entry.path, day])
+				_check(Campaign._audit(_recipe(index, day, [{"file": 0, "rule": rule_id, "variant": variant}])) == [rule_id], "Fault %s/%d applies cleanly to %s on day %d" % [rule_id, variant, entry.path, day])
 
 ## A one-file PR on this entry, with a slot and author so it gets a ticket and a build.
 func _recipe(index: int, day: int, faults: Array) -> Dictionary:
