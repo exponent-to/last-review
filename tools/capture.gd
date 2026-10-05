@@ -1,7 +1,7 @@
 extends SceneTree
 ## Render key screens to PNG for visual review: godot --path . --script res://tools/capture.gd -- <out_dir> [day]
 ## With a day (2-10), only that later day's screens are captured; without one,
-## the opening screens are captured first, then week two's Thursday.
+## the opening screens are captured first, then week two's Thursday, then the final evening.
 const Main = preload("res://native/main.gd")
 const Encounters = preload("res://content/encounters.gd")
 var out := "user://captures"
@@ -46,7 +46,7 @@ func _later(app: Node) -> void:
 		app.state = Simulation.dispatch(app.state, {"type": "review", "verdict": "approve"})
 		app.state = Simulation.advance(app.state, Simulation.DESK_BEAT)
 	app._render()
-	app.interface._open_pr_link(str(app.state.active_request_id))
+	app.interface._open_app("review")
 	await _shot("22-%s-review" % tag)
 	var ui = app.interface
 	ui._point_at(0)
@@ -54,6 +54,10 @@ func _later(app: Node) -> void:
 	ui._open_app("browser")
 	ui._browse("standards")
 	await _shot("24-%s-standards" % tag)
+	# Let the rest of the day go to Helios: Morgan's panel carries the handoff.
+	app.state = Simulation.advance(app.state, Catalog.shift_seconds())
+	app._render()
+	await _shot("25-%s-end-of-day" % tag)
 
 func _shot(name: String) -> void:
 	for i in range(6): await process_frame
@@ -82,7 +86,10 @@ func _run() -> void:
 	app._cold_open.advance_sequence(2.0)
 	await _shot("03-orientation")
 	app.interface._tutorial_next.pressed.emit()
+	# Orientation goes straight to REVIEW: the arrow points at its icon.
 	await _shot("03b-orientation-arrow")
+	app.interface._home_icons.review.pressed.emit()
+	await _shot("03c-orientation-review")
 	app._tutorial_continue()
 	app.interface._tutorial_next.pressed.emit() if app.interface._tutorial_next.visible else null
 	app.tutorial = {}
@@ -98,10 +105,10 @@ func _run() -> void:
 	# The day's first PR is already on the desk; let a little of the shift pass.
 	app.state = Simulation.advance(app.state, 25)
 	app._render()
-	app.interface._open_app("chat")
-	app.interface._select_chat_contact("Maya")
-	await _shot("06-slouch")
-	app.interface._open_pr_link(str(app.state.active_request_id))
+	# HOME during the shift: REVIEW's badge and the desk PR's card in the taskbar.
+	app.interface._show_home()
+	await _shot("06-desktop")
+	app.interface._open_notification("review", str(app.state.active_request_id))
 	await _shot("07-review")
 	app.interface._open_app("browser")
 	app.interface._browse("standards")
@@ -133,16 +140,16 @@ func _run() -> void:
 		for i in range(4): await process_frame
 	app.state = Simulation.advance(app.state, Simulation.DESK_BEAT)
 	app._render()
-	ui._open_pr_link(str(app.state.active_request_id))
+	ui._open_app("review")
 	ui._packet_scroll.scroll_vertical = 0
 	await _shot("11-revision-review")
-	ui._open_app("chat")
-	ui._select_chat_contact(str(Catalog.packet(app.state, str(app.state.active_request_id)).get("author", "Maya")))
-	await _shot("12-slouch-revision")
 	app._on_command({"type": "review", "verdict": "approve"})
 	for i in range(4): await process_frame
-	ui._select_chat_contact(str(ui._chat_contact))
-	await _shot("13-slouch-relief")
+	# Closing: Morgan's end-of-day panel opens by itself with the evening choice.
+	app.state = Simulation.advance(app.state, Catalog.shift_seconds())
+	app._render()
+	await create_timer(1.2).timeout
+	await _shot("13-end-of-day")
 	# Encounters: an author pushes back on a citation, then another revises at the desk.
 	var pushed := _find_branch("pushback")
 	if not pushed.is_empty():
@@ -164,13 +171,24 @@ func _run() -> void:
 		app._render()
 		await _beat(ui, 0.6)
 		await _shot("19-revised-v2")
-		ui._open_app("chat")
-		ui._select_chat_contact(str(Catalog.packet(app.state, str(app.state.active_request_id)).get("author", "Maya")))
-		await _shot("19b-slouch-encounter")
 	app._toggle_pause()
 	await _shot("14-paused")
 	await _later(app)
+	await _final(app)
 	quit()
+
+
+## The second Friday after the evening: Morgan's last word and RETURN TO MAIN MENU.
+func _final(app: Node) -> void:
+	var Simulation = Main.Simulation
+	var state: Dictionary = Simulation.initial_state()
+	while state.phase != "complete":
+		state = Simulation.dispatch(Simulation.advance(state, Simulation.Catalog.shift_seconds()), {"type": "next-day", "choice": "rest"})
+	app.tutorial = {}
+	app.paused = false
+	app.state = state
+	app._build_interface()
+	await _shot("26-final-end-of-day")
 
 
 func _settle(frames: int) -> void:
@@ -189,7 +207,7 @@ func _stamp_fresh(app, found: Dictionary):
 	app._build_interface()
 	var ui = app.interface
 	await _settle(4)
-	ui._open_pr_link(str(app.state.active_request_id))
+	ui._open_app("review")
 	await _settle(4)
 	var packet: Dictionary = Main.Simulation.Catalog.packet(app.state, str(app.state.active_request_id))
 	for rule_id: String in found.cited:

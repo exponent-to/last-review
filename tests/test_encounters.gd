@@ -389,7 +389,7 @@ func _test_determinism() -> void:
 	forged = a.duplicate(true)
 	forged.encounters.pop_back()
 	_check(not Simulation.validate_save(forged).ok, "A save cannot drop an encounter beat")
-	_check(Simulation.SAVE_VERSION == 11, "Encounters bump the save format")
+	_check(Simulation.SAVE_VERSION >= 11, "Encounters bumped the save format to 11")
 	var old := Simulation.initial_state()
 	old.version = 10
 	_check(not Simulation.validate_save(old).ok, "Older saves are rejected")
@@ -620,7 +620,7 @@ func _test_desk_controls() -> void:
 	if found.is_empty(): return
 	# Render the PR before the stamp, then stamp through the real controls.
 	await _fresh_ui(found.before)
-	ui._open_pr_link(str(found.before.active_request_id))
+	ui._open_app("review")
 	var packet: Dictionary = Catalog.packet(state, state.active_request_id)
 	for rule_id: String in found.cited:
 		_command(Catalog.audit_citation(packet, rule_id))
@@ -656,7 +656,7 @@ func _test_desk_controls() -> void:
 	_check(not ui._reject.disabled or state.selected_rules.is_empty(), "The review reopens")
 	# INSIST from the same moment, then a fresh desk for typing.
 	await _fresh_ui(found.after)
-	ui._open_pr_link(str(state.active_request_id))
+	ui._open_app("review")
 	for frame in range(3): await process_frame
 	_check(ui._banter.asking, "A loaded pushback shows its buttons again")
 	ui._banter.insist_button.pressed.emit()
@@ -664,7 +664,7 @@ func _test_desk_controls() -> void:
 	var now := _find("revise_now")
 	if now.is_empty(): return
 	await _fresh_ui(now.before)
-	ui._open_pr_link(str(state.active_request_id))
+	ui._open_app("review")
 	packet = Catalog.packet(state, state.active_request_id)
 	for rule_id: String in now.cited:
 		_command(Catalog.audit_citation(packet, rule_id))

@@ -1,5 +1,5 @@
 extends RefCounted
-## Pixel-art cat portraits for the cast, looked up by Slouch author or contact id.
+## Pixel-art cat portraits for the cast, looked up by author name or contact id.
 ## Unknown names ("You", "Operations", channels) have no portrait.
 
 const CatPortrait = preload("res://native/cat_portrait.gd")

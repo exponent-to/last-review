@@ -1,7 +1,7 @@
 extends Control
 ## Small transient notifications. Dismissing a bubble never marks its app read.
 signal activated(app: String, target: String)
-const NAMES := {"chat": "SLOUCH", "review": "REVIEW", "browser": "INTRANET", "system": "SYSTEM"}
+const NAMES := {"review": "REVIEW", "browser": "INTRANET", "system": "SYSTEM"}
 const Portraits = preload("res://native/portraits.gd")
 var _stack: VBoxContainer
 var _items: Array[Dictionary] = []
@@ -58,8 +58,8 @@ func push(app: String, text: String, target: String = "", is_error: bool = false
 	title.add_theme_color_override("font_color", Color("0a0a0b"))
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	chip.add_child(title)
-	# A Slouch message from a person carries their face.
-	if app == "chat" and Portraits.texture_for(person) != null:
+	# A card about a person (the author of the PR on the desk) carries their face.
+	if Portraits.texture_for(person) != null:
 		style.content_margin_top = 1
 		style.content_margin_bottom = 1
 		content.add_child(Portraits.make(person, 32))

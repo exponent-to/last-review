@@ -39,8 +39,8 @@ func run() -> void:
 	root.add_child(ui)
 	ui.render_state(state)
 	for frame in range(4): await process_frame
-	ui._open_pr_link("PR-1042")
-	check(state.active_request_id == "PR-1042" and ui._windows.review.visible, "The Slouch link opens the PR already on the desk.")
+	ui._open_notification("review", "PR-1042")
+	check(state.active_request_id == "PR-1042" and ui._windows.review.visible, "The review notification opens the PR already on the desk.")
 	var live_rows: Array = ui._diff_rows.filter(func(row: Dictionary) -> bool: return row.kind != "-")
 	check("\n".join(live_rows.map(func(row: Dictionary) -> String: return row.text)) == Catalog.request_at(0).files[0].source, "The proposed source is the audit evidence.")
 	var numbered := true
@@ -101,6 +101,10 @@ func run() -> void:
 		state = Sim.advance(state, 300)
 		check(state.phase == "debrief", "Each day ends with the manager.")
 		check(not Chat.messages(state, "manager").is_empty(), "Manager delivers end-of-day messages.")
+		ui.render_state(state)
+		var evening: Dictionary = Chat.evening(state)
+		check(ui._windows.evening.visible and int(evening.day) == day and not evening.closing.is_empty(), "Every closing opens Morgan's end-of-day panel.")
+		check(ui._evening_closing.get_child_count() == evening.closing.size() and ui._evening_buttons.visible, "The panel carries Morgan's closing words and the evening choice.")
 		state = Sim.dispatch(state, {"type":"next-day", "choice":"rest"})
 	var originals_signed := 0
 	for decision: Dictionary in state.decisions:

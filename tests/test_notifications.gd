@@ -42,32 +42,29 @@ func _run() -> void:
 	state = Simulation.advance(state, 20)
 	ui.render_state(state)
 	check(ui._app_counts.review == 1 and ui._app_badges.review.visible, "Waiting never adds PRs: the desk badge stays at one.")
-	check(not ui._windows.review.visible and not ui._windows.chat.visible, "Notification delivery must not open or raise applications.")
-	var chat_total := int(ui._app_counts.chat)
-	var maya_unread := int(ui._chat_unread.Maya)
-	ui._open_notification("chat", "Maya")
-	check(ui._chat_contact == "Maya" and ui._app_counts.chat == chat_total - maya_unread, "Opening a Slouch bubble clears only that conversation.")
+	check(not ui._windows.review.visible, "Notification delivery must not open or raise applications.")
+	check(not ui._app_counts.has("chat") and ui._app_counts.keys() == ["review", "browser", "system"], "Only Review, Intranet, and System have notification sources.")
+	for item: Dictionary in ui._notifications._items:
+		check(not item.card.tooltip_text.contains("Your team has left you messages") and not item.card.tooltip_text.contains("SLOUCH"), "No Slouch cards or team-message summaries.")
 	ui._open_notification("review", "PR-1042")
 	check(state.active_request_id == "PR-1042" and ui._windows.review.visible and ui._app_counts.review == 0, "Review bubble opens the PR on the desk and clears its badge.")
-	var before := int(ui._app_counts.chat)
 	command({"type": "chat-reply", "contact": "Maya", "pr_id": "PR-1042", "reply_id": "clarify"})
-	for frame in range(4): await process_frame
-	var left := 0
-	var right := 0
-	for panel: Node in ui._chat_messages.find_children("*", "PanelContainer", true, false):
-		if panel.has_meta("outgoing"):
-			if panel.get_meta("outgoing") and panel.get_global_rect().get_center().x > panel.get_parent().get_global_rect().get_center().x: right += 1
-			elif not panel.get_meta("outgoing") and panel.get_global_rect().get_center().x < panel.get_parent().get_global_rect().get_center().x: left += 1
-	check(left > 0 and right > 0, "Historical coworker and player messages retain distinct left and right bubbles.")
-	check(ui._app_counts.chat == before + 1, "Historical responses still count as incoming messages; player messages do not.")
 	ui.render_state(state)
-	check(ui._app_counts.chat == before + 1, "Clock refreshes cannot duplicate an already-seen message.")
+	check(not ui._notifications._items.any(func(item: Dictionary) -> bool: return item.app not in ["review", "browser", "system"]), "Archived chat replies never reach the desktop.")
 	command({"type": "review", "verdict": "approve"})
 	check(ui._app_counts.review == 0 and not ui._app_badges.review.visible, "An empty desk shows no review badge.")
+	# The PR from a stale card is gone, but the card still leads to the desk.
+	ui._show_home()
+	ui._open_notification("review", "PR-1042")
+	check(ui._windows.review.visible and ui._pr_id.text == "REVIEW / DESK CLEAR", "A review card always opens Review, even after its PR was stamped.")
+	ui._windows.review.minimize_window()
 	ui._show_home()
 	state = Simulation.advance(state, Simulation.DESK_BEAT)
 	ui.render_state(state)
 	check(ui._app_counts.review == 1 and ui._notifications._items.any(func(item: Dictionary) -> bool: return item.app == "review" and item.target == state.active_request_id), "The next PR landing on the desk shows a badge of one and a bubble.")
+	var author := str(Simulation.active_request(state).author)
+	var desk_card: Array = ui._notifications._items.filter(func(item: Dictionary) -> bool: return item.app == "review" and item.target == state.active_request_id)
+	check(desk_card.size() == 1 and str(desk_card[0].card.get_meta("person", "")) == author.to_lower() and desk_card[0].card.tooltip_text.contains(author), "The desk PR's card names its author and carries their face.")
 	ui._open_app("review")
 	check(ui._app_counts.review == 0, "Looking at Review reads the PR on the desk.")
 	command({"type": "review", "verdict": "approve"})
@@ -78,7 +75,7 @@ func _run() -> void:
 	check(ui._app_counts.system == 1 and ui._app_badges.system.visible, "System reports create a badge and a bubble.")
 	ui._open_notification("system", "")
 	check(ui._app_counts.system == 0 and ui._system_status.text.contains("saved"), "Opening System clears the badge and retains the status message.")
-	for index in range(5): ui._notifications.push("chat", "Incoming message", str(index))
+	for index in range(5): ui._notifications.push("system", "Incoming message", str(index))
 	check(ui._notifications._items.size() == 3, "Bubbles are bounded to three visible cards.")
 	ui.set_paused(true)
 	var remaining: float = ui._notifications._items[0].remaining

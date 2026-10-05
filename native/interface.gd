@@ -22,6 +22,7 @@ const ReviewBanter = preload("res://native/review_banter.gd")
 const Encounters = preload("res://content/encounters.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Portraits = preload("res://native/portraits.gd")
+const Tutorial = preload("res://native/tutorial.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 # Night-shift terminal palette: black glass, phosphor green, one alarm red,
 # and paper documents for anything a person signs.
@@ -61,6 +62,13 @@ const RULE_SUMMARIES := {
 	"P13": "Whole PR: changes existing code (M/R)? A tests/ file must change too.",
 	"P14": "Comment mentions Helios? File needs # generated-by: helios",
 }
+## The evening choices and what each does, in words rather than numbers
+## (the effects themselves live in Simulation._evening).
+const EVENINGS := [
+	{"choice": "rest", "label": "GO HOME", "about": "Sleep it off. You'll start tomorrow calmer."},
+	{"choice": "socialize", "label": "GET DINNER", "about": "Costs a little. Your coworkers warm to you; you unwind a bit."},
+	{"choice": "study", "label": "STUDY", "about": "Morgan notices the effort. You'll be more tired tomorrow."},
+]
 const EVIDENCE_HINTS := {
 	"line": "Cite the exact line.",
 	"file": "Cite the file: WHOLE FILE or any of its lines.",
@@ -97,19 +105,11 @@ class PolicyHighlighter extends SyntaxHighlighter:
 var scene_host: Control
 var _state: Dictionary = {}
 var _hud: Dictionary = {}
-var _chat_contacts: Dictionary = {}
-var _chat_unread: Dictionary = {}
-var _chat_seen: Dictionary = {}
-var _chat_contact: String = "Maya"
-var _chat_last_draw: String = ""
-var _chat_heading: Label
-var _chat_scroll: ScrollContainer
-var _chat_messages: VBoxContainer
 var _monitor_screen: Control
 var _desktop_home: Control
 var _home_icons: Dictionary = {}
 var _notifications: Notifications
-var _app_counts := {"review": 0, "chat": 0, "browser": 0, "system": 0}
+var _app_counts := {"review": 0, "browser": 0, "system": 0}
 var _app_badges: Dictionary = {}
 var _known_requests: Dictionary = {}
 var _unread_requests: Dictionary = {}
@@ -128,8 +128,16 @@ var morning_active := false
 var _browser_back: Button
 var _browser_history: Array[String] = []
 var _browser_path: String = "home"
-var _evening_buttons: HBoxContainer
+## Morgan's end-of-day panel: her portrait, the day's notes, her closing words,
+## and the evening choice (or, once the assignment is over, the way out).
+var _evening_face: Control
+var _evening_when: Label
+var _evening_notes_heading: Label
+var _evening_notes: VBoxContainer
+var _evening_closing: VBoxContainer
+var _evening_buttons: VBoxContainer
 var _complete_button: Button
+var _evening_key: String = ""
 var _pr_id: Label
 var _pr_title: Label
 var _pr_context: Label
@@ -169,7 +177,6 @@ var _tutorial_body: Label
 var _tutorial_next: Button
 var _tutorial_active := false
 var _tutorial_pointer: Control
-var _tutorial_pr_link: Button
 var _home_button: Button
 var _code_legend: Label
 var _tutorial_details: Dictionary = {}
@@ -188,7 +195,6 @@ var _slip_rows: Dictionary = {}
 var _slip_day: int = -1
 var _flag_buttons: Dictionary = {}
 var _standards_link: Button
-var _chat_channel_label: Label
 var _whole_file: Button
 
 
@@ -519,9 +525,13 @@ func _build_desktop(parent: Node) -> void:
 	code.size_flags_stretch_ratio = 2.4
 	_build_review_content(code)
 	_build_decision(review_body)
-	_build_chat(_new_window("chat", "SLOUCH / ENGINEERING").body)
 	_build_system(_new_window("system", "SYSTEM / WORKSTATION SETTINGS").body)
 	_build_browser(_new_window("browser", "INTRANET / LOCAL BROWSER").body)
+	# Morgan's end-of-day panel has no icon: it opens by itself at closing and
+	# stays on the taskbar until the evening is chosen, so it cannot be closed.
+	var evening: DesktopWindow = _new_window("evening", "END OF DAY / MORGAN")
+	evening.close_button.hide()
+	_build_evening(evening.body)
 
 	for window: DesktopWindow in _windows.values():
 		window.hide()
@@ -563,7 +573,6 @@ func _build_home() -> void:
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var launchers: Array = [
 		["review", "REVIEW", "review"],
-		["chat", "SLOUCH", "slouch"],
 		["browser", "INTRANET", "browser"],
 		["system", "SYSTEM", "system"],
 	]
@@ -619,7 +628,7 @@ func _new_window(id: String, title: String) -> DesktopWindow:
 	var window: DesktopWindow = DesktopWindow.new()
 	window.window_id = id
 	window.window_title = title
-	window.resize_minimum_size = {"review": Vector2(650, 390), "chat": Vector2(520, 300)}.get(id, Vector2(420, 280))
+	window.resize_minimum_size = {"review": Vector2(650, 390), "evening": Vector2(480, 340)}.get(id, Vector2(420, 280))
 	window.activated.connect(_focus_app)
 	window.minimized.connect(func(_id: String) -> void: _update_dock())
 	window.closed.connect(func(_id: String) -> void: _update_dock())
@@ -651,7 +660,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_pr_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pr_title.custom_minimum_size.x = 80
 	_pr_id = _label(title_row, "PULL REQUEST", 11, STAMP_RED)
-	# The author's pitch now lives in the speech bubble and in Slouch.
+	# The author's pitch lives in the speech bubble.
 	_packet_scroll = ScrollContainer.new()
 	_packet_scroll.hide()
 	code.add_child(_packet_scroll)
@@ -821,7 +830,7 @@ func _build_dock(parent: Node) -> void:
 	_home_button = home
 	home.add_theme_font_size_override("font_size", 12)
 	home.tooltip_text = "Show the desktop. Open windows remain on the taskbar."
-	for item: Array in [["review", "REVIEW"], ["chat", "SLOUCH"], ["browser", "INTRANET"], ["system", "SYSTEM"]]:
+	for item: Array in [["review", "REVIEW"], ["browser", "INTRANET"], ["system", "SYSTEM"], ["evening", "END OF DAY"]]:
 		var id: String = str(item[0])
 		var button: Button = _button(dock, str(item[1]), _open_app.bind(id))
 		button.toggle_mode = true
@@ -842,11 +851,13 @@ func _arrange_windows() -> void:
 	if not is_instance_valid(_desktop) or _windows.is_empty():
 		return
 	var extent: Vector2 = _desktop.size
+	var evening := Vector2(minf(680, extent.x - 160), minf(520, extent.y - 24))
 	var layouts: Dictionary = {
 		"review": Rect2(Vector2(142, 8), Vector2(extent.x - 150, extent.y - 16)),
-		"chat": Rect2(Vector2(160, 55), Vector2(minf(760, extent.x - 190), minf(520, extent.y - 82))),
 		"system": Rect2(Vector2(210, 90), Vector2(minf(650, extent.x - 240), minf(470, extent.y - 118))),
 		"browser": Rect2(Vector2(185, 70), Vector2(minf(720, extent.x - 215), minf(500, extent.y - 98))),
+		# Centered beside the icons: the shift is over and this is the one thing left.
+		"evening": Rect2(((extent - evening) * 0.5).floor().max(Vector2(142, 12)), evening),
 	}
 	for id: String in _windows:
 		var window: DesktopWindow = _windows[id]
@@ -861,18 +872,11 @@ func _arrange_windows() -> void:
 func _open_app(id: String) -> void:
 	if id == "decision":
 		id = "review"
-	var phase: String = str(_state.get("phase", "review"))
-	if id == "review" and phase != "review":
-		_chat_contact = "manager"
-		id = "chat"
-	if id == "chat":
-		_open_chat_conversation()
 	var window: DesktopWindow = _windows[id]
 	window.restore_window()
 	_mark_app_read(id)
 	_update_dock()
-	var event_type: String = {"chat": "open-chat", "review": "open-review"}.get(id, "")
-	if not event_type.is_empty(): tutorial_event.emit({"type": event_type})
+	if id == "review": tutorial_event.emit({"type": "open-review"})
 	if id == "review" and not _review_files.is_empty():
 		tutorial_event.emit({"type": "inspect-file", "path": _file_label.text})
 
@@ -941,7 +945,7 @@ func _browse(path: String, record: bool = true) -> void:
 		return
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, point at the evidence, then tick the standard it breaks on the citation slip:\n• Line standards: click the offending line.\n• File standards (filename, ink, quoted labels, disclosure): WHOLE FILE, or any line of that file.\n• Whole-PR standards (lines changed, file count, tests): WHOLE FILE on any changed file. The diffstat above the diff counts lines and files for you.\nStandards are reissued every second morning; the daily memo lists what was added, amended, or retired. Full standards are on the intranet.\nYour colleagues react to your decisions. Later, your manager checks in about bugs, delays, and the release.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, point at the evidence, then tick the standard it breaks on the citation slip:\n• Line standards: click the offending line.\n• File standards (filename, ink, quoted labels, disclosure): WHOLE FILE, or any line of that file.\n• Whole-PR standards (lines changed, file count, tests): WHOLE FILE on any changed file. The diffstat above the diff counts lines and files for you.\nStandards are reissued every second morning; the daily memo lists what was added, amended, or retired. Full standards are on the intranet.\nThe author sits at your desk and reacts to your decisions. At closing, your manager checks in about bugs, delays, and work handed to Helios.\nHelios recommendations are optional and can be wrong."
 		_:
 			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nNEWS carries the morning headlines. DAILY MEMO carries today's instructions from management. PROCEDURE describes the review process.\n\nExternal access restricted by company policy."
 
@@ -974,6 +978,11 @@ func _finish_morning() -> void:
 	_windows["browser"].minimize_window()
 	_footer.text = "READY"
 	_update_dock()
+	# The day's first PR landed during the morning reading, which cleared its card.
+	# The shift starts with the card back, so the desk is one click away.
+	var desk: Dictionary = Simulation.active_request(_state)
+	if not desk.is_empty() and _unread_requests.has(str(desk.id)):
+		_ambient_push("review", _desk_card_text(desk), str(desk.id), str(desk.author))
 	focus_workspace()
 
 
@@ -1260,58 +1269,80 @@ func _play_stamp(verdict: String) -> void:
 	tween.tween_callback(mark.queue_free)
 
 
-func _build_chat(page: VBoxContainer) -> void:
-	# The titlebar already names the app; the space goes to conversations.
-	var columns: HBoxContainer = _row(page, 12)
-	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var sidebar: VBoxContainer = _column(columns, 6)
-	sidebar.size_flags_horizontal = Control.SIZE_FILL
-	sidebar.custom_minimum_size.x = 155
-	_chat_channel_label = _label(sidebar, "CHANNELS", 11, DIM)
-	for contact: String in ["company", "Maya", "Theo", "Inez", "manager"]:
-		if contact == "Maya":
-			_label(sidebar, "DIRECT MESSAGES", 11, DIM)
-		var button: Button = _button(sidebar, "#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact, _select_chat_contact.bind(contact))
-		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.toggle_mode = true
+func _build_evening(page: VBoxContainer) -> void:
+	# Closing time: Morgan, the day's notes, her closing words, and the evening.
+	# Consequences stay in prose; there are no scores, pay, or grades here.
+	var heading := _row(page, 14)
+	_evening_face = Portraits.make("Morgan", 64)
+	heading.add_child(_evening_face)
+	var who := _column(heading, 2)
+	who.alignment = BoxContainer.ALIGNMENT_CENTER
+	_label(who, "MORGAN", 16, CYAN)
+	_label(who, "Engineering Manager", 12, DIM)
+	_evening_when = _label(who, "", 12, AMBER)
+	var rule := ColorRect.new()
+	rule.color = BORDER
+	rule.custom_minimum_size.y = 1
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(rule)
+	var content: VBoxContainer = _scroll_column(page)
+	_evening_notes_heading = _label(content, "TODAY", 11, DIM)
+	_evening_notes = _column(content, 6)
+	_evening_closing = _column(content, 8)
+	_evening_buttons = _column(page, 4)
+	_label(_evening_buttons, "TONIGHT", 11, DIM)
+	var choices := _row(_evening_buttons, 8)
+	for item: Dictionary in EVENINGS:
+		# Each choice says what it does, under the button and on hover.
+		var option := _column(choices, 4)
+		var button := _button(option, str(item.label), _emit_command.bind({"type": "next-day", "choice": str(item.choice)}))
+		button.custom_minimum_size.y = 40
 		button.add_theme_font_size_override("font_size", 13)
-		var face := Portraits.texture_for(contact)
-		if face != null:
-			button.icon = face
-			button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			button.add_theme_constant_override("h_separation", 8)
-		_chat_contacts[contact] = button
-		_chat_unread[contact] = 0
-	var conversation: VBoxContainer = _column(columns, 8)
-	conversation.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_chat_heading = _label(conversation, "#engineering", 16, TEXT)
-	_chat_scroll = ScrollContainer.new()
-	# Hidden message rows must not propagate their pre-wrap width into the window.
-	_chat_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	_chat_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_chat_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	conversation.add_child(_chat_scroll)
-	_chat_messages = _column(_chat_scroll, 10)
-	_evening_buttons = _row(conversation, 5)
-	for item: Array in [["rest", "GO HOME"], ["socialize", "GET DINNER"], ["study", "STUDY"]]:
-		var button := _button(_evening_buttons, str(item[1]), _emit_command.bind({"type": "next-day", "choice": str(item[0])}))
-		button.add_theme_font_size_override("font_size", 11)
-	_complete_button = _button(conversation, "RETURN TO MAIN MENU", func() -> void: menu_requested.emit())
+		button.tooltip_text = str(item.about)
+		var about := _paragraph(option, str(item.about), 12, DIM)
+		about.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.set_meta("about", about)
+	_complete_button = _button(page, "RETURN TO MAIN MENU", func() -> void: menu_requested.emit())
+	_complete_button.custom_minimum_size.y = 40
+	_complete_button.add_theme_font_size_override("font_size", 13)
+	_complete_button.add_theme_stylebox_override("normal", _style(Color(RED, 0.08), RED, 1, 14, 6))
+	_complete_button.add_theme_stylebox_override("hover", _style(Color(RED, 0.2), Color("ff6b78"), 1, 14, 6))
+	_complete_button.add_theme_color_override("font_color", RED)
+	_complete_button.add_theme_color_override("font_hover_color", Color.WHITE)
+	_complete_button.tooltip_text = "Save and return to the main menu."
 	_evening_buttons.hide()
 	_complete_button.hide()
 
 
-func _select_chat_contact(contact: String) -> void:
-	_chat_contact = contact
-	_render_phase(_state)
-	_chat_unread[contact] = 0
-	if is_instance_valid(_notifications): _notifications.clear_app("chat", contact)
-	_draw_chat(true)
-	_update_chat_badges()
-
-
-func _open_chat_conversation() -> void:
-	_select_chat_contact(_chat_contact)
+## Fill Morgan's panel from the shift that just closed (content/chat.gd `evening`).
+func _render_evening(state: Dictionary) -> void:
+	var phase := str(state.get("phase", "review"))
+	var evening: Dictionary = Chat.evening(state)
+	_evening_buttons.visible = phase == "debrief"
+	_complete_button.visible = phase == "complete"
+	var key := phase + JSON.stringify(evening)
+	if key == _evening_key: return
+	_evening_key = key
+	for holder: VBoxContainer in [_evening_notes, _evening_closing]:
+		for child: Node in holder.get_children():
+			holder.remove_child(child)
+			child.queue_free()
+	_evening_notes_heading.visible = not evening.get("notes", []).is_empty()
+	if evening.is_empty():
+		_evening_when.text = ""
+		return
+	_evening_when.text = day_label(int(evening.day)) + ("  ·  ASSIGNMENT CLOSED" if phase == "complete" else "  ·  18:00  ·  SHIFT CLOSED")
+	for text: String in evening.notes:
+		var note := PanelContainer.new()
+		var bar := _style(INSET, AMBER, 0, 10, 7)
+		bar.border_width_left = 3
+		note.add_theme_stylebox_override("panel", bar)
+		_evening_notes.add_child(note)
+		_paragraph(note, text, 13, TEXT)
+	for text: String in evening.closing:
+		_paragraph(_evening_closing, text, 16, TEXT)
+	var scroll := _evening_closing.get_parent().get_parent() as ScrollContainer
+	if scroll != null: scroll.scroll_vertical = 0
 
 
 func _process(delta: float) -> void:
@@ -1325,139 +1356,19 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _render_chat() -> void:
-	var first_render := _chat_seen.is_empty()
-	for contact: String in _chat_contacts:
-		var messages: Array = Chat.messages(_state, contact)
-		var seen: Dictionary = _chat_seen.get(contact, {})
-		var incoming: Array = []
-		for message: Dictionary in messages:
-			if message.author == "You": continue
-			var key := str(message.id)
-			if not seen.has(key):
-				seen[key] = true
-				incoming.append(message)
-		_chat_seen[contact] = seen
-		var reading := _app_is_reading("chat") and contact == _chat_contact
-		if reading:
-			_chat_unread[contact] = 0
-		else:
-			_chat_unread[contact] = int(_chat_unread.get(contact, 0)) + incoming.size()
-			if not first_render and not incoming.is_empty():
-				var sender := "#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact
-				_ambient_push("chat", sender + ": " + str(incoming[-1].text), contact, str(incoming[-1].author))
-	if _windows["chat"].visible: _draw_chat()
-	_update_chat_badges()
-	if first_render and int(_app_counts.chat) > 0:
-		_ambient_push("chat", "Your team has left you messages.", _chat_contact)
-
-
-func _update_chat_badges() -> void:
-	var total := 0
-	for contact: String in _chat_contacts:
-		var unread := int(_chat_unread.get(contact, 0))
-		var button: Button = _chat_contacts[contact]
-		# Orientation shows only the coworker who sent the practice PR.
-		button.visible = not _tutorial_active or contact == "Maya"
-		if not button.visible: continue
-		total += unread
-		button.text = ("#engineering" if contact == "company" else "Morgan" if contact == "manager" else contact) + ("  %d" % unread if unread > 0 else "")
-		button.set_pressed_no_signal(contact == _chat_contact)
-	_app_counts.chat = total
-	if is_instance_valid(_chat_channel_label): _chat_channel_label.visible = not _tutorial_active
-	_update_app_badges()
-
-
-func _draw_chat(contact_changed: bool = false) -> void:
-	var messages: Array = Chat.messages(_state, _chat_contact)
-	var key: String = _chat_contact + JSON.stringify(messages) + str(_state.get("phase", ""))
-	if key == _chat_last_draw and not contact_changed:
-		return
-	_tutorial_pr_link = null
-	_chat_last_draw = key
-	_chat_heading.text = "#engineering" if _chat_contact == "company" else ("Morgan / Engineering Manager" if _chat_contact == "manager" else _chat_contact + " / direct message")
-	var bar: VScrollBar = _chat_scroll.get_v_scroll_bar()
-	var follow_latest: bool = contact_changed or bar.value >= bar.max_value - bar.page - 12
-	var previous_position: int = _chat_scroll.scroll_vertical
-	for child: Node in _chat_messages.get_children():
-		_chat_messages.remove_child(child)
-		child.queue_free()
-	for message: Dictionary in messages:
-		var outgoing: bool = str(message.author) == "You"
-		var row := _row(_chat_messages, 0 if outgoing else 8)
-		var gap := Control.new()
-		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		gap.size_flags_stretch_ratio = 0.18
-		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if outgoing: row.add_child(gap)
-		else:
-			# Everyone else speaks with a face; a faceless sender keeps the same indent.
-			var face := Portraits.make(str(message.get("author", "")), 32)
-			face.custom_minimum_size.x = 32
-			row.add_child(face)
-		var panel := PanelContainer.new()
-		panel.set_meta("outgoing", outgoing)
-		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		panel.size_flags_stretch_ratio = 0.82
-		var bubble_style := _style(Color("263e55") if outgoing else INSET, Color("54738e") if outgoing else BORDER, 1, 0, 0)
-		bubble_style.set_corner_radius_all(7)
-		panel.add_theme_stylebox_override("panel", bubble_style)
-		row.add_child(panel)
-		if not outgoing: row.add_child(gap)
-		var body: VBoxContainer = _column(_margin(panel, 10, 8), 5)
-		var heading := _row(body, 8)
-		var author := _label(heading, str(message.get("author", "")), 12, Color("b6cfe5") if outgoing else CYAN)
-		author.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_label(heading, Chat.timestamp(message), 10, DIM)
-		_paragraph(body, str(message.get("text", "")), 14, TEXT)
-		if message.has("pr_id"):
-			var pr_id: String = str(message.pr_id)
-			var link := _button(body, "OPEN " + Catalog.display_id(pr_id) + "  →", _open_pr_link.bind(pr_id))
-			if pr_id == str(Catalog.request_at(0).id): _tutorial_pr_link = link
-			link.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			link.add_theme_font_size_override("font_size", 12)
-			link.add_theme_color_override("font_color", CYAN)
-	if messages.is_empty():
-		_paragraph(_chat_messages, "No messages in this conversation yet.", 14, DIM)
-	_set_chat_scroll.call_deferred(follow_latest, previous_position, key)
-
-
-## Links open only the PR on the desk; there is no picking work out of the line.
-func _open_pr_link(pr_id: String) -> void:
-	var on_desk: bool = _state.get("phase") == "review" and str(_state.get("active_request_id", "")) == pr_id
-	if on_desk and not Simulation.active_request(_state).is_empty():
-		_open_app("review")
-		return
-	if _state.get("phase") == "review" and pr_id in _state.get("desk_line", []):
-		notify("%s isn't at your desk yet." % Catalog.display_id(pr_id))
-		return
-	notify("%s is closed. Its conversation remains in SLOUCH." % Catalog.display_id(pr_id))
-
-
-func _set_chat_scroll(follow_latest: bool, previous_position: int, draw_key: String) -> void:
-	if not is_inside_tree(): return
-	await get_tree().process_frame
-	if draw_key != _chat_last_draw:
-		return
-	if follow_latest:
-		_chat_scroll.scroll_vertical = int(_chat_scroll.get_v_scroll_bar().max_value)
-	else:
-		_chat_scroll.scroll_vertical = previous_position
-
-
 func _build_system(page: VBoxContainer) -> void:
 	var content: VBoxContainer = _scroll_column(page)
 	_label(content, "LOCAL RECORD", 16, CYAN)
 	_save_slot_label = _label(content, "Current save: Slot 1", 14, CYAN)
 	_system_status = _paragraph(content, "Local storage is ready.", 14, CYAN)
-	_paragraph(content, "Three local save slots. New Game and Load Game on the main menu let you choose a slot. Each shift lasts %d real minutes, from 09:00 to 18:00. Reading code and Slouch messages uses time. Pause with Esc or the desktop clock control. Switching away pauses automatically." % (Catalog.shift_seconds() / 60), 14, DIM)
+	_paragraph(content, "Three local save slots. New Game and Load Game on the main menu let you choose a slot. Each shift lasts %d real minutes, from 09:00 to 18:00. Time runs while you read code and intranet pages. Pause with Esc or the desktop clock control. Switching away pauses automatically." % (Catalog.shift_seconds() / 60), 14, DIM)
 	var saves: HBoxContainer = _row(content)
 	_button(saves, "SAVE RUN", func() -> void: save_requested.emit())
 	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
 	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author message and code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. Watch Slouch for your coworker’s response and your manager’s follow-up.\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; its author's Slouch link opens it. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work. Morgan will message you in Slouch. Open that conversation to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
 
 
 func set_save_slot(slot: int) -> void:
@@ -1506,14 +1417,27 @@ func render_state(state: Dictionary) -> void:
 	_reject.disabled = selected.is_empty() or not can_review
 	_reject.tooltip_text = "Cite at least one rule first." if selected.is_empty() else "Request changes for every cited rule."
 	_consult.disabled = consulted or not can_review
+	_render_evening(state)
 	if phase != _last_phase:
 		var previous_phase: String = _last_phase
 		_last_phase = phase
-		if phase != "review" and not previous_phase.is_empty():
+		if not previous_phase.is_empty():
 			_windows["review"].minimize_window()
-		elif phase == "review" and not previous_phase.is_empty():
-			_windows["review"].minimize_window()
+		if phase == "review":
+			_windows["evening"].close_window()
+		else:
+			# The shift is over: Morgan's end-of-day panel is the one window
+			# that opens by itself. Loading an evening save opens it too.
+			_open_app("evening")
 		_update_dock()
+	if phase != "review":
+		# Off the clock the desk is closed; REVIEW still opens, and says so.
+		_last_pr = ""
+		_pr_id.text = "REVIEW / " + ("SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED")
+		_pr_title.text = "The desk is closed until morning" if phase == "debrief" else "The desk is closed"
+		_file_label.text = ""
+		if not _review_files.is_empty() or not _diff.text.is_empty():
+			_set_review_files({})
 	if phase == "review":
 		# Deliberately never read audit-only violations or explanation here.
 		var request: Dictionary = active_request
@@ -1563,15 +1487,8 @@ func render_state(state: Dictionary) -> void:
 	_feedback.text = "No review sent yet." if feedback.is_empty() else "%s · %s sent to %s." % [Catalog.display_id(str(feedback.get("pr_id", ""))), "Approval" if feedback.get("verdict") == "approve" else "Change request", str(feedback.get("author", ""))]
 	if not pending.is_empty():
 		_feedback.text = "%s · %s is pushing back on %s. INSIST or WITHDRAW." % [Catalog.display_id(str(pending.pr_id)), str(pending.author), Encounters.noun(str(pending.get("disputed", "")))]
-	_render_phase(state)
-	_render_chat()
 	_sync_app_events()
 	_footer.text = "ORIENTATION" if _tutorial_active else "READY" if phase == "review" else "OFF THE CLOCK"
-
-
-func _render_phase(state: Dictionary) -> void:
-	_evening_buttons.visible = _chat_contact == "manager" and state.get("phase") == "debrief"
-	_complete_button.visible = _chat_contact == "manager" and state.get("phase") == "complete"
 
 
 func _ambient_push(app: String, text: String, target: String = "", person: String = "") -> void:
@@ -1593,19 +1510,12 @@ func _app_is_reading(app: String) -> bool:
 
 
 func _mark_app_read(app: String) -> void:
-	if not is_instance_valid(_notifications): return
-	if app == "chat":
-		_chat_unread[_chat_contact] = 0
-		_notifications.clear_app(app, _chat_contact)
-		_update_chat_badges()
-	elif app == "review":
-		# Looking at Review reads the PR on the desk.
-		_unread_requests.clear()
-		_app_counts.review = 0
-		_notifications.clear_app(app)
-	else:
-		_app_counts[app] = 0
-		_notifications.clear_app(app)
+	# Morgan's end-of-day panel opens by itself and carries no badge.
+	if not is_instance_valid(_notifications) or not _app_counts.has(app): return
+	# Looking at Review reads the PR on the desk.
+	if app == "review": _unread_requests.clear()
+	_app_counts[app] = 0
+	_notifications.clear_app(app)
 	_update_app_badges()
 
 
@@ -1625,7 +1535,8 @@ func _update_app_badges() -> void:
 
 func _sync_app_events() -> void:
 	var day := int(_state.get("day", 1))
-	if day != _notification_day:
+	# A day's memo and standards are news on its morning, not in its evening.
+	if day != _notification_day and _state.get("phase") == "review":
 		_notification_day = day
 		# Every second morning the standards are reissued: added, amended, or retired.
 		var changes: Dictionary = Catalog.rule_changes(day)
@@ -1643,7 +1554,7 @@ func _sync_app_events() -> void:
 		_known_requests[desk_id] = true
 		if not _app_is_reading("review"):
 			_unread_requests[desk_id] = true
-			_ambient_push("review", "%s from %s: %s" % [Catalog.display_id(desk_id), desk.author, desk.title], desk_id, str(desk.author))
+			_ambient_push("review", _desk_card_text(desk), desk_id, str(desk.author))
 	for id: String in _unread_requests.keys():
 		if id != desk_id:
 			_unread_requests.erase(id)
@@ -1652,12 +1563,14 @@ func _sync_app_events() -> void:
 	_update_app_badges()
 
 
+## The review card for the PR on the desk: its number, author, and title.
+func _desk_card_text(desk: Dictionary) -> String:
+	return "%s from %s: %s" % [Catalog.display_id(str(desk.id)), str(desk.author), str(desk.title)]
+
+
 func _open_notification(app: String, target: String) -> void:
 	if _paused: return
-	if app == "review" and not target.is_empty():
-		_open_pr_link(target)
-		return
-	if app == "chat" and not target.is_empty(): _select_chat_contact(target)
+	# A review card always opens Review: the desk holds one PR, the one there now.
 	if app == "browser" and target in ["memo", "standards"]: _browse(target)
 	_open_app(app)
 
@@ -1700,7 +1613,7 @@ func _build_tutorial_panel() -> void:
 	_spacer(heading)
 	var fold := _button(heading, "−", func() -> void:
 		_tutorial_body.visible = not _tutorial_body.visible
-		_tutorial_next.visible = _tutorial_body.visible and int(_tutorial_details.get("stage", 0)) in [0, 7]
+		_tutorial_next.visible = _tutorial_body.visible and int(_tutorial_details.get("stage", 0)) in [Tutorial.STAGE_WELCOME, Tutorial.STAGE_READY]
 		_fit_tutorial.call_deferred())
 	fold.custom_minimum_size = Vector2(26, 24)
 	fold.tooltip_text = "Collapse or expand orientation instructions"
@@ -1718,15 +1631,15 @@ func render_tutorial(progress: Dictionary, prompt: Dictionary) -> void:
 	_banter.quiet = _tutorial_active
 	if starting:
 		for app: String in _app_counts: _notifications.clear_app(app)
-	_update_chat_badges()
+	_update_app_badges()
 	_tutorial_details = progress.duplicate(true)
 	_tutorial_panel.visible = _tutorial_active
 	if not _tutorial_active: return
 	_tutorial_title.text = str(prompt.title)
 	_tutorial_body.text = str(prompt.body)
 	if step_changed: _tutorial_body.show()
-	_tutorial_next.visible = _tutorial_body.visible and int(progress.stage) in [0, 7]
-	_tutorial_next.text = "START MONDAY" if int(progress.stage) == 7 else "START ORIENTATION"
+	_tutorial_next.visible = _tutorial_body.visible and int(progress.stage) in [Tutorial.STAGE_WELCOME, Tutorial.STAGE_READY]
+	_tutorial_next.text = "START MONDAY" if int(progress.stage) == Tutorial.STAGE_READY else "START ORIENTATION"
 	if not _tutorial_dragged: _tutorial_panel.position = Vector2(maxf(0, _monitor_screen.size.x - 450), 48)
 	_tutorial_panel.size.x = 430
 	_fit_tutorial.call_deferred()
@@ -1747,15 +1660,12 @@ func _sync_tutorial_pointer() -> void:
 	var target: Control = null
 	if _tutorial_active and not _paused:
 		match int(_tutorial_details.get("stage", 0)):
-			0, 7: target = _tutorial_next
-			1: target = _tutorial_launcher("chat")
-			3:
-				if not _windows.chat.visible or not _windows.chat._active: target = _tutorial_launcher("chat")
-				elif _chat_contact != "Maya": target = _chat_contacts.Maya
-				elif is_instance_valid(_tutorial_pr_link): target = _tutorial_pr_link
-			4: target = _file_picker if _windows.review.visible and _windows.review._active else _tutorial_launcher("review")
-			5: target = _standards_link if _windows.browser.visible and _windows.browser._active else _tutorial_launcher("browser")
-			6:
+			Tutorial.STAGE_WELCOME, Tutorial.STAGE_READY: target = _tutorial_next
+			# Maya's practice PR is already on the desk: straight to REVIEW.
+			Tutorial.STAGE_OPEN_REVIEW: target = _tutorial_launcher("review")
+			Tutorial.STAGE_INSPECT: target = _file_picker if _windows.review.visible and _windows.review._active else _tutorial_launcher("review")
+			Tutorial.STAGE_STANDARDS: target = _standards_link if _windows.browser.visible and _windows.browser._active else _tutorial_launcher("browser")
+			Tutorial.STAGE_CITE:
 				var id := "P01"
 				if id not in _state.get("selected_rules", []):
 					if _windows.review.visible and _windows.review._active:
