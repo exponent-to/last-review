@@ -25,6 +25,8 @@ var music: Music
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(1120, 800)
+	# Pre-release: saves from an older format are removed, so the menu shows empty slots.
+	if SaveStore.DELETE_INVALID_SAVES_ON_START: SaveStore.purge_invalid()
 	music = Music.new()
 	music.name = "Music"
 	add_child(music)
@@ -56,6 +58,7 @@ func _build_interface() -> void:
 	interface.music_toggled.connect(music.set_enabled)
 	interface.music_volume_changed.connect(music.set_volume)
 	interface.set_music_settings(music.enabled, music.volume)
+	interface.ending_music.connect(music.play_ending)
 	scenery = ComputerFrame.new()
 	interface.scene_host.add_child(scenery)
 	interface.set_save_slot(active_slot)

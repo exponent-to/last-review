@@ -86,9 +86,10 @@ func _test_mapping() -> void:
 	var bleak := Music.mix_for("ending", 0.0, false, "bleak")
 	_check(_gains(bleak) == [1.0, 0.0, 0.0, 0.0, 0.0] and bleak.cutoff < 1000.0 and bleak.reverb > 0.0, "A bleak ending is the lonely, filtered intro.")
 	_check(warm.pulse > 0.0 and warm.air > 0.0 and warm.level > bleak.level and warm.cutoff == Music.OPEN_CUTOFF, "A good ending is a little warmer.")
-	_check(Music.ending_kind({"autonomy": 95, "trust": 80}) == "bleak", "Helios as the default gate is a bleak ending.")
-	_check(Music.ending_kind({"autonomy": 50, "trust": 30}) == "bleak", "A reassignment is a bleak ending.")
-	_check(Music.ending_kind({"autonomy": 50, "trust": 70}) == "warm", "Keeping the human gate is the warm ending.")
+	for warm_ending: String in ["last_reviewers", "soft_landing"]:
+		_check(Music.ending_kind({"ending": warm_ending}) == "warm", "%s is a warm ending." % warm_ending)
+	for bleak_ending: String in ["right_and_alone", "helios_prime", "player_fired", "team_fired"]:
+		_check(Music.ending_kind({"ending": bleak_ending}) == "bleak", "%s is a bleak ending." % bleak_ending)
 
 func _test_transitions() -> void:
 	var music := Music.new()

@@ -1,6 +1,6 @@
 # PRs please architecture
 
-Godot 4.7.2 owns the native desktop window, Control menus, input, and texture rendering. The simulation is deterministic GDScript. The application advances it in whole elapsed seconds only while the shift is active and the game is unpaused. Decoration never drives the clock. A workday lasts 300 seconds, with arrivals scheduled inside the shift and payroll at closing time.
+Godot 4.7.2 owns the native desktop window, Control menus, input, and texture rendering. The simulation is deterministic GDScript. The application advances it in whole elapsed seconds only while the shift is active and the game is unpaused. Decoration never drives the clock. A workday lasts 180 seconds, with arrivals scheduled inside the shift and payroll at closing time.
 
 ## Boundaries
 
@@ -34,7 +34,7 @@ The first loop separates technical trust from relationships. Approval can make a
 
 ## Persistence
 
-State version 14 stores a bounded timed action journal including decisions, consultations, pushback answers, chat replies, shift closure, and evening choices, plus the encounter beats that replaying it rebuilds. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
+State version 15 stores a bounded timed action journal including decisions, consultations, pushback answers, chat replies, shift closure, and evening choices, plus the encounter beats that replaying it rebuilds. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
 
 The filesystem adapter writes a temporary file, rotates the previous save to a backup, and atomically renames the new file. Load failures preserve the active session. Saves remain in the original Last Review application-data directory so the title change preserves existing progress. There is no automatic load, autosave, or cloud storage.
 
@@ -54,7 +54,7 @@ Native macOS export is configured with the official universal template and local
 
 ## Session entry and practice
 
-`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. Orientation goes straight to REVIEW; the practice PR is already on the desk. Only the current orientation format (version 3, inside a version 14 state) is supported.
+`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. Orientation goes straight to REVIEW; the practice PR is already on the desk. Only the current orientation format (version 3, inside a version 15 state) is supported.
 
 `save_store.gd` accepts current-format careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.
 

@@ -4,11 +4,11 @@
 
 ## Clock and arrivals
 
-A shift lasts `SHIFT_SECONDS = 300` real seconds and maps to `START_MINUTE = 540` through `END_MINUTE = 1080` (09:00–18:00). `advance(state, seconds = 1)` accepts elapsed whole seconds during the review phase. Zero or negative deltas do nothing; a large delta stops at the current shift's deadline. It never advances across evenings. `clock_minutes(state)` returns the current displayed minute.
+A shift lasts `SHIFT_SECONDS = 180` real seconds and maps to `START_MINUTE = 540` through `END_MINUTE = 1080` (09:00–18:00). `advance(state, seconds = 1)` accepts elapsed whole seconds during the review phase. Zero or negative deltas do nothing; a large delta stops at the current shift's deadline. It never advances across evenings. `clock_minutes(state)` returns the current displayed minute.
 
 The application owns real-time accumulation and pause controls. While paused, it must not call `advance`; time spent paused is not caught up afterward. Fractional-second accumulation and pause UI are intentionally outside saved simulation state.
 
-`Catalog.shift_seconds()` always returns 300.
+`Catalog.shift_seconds()` always returns 180.
 
 ## The desk and the line
 
@@ -107,7 +107,13 @@ Pay is the existing base of 80 plus ten for each correct, actually submitted rev
 
 ## Saved state and replay
 
-Current state (version 14) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores.
+Current state (version 15) contains `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`, plus the story fields `firings`, `strikes`, `payloads`, and `ending`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores. The story fields are all rebuilt by replaying the journal, so they are not trusted from the saved file.
+
+## Staffing, payloads, and endings
+
+At closing, a coworker takes at most one strike — a defect of theirs you approved shipped, or two or more wrong rejections of their work in a day — and three strikes ends them (`firings`, `content/staff.gd`). Nobody replaces a fired coworker: from the next morning they count as away (`Policy.staff(day, away)` leaves them off the team, out of dinner and the ending's reckoning), their slots are not handed on through `slot_author` but go to Helios (`_open_desk` drops them, so they never reach your desk), and Morgan's panel says so. The run ends early if Morgan's trust falls below `FIRE_TRUST`, stress maxes, or every original seat is gone; otherwise day 10 resolves the matrix ending (payloads blocked vs let through, crossed with whether the surviving team's average relationship is on your side). `content/endings.gd` holds each ending's title, Morgan's closing words, and cinematic beats.
+
+From day 3, `Catalog.requests_for_day` places a Helios payload (`content/policy_campaign.gd` `PAYLOAD_SPECS`, pleading in `content/payloads.gd`) at the front of the line. A payload breaks only P15; you either let it through (approve, an audit failure that warms the author and dents trust) or block it (request changes — with P15 cited or with no citation at all), and `payloads` records the outcome. A reason-free CHANGES REQUESTED on a normal PR is the `unexplained` branch: Helios merges it, it is graded incorrect, and Morgan notices.
 
 The semantic action journal records consultations, reviews with their citations (each rule's evidence is `{path, line}` or `{record, id}`), pushback answers, accepted replies, deadline closure, and evening choices. Each event records its day and shift time. Clock ticks, temporary selection, and citation toggles are not individually persisted. This keeps the journal naturally bounded by available work and reply options rather than time spent reading.
 

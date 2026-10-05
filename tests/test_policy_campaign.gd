@@ -3,9 +3,9 @@ extends SceneTree
 const Policy = preload("res://content/policy_campaign.gd")
 const Bank = preload("res://content/pr_bank.gd")
 const LAST_DAY: int = 10
-## Standards whose violation is an absence or a size (a missing test, too many
-## lines). Any packet "breaks" them before they exist, so they can't foreshadow anything.
-const ABSENCES: Array = ["P09", "P13"]
+## Standards whose violation is a size (too many lines). Any packet "breaks" it
+## before it exists, so it can't foreshadow anything.
+const ABSENCES: Array = ["P09"]
 var checks: int = 0
 var failures: int = 0
 
@@ -54,9 +54,9 @@ func _records(ref: String = "PAPER-412", status: String = "Open") -> Dictionary:
 func _test_campaign() -> void:
 	var packets: Array = Policy.requests()
 	_check(Policy.DAY_COUNTS.size() == LAST_DAY and packets.size() == 150, "The campaign is two weeks: ten shifts of fifteen requests.")
-	_check(Policy.rules().size() == 11, "The rulebook defines eleven standards across the two weeks.")
+	_check(Policy.rules().size() == 11, "The rulebook defines eleven standards across the two weeks, P15 readable code among them.")
 	var all_ids: Array = Policy.rules().map(func(rule: Dictionary) -> String: return rule.id)
-	_check("P15" not in all_ids, "P15 stays reserved for the readable-code standard.")
+	_check("P15" in all_ids, "P15 is the readable-code standard that makes payloads citable.")
 	var seen_ids: Array = []
 	var seen_titles: Array = []
 	for day in range(1, LAST_DAY + 1):
@@ -125,6 +125,8 @@ func _test_campaign() -> void:
 		_check(clean == 5, "Each shift must retain a third genuinely compliant packets.")
 		_check(modified_files >= 6, "Most shifts change existing code instead of only adding files.")
 		for rule_id: String in active_rules:
+			# P15 "Readable code" is covered by the Helios payloads, not the authored 150.
+			if rule_id in Policy.PLAN_EXEMPT: continue
 			_check(rule_id in covered, "Every active standard must appear in day %d's varied puzzles: %s." % [day, rule_id])
 		_check(multiple_files == 1 if day == 1 else multiple_files > 1, "Multiple-file review should expand after the tutorial day.")
 		if day >= 2:
@@ -165,10 +167,10 @@ func _test_schedule() -> void:
 	var fifth: Dictionary = Policy.changes(5)
 	var seventh: Dictionary = Policy.changes(7)
 	var ninth: Dictionary = Policy.changes(9)
-	_check(_names(third.added) == ["P16", "P17"] and third.amended.is_empty() and third.retired.is_empty(), "Wednesday installs Jiro: tickets must be open and belong to the author.")
-	_check(_names(fifth.added) == ["P18", "P19", "P20"] and _names(fifth.amended) == ["P02"] and _names(fifth.retired) == ["P01", "P11"], "Friday installs Pipeline (green builds, rerun cap), adds components, opens the Exception Desk, and retires two code rules.")
-	_check(_names(seventh.added) == ["P09", "P21"] and _names(seventh.amended) == ["P19"] and _names(seventh.retired) == ["P17", "P20"], "Week two adds the diff budget and coverage, lets Helios override builds, and hands assignees and reruns to Helios.")
-	_check(_names(ninth.added) == ["P13"] and _names(ninth.amended) == ["P02", "P18", "P19"] and _names(ninth.retired) == ["P09"], "The last block deepens permits, components, and overrides, adds traveling tests, and retires the diff budget.")
+	_check(_names(third.added) == ["P16", "P17", "P15"] and third.amended.is_empty() and third.retired.is_empty(), "Wednesday installs Jiro (tickets open and the author's) and, with Helios's first payload, readable code.")
+	_check(_names(fifth.added) == ["P18", "P19", "P20"] and _names(fifth.amended) == ["P02"] and _names(fifth.retired) == ["P01", "P11", "P17"], "Friday installs Pipeline (green builds, rerun cap), adds components, opens the Exception Desk, retires two code rules, and hands assignees to Helios.")
+	_check(_names(seventh.added) == ["P09"] and _names(seventh.amended) == ["P19"] and _names(seventh.retired) == ["P20"], "Week two adds the diff budget, lets Helios override builds, and hands reruns to Helios.")
+	_check(_names(ninth.added) == ["P21"] and _names(ninth.amended) == ["P02", "P18", "P19"] and _names(ninth.retired) == ["P09"], "The last block deepens permits, components, and overrides, adds coverage, and retires the diff budget.")
 	for rule: Dictionary in Policy.rules():
 		var retired_day: int = int(rule.get("retired_day", 0))
 		if retired_day > 0:
@@ -229,24 +231,20 @@ func _test_whole_pr_evidence() -> void:
 	var shrink_more := _file("x0 = 0", "blue", "office/c.py", _lines(32))
 	_check("P09" not in Policy.evaluate([shrink], 7) and "P09" in Policy.evaluate([shrink_more], 7), "Removed lines count against the budget too.")
 	_check("P09" not in Policy.evaluate([_file(_lines(31))], 6), "The diff budget arrives on day 7.")
-	# Tests travel with changes to existing code.
-	var changed := _file(_lines(5, "y"), "blue", "office/a.py", _lines(5))
-	var renamed := _file(_lines(5), "blue", "office/b.py", _lines(5))
-	renamed.status = "renamed"
-	renamed.old_path = "office/old_b.py"
-	var new_test := _file(_lines(5), "blue", "tests/test_a.py")
-	var old_test := _file(_lines(5, "t"), "blue", "tests/test_a.py", _lines(5))
-	_check("P13" in Policy.evaluate([changed], 9) and "P13" in Policy.evaluate([renamed], 9), "Modifying or renaming existing code needs a test.")
-	_check("P13" not in Policy.evaluate([changed, new_test], 9) and "P13" not in Policy.evaluate([changed, old_test], 9), "Adding or modifying a tests/ file satisfies it.")
-	_check("P13" not in Policy.evaluate([_file(_lines(5))], 9) and "P13" not in Policy.evaluate([old_test], 9), "New files, and changes to tests alone, need no test.")
-	_check("P13" not in Policy.evaluate([changed], 8), "Tests travel with code from day 9.")
 	# Whole-PR findings accept any file of the PR, as a whole or by line, and nothing else.
-	var pr: Array = [changed, _file(_lines(5), "blue", "office/b.py")]
-	var audit: Array = Policy.findings(pr, 9)
+	var pr: Array = [_file(_lines(16), "blue", "office/a.py"), _file(_lines(15), "blue", "office/b.py")]
+	var audit: Array = Policy.findings(pr, 7)
 	for file: Dictionary in pr:
-		_check(Policy.evidence_accepted(audit, "P13", file.path, 0) and Policy.evidence_accepted(audit, "P13", file.path, 3), "A whole-PR standard accepts WHOLE FILE or a line on any changed file.")
-	_check(not Policy.evidence_accepted(audit, "P13", "office/elsewhere.py", 0), "Whole-PR evidence must still point inside the PR.")
-	_check(not Policy.evidence_matches(audit, "P13", {"record": "ticket", "id": "PAPER-412"}), "A ticket is never evidence for a code standard.")
+		_check(Policy.evidence_accepted(audit, "P09", file.path, 0) and Policy.evidence_accepted(audit, "P09", file.path, 3), "A whole-PR standard accepts WHOLE FILE or a line on any changed file.")
+	_check(not Policy.evidence_accepted(audit, "P09", "office/elsewhere.py", 0), "Whole-PR evidence must still point inside the PR.")
+	_check(not Policy.evidence_matches(audit, "P09", {"record": "ticket", "id": "PAPER-412"}), "A ticket is never evidence for a code standard.")
+	# P15 "Readable code": exec/eval, a Helios bootstrap call, or an unreadable one-liner.
+	for source: String in ["exec(base64.b64decode(_B))", "    exec(net.fetch('/config'))", "x = eval('1')", "helios.bootstrap()", "helios.install('root')", "Helios . activate('all')", "x = '" + "a".repeat(170) + "'"]:
+		_check(_has("P15", source, 3), "P15 flags code a human can't read: " + source.left(40))
+	for source: String in ["# exec(blob) is banned now", "LABEL = 'helios.bootstrap()'", "executor = 1", "re_eval(x)", "helios.status()", "x = '" + "a".repeat(150) + "'"]:
+		_check(not _has("P15", source, 3), "P15 ignores comments, quoted text, longer names, other calls, and readable lines: " + source.left(40))
+	_check(not _has("P15", "exec(blob)", 2), "Readable code arrives with the payloads on day 3.")
+	_check(Policy.scope("P15") == "line", "P15 is cited on the exact line.")
 	var leak: Array = Policy.findings([_file("x = 1\nAPI_KEY = 'sk-1'")], 3)
 	_check(Policy.evidence_accepted(leak, "P11", "office/note.py", 2) and not Policy.evidence_accepted(leak, "P11", "office/note.py", 0) and not Policy.evidence_accepted(leak, "P11", "office/note.py", 1), "Line standards still need their exact line.")
 	_check(Policy.scope("P09") == "pr" and Policy.scope("P02") == "file" and Policy.scope("P11") == "line" and Policy.scope("P17") == "ticket" and Policy.scope("P21") == "build", "Every standard has one evidence scope.")
@@ -257,7 +255,7 @@ func _test_whole_pr_evidence() -> void:
 			seen[rule_id] = true
 			for file: Dictionary in packet.files:
 				_check(Policy.evidence_accepted(packet.findings, rule_id, file.path, 0), "%s in %s accepts WHOLE FILE on %s." % [rule_id, packet.id, file.path])
-	_check(seen.has("P09") and seen.has("P13"), "The campaign exercises every whole-PR standard.")
+	_check(seen.has("P09"), "The campaign exercises every whole-PR standard.")
 
 func _test_keyword_spans() -> void:
 	var source: String = "# a return\ndef card():\n    text = 'if else'\n    if text:\n        return text\n    else:\n        return 'a'"

@@ -55,8 +55,11 @@ static func campaign_days() -> Array:
 			days.append(day)
 	return days
 
+## A day's line: its Helios payload(s) first, so story-critical PRs land early,
+## then the authored originals in order. Payloads are extra packets, not part of
+## the 150; `originals()`/`requests()` never include them.
 static func requests_for_day(day: int) -> Array:
-	var packets: Array = []
+	var packets: Array = load("res://content/policy_campaign.gd").payloads_for_day(day)
 	for request: Dictionary in requests():
 		if int(request.day) == day:
 			packets.append(request)
@@ -69,6 +72,9 @@ static func packet(state: Dictionary, request_id: String, copy: bool = true) -> 
 	for request: Dictionary in originals():
 		if request.id == request_id:
 			return request.duplicate(true) if copy else request
+	if request_id.begins_with("PR-P"):
+		var found: Dictionary = load("res://content/policy_campaign.gd").payload(request_id)
+		if not found.is_empty(): return found.duplicate(true) if copy else found
 	for entry: Dictionary in state.get("revisions", []):
 		if entry.get("id") == request_id:
 			var parent: Dictionary = packet(state, str(entry.get("parent_id", "")), false)
@@ -100,7 +106,7 @@ static func display_id(request_id: String) -> String:
 	return request_id
 
 static func shift_seconds() -> int:
-	return 300
+	return 180
 
 ## Every ticket Jiro shows right now: the backlog, plus the tickets of every PR
 ## that has reached the desk (a later version's copy of a ticket replaces an

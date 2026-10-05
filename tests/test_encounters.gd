@@ -556,7 +556,7 @@ func _test_abandon_and_escalate() -> void:
 	_check(gone.decisions.size() == before.decisions.size() + 1 and gone.decisions[-1].verdict == "request_changes", "An abandoned PR counts as reviewed")
 	_check(gone.revisions.size() == before.revisions.size() and gone.desk_line == before.desk_line, "No revision is coming")
 	_check(int(gone.autonomy) == int(before.autonomy), "Helios merges it, without raising automation reliance")
-	var base: int = -2 if gone.decisions[-1].correct else -7
+	var base: int = -3 if gone.decisions[-1].correct else -9
 	_check(int(gone.coworkers[author]) == clampi(int(before.coworkers[author]) + base + Encounters.relationship_change("abandon"), 0, 100), "Abandoning hurts the relationship beyond the review itself")
 	var dms := Chat.messages(gone, author).filter(func(message: Dictionary) -> bool: return message.get("id", "").contains(str(beat.pr_id)))
 	_check(dms.any(func(message: Dictionary) -> bool: return message.kind == "reaction"), "Slouch hears the author close it")

@@ -85,7 +85,10 @@ func _test_delivery() -> void:
 		_check(Chat.reply_options(waiting, contact).is_empty(), "An undelivered PR cannot offer replies.")
 	for day: int in Catalog.campaign_days():
 		var state := _state(day, 0)
-		var packets := Catalog.requests_for_day(day)
+		# Helios payloads are not part of the archived Slouch chat (they carry their
+		# own pleading at the desk), so this chat test only walks the authored 150.
+		var not_payload := func(p: Dictionary) -> bool: return not p.get("payload", false)
+		var packets := Catalog.requests_for_day(day).filter(not_payload)
 		for index in range(packets.size()):
 			var request: Dictionary = packets[index]
 			state.shift_seconds = index * 20
@@ -100,7 +103,7 @@ func _test_delivery() -> void:
 			_check(linked, "A PR reaching the desk must carry its real internal PR link, sent when it arrived.")
 			_check(authored.requests[request.id].hint not in _texts(history), "Arrival must not automatically reveal its trace hint.")
 			_check(_options_for(state, request).size() == 3, "The pending PR on the desk offers three authored choices.")
-			for future: Dictionary in packets.slice(index + 1) + Catalog.requests_for_day(day + 1):
+			for future: Dictionary in packets.slice(index + 1) + Catalog.requests_for_day(day + 1).filter(not_payload):
 				var future_history := Chat.messages(state, str(future.author))
 				_check(authored.requests[future.id].request not in _texts(future_history), "PRs still in line cannot leak through any contact's history.")
 				for message: Dictionary in future_history:
@@ -212,13 +215,13 @@ func _test_purity() -> void:
 
 
 func _test_history_and_contract() -> void:
-	var state := _state(int(Catalog.campaign_days()[-1]), 300)
+	var state := _state(int(Catalog.campaign_days()[-1]), Catalog.shift_seconds())
 	var known: Dictionary = {}
 	for request: Dictionary in Catalog.requests():
 		known[request.id] = request
 		_arrive(state, request, 0)
 		for reply_id: String in Chat.REPLY_IDS:
-			state.chat_replies.append({"day": request.day, "shift_seconds": 300, "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
+			state.chat_replies.append({"day": request.day, "shift_seconds": Catalog.shift_seconds(), "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
 		var verdict := "approve" if request.violations.is_empty() or int(request.day) == 5 else "request_changes"
 		state.decisions.append({"pr_id": request.id, "verdict": verdict, "correct": true, "cited_rules": request.violations, "shift_seconds": 100})
 		if verdict == "approve": continue
@@ -294,5 +297,5 @@ func _test_chronology() -> void:
 	_check(history[5].kind == "reaction" and history[6].kind == "reply", "The action journal orders a review reaction between two questions sent on the same tick.")
 	var saved: Dictionary = JSON.parse_string(JSON.stringify(state))
 	_check(Chat.messages(saved, str(first.author)) == history, "Chronological history survives save/load without new or reordered messages.")
-	_check(Chat.timestamp(history[-1]) == "Mon 12:00", "Bubble timestamps use the same accelerated office clock as the desktop.")
+	_check(Chat.timestamp(history[-1]) == "Mon 14:00", "Bubble timestamps use the same accelerated office clock as the desktop.")
 	Catalog._requests = original

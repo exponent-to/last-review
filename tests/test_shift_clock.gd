@@ -3,6 +3,7 @@ extends SceneTree
 const Simulation = preload("res://native/simulation.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Chat = preload("res://content/chat.gd")
+const Encounters = preload("res://content/encounters.gd")
 var checks: int = 0
 var failures: int = 0
 
@@ -39,14 +40,14 @@ func _await_desk(state: Dictionary) -> Dictionary:
 
 func _test_clock() -> void:
 	var initial: Dictionary = Simulation.initial_state()
-	_check(Simulation.Catalog.shift_seconds() == 300 and Simulation.clock_minutes(initial) == 540, "A five-minute shift must start at 09:00.")
-	_check(Simulation.clock_minutes(Simulation.advance(initial, 150)) == 810, "Half a shift must show 13:30.")
-	var end: Dictionary = Simulation.advance(initial, 300)
+	_check(Simulation.Catalog.shift_seconds() == 180 and Simulation.clock_minutes(initial) == 540, "A three-minute shift must start at 09:00.")
+	_check(Simulation.clock_minutes(Simulation.advance(initial, 90)) == 810, "Half a shift must show 13:30.")
+	var end: Dictionary = Simulation.advance(initial, Simulation.Catalog.shift_seconds())
 	_check(Simulation.clock_minutes(end) == 1080 and end.phase == "debrief", "The closing bell must be 18:00.")
 	_check(initial.shift_seconds == 0 and initial.actions.is_empty(), "Advancing time must deeply preserve its input.")
 	_check(Simulation.advance(initial, 0) == initial and Simulation.advance(initial, -1) == initial, "Paused and invalid negative deltas must be no-ops.")
 	var stepped: Dictionary = initial
-	for _second in range(300):
+	for _second in range(Simulation.Catalog.shift_seconds()):
 		stepped = Simulation.advance(stepped)
 	_check(stepped == end, "Single-second and batched clocks must produce identical closure.")
 	_check(Simulation.advance(end, 99999) == end, "Debrief must not accrue more time, pay, or handoffs.")
@@ -58,7 +59,7 @@ func _test_desk_arrivals() -> void:
 	_check(_desk_id(state) == first.id and Simulation.available_requests(state).size() == 1, "The day's first PR is on the desk at shift start without being picked.")
 	_check(state.arrivals == [{"pr_id": first.id, "day": 1, "shift_seconds": 0}], "The desk records when each PR arrived.")
 	_check(Simulation.dispatch(state, {"type": "select-request", "pr_id": Catalog.request_at(1).id}) == state, "There is no command to pick another PR out of the line.")
-	var waited: Dictionary = Simulation.advance(state, 280)
+	var waited: Dictionary = Simulation.advance(state, Catalog.shift_seconds() - 20)
 	_check(_desk_id(waited) == first.id and Simulation.available_requests(waited).size() == 1, "Waiting never piles up work: the desk holds one PR.")
 	var public: Dictionary = Simulation.active_request(state)
 	_check(not public.has("violations") and not public.has("findings") and not public.has("explanation") and not public.has("ai_note") and not public.has("recipe"), "The desk view hides audit answers, recipes, and unrequested advice.")
@@ -167,21 +168,30 @@ func _test_mixed_action_history() -> void:
 	for day: int in Catalog.campaign_days():
 		state = Simulation.advance(state, 7)
 		var last_day: bool = day == int(Catalog.campaign_days()[-1])
-		while not Simulation.active_request(state).is_empty():
+		while not Simulation.active_request(state).is_empty() or not Encounters.pending(state).is_empty():
+			if not Encounters.pending(state).is_empty():
+				state = _await_desk(Simulation.dispatch(state, {"type": "pushback", "choice": "insist"}))
+				continue
 			var request: Dictionary = Simulation.active_request(state)
 			state = Simulation.dispatch(state, {"type": "consult-ai"})
-			for reply_id: String in ["acknowledge", "clarify", "concern"]:
-				state = Simulation.dispatch(state, {"type": "chat-reply", "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
-			expected_replies += 3
+			# Replies only exist for the authored originals (not payloads or revisions).
+			if int(request.revision) == 1 and not request.get("payload", false):
+				for reply_id: String in ["acknowledge", "clarify", "concern"]:
+					state = Simulation.dispatch(state, {"type": "chat-reply", "contact": request.author, "pr_id": request.id, "reply_id": reply_id})
+				expected_replies += 3
 			if int(request.day) == 1 or not state.decisions.is_empty() and state.decisions.size() % 4 == 0: _round_trip(state)
 			# Leave the final shift's consulted work unsigned: replay must retain
 			# those consultation/reply effects without inventing review decisions.
 			if last_day: break
-			state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
+			# Review correctly, so no wrong call gets anyone (including you) fired.
+			var full: Dictionary = Catalog.packet(state, state.active_request_id)
+			for rule_id: String in full.violations:
+				state = Simulation.dispatch(state, Catalog.audit_citation(full, rule_id))
+			state = Simulation.dispatch(state, {"type": "review", "verdict": "approve" if full.violations.is_empty() else "request_changes"})
 			state = _await_desk(state)
 		_round_trip(state)
-		state = Simulation.advance(state, 299 - int(state.shift_seconds))
-		_check(state.phase == "review" and state.shift_seconds == 299, "An empty or waiting desk must still leave the shift open until the bell.")
+		state = Simulation.advance(state, Catalog.shift_seconds() - 1 - int(state.shift_seconds))
+		_check(state.phase == "review" and state.shift_seconds == Catalog.shift_seconds() - 1, "An empty or waiting desk must still leave the shift open until the bell.")
 		_round_trip(state)
 		state = Simulation.advance(state, 1)
 		_check(state.last_debrief.timed_out == last_day, "Only unsigned work should mark the closing debrief as a timeout.")

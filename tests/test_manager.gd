@@ -10,7 +10,7 @@ func check(ok: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func _initialize() -> void:
-	var before := Simulation.advance(Simulation.initial_state(), 280)
+	var before := Simulation.advance(Simulation.initial_state(), Catalog.shift_seconds() - 20)
 	check(Chat.messages(before, "manager").size() == 1, "Manager does not know release outcomes before closing.")
 	var mixed := before.duplicate(true)
 	mixed = Simulation.dispatch(mixed, {"type": "review", "verdict": "approve"})
@@ -76,7 +76,9 @@ func _test_evening(before: Dictionary, closed: Dictionary) -> void:
 	check(not helios.is_empty(), "A day of piled-on citations sends some PRs to Helios through their authors.")
 	for note: Dictionary in helios:
 		check(str(note.text) in report.notes, "Morgan's note about an abandoned or escalated PR reaches the panel: " + str(note.text))
-	check(report.closing == [str(copy.closing)], "Notes never crowd out the closing message.")
+	# A day of nothing but wrong rejections can end the run (you are let go), so the
+	# closing is either Morgan's usual sign-off or the ending; either way it is there.
+	check(not report.closing.is_empty() and (str(copy.closing) in report.closing or heavy.phase == "complete"), "Notes never crowd out the closing message.")
 	# The first Friday adds the extension; week two has its own closings; the end, the ending.
 	var later := Simulation.initial_state()
 	var seen := {}

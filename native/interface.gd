@@ -12,6 +12,8 @@ signal tutorial_event(event: Dictionary)
 signal tutorial_continue_requested
 signal music_toggled(enabled: bool)
 signal music_volume_changed(volume: float)
+## The ending cinematic started: "warm" or "bleak", for the soundtrack.
+signal ending_music(kind: String)
 
 const Simulation = preload("res://native/simulation.gd")
 const ComputerFrame = preload("res://native/computer_frame.gd")
@@ -25,6 +27,8 @@ const Encounters = preload("res://content/encounters.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Portraits = preload("res://native/portraits.gd")
 const Tutorial = preload("res://native/tutorial.gd")
+const Endings = preload("res://content/endings.gd")
+const EndingCinematic = preload("res://native/ending_cinematic.gd")
 const Policy = preload("res://content/policy_campaign.gd")
 const Records = preload("res://content/records.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
@@ -64,6 +68,7 @@ const RULE_SUMMARIES := {
 	"P19@9": "Build: not FAILED, and not overridden by Helios.",
 	"P20": "Build: rerun at most 3 times.",
 	"P21": "Build: coverage falls 2.0 points at most.",
+	"P15": "No exec/eval, helios.bootstrap, or minified one-liners.",
 }
 ## The evening choices and what each does, in words rather than numbers
 ## (the effects themselves live in Simulation._evening).
@@ -147,6 +152,8 @@ var _evening_notes: VBoxContainer
 var _evening_closing: VBoxContainer
 var _evening_buttons: VBoxContainer
 var _complete_button: Button
+var _watch_ending: Button
+var _ending_cinematic: Control
 var _evening_key: String = ""
 var _pr_id: Label
 var _pr_title: Label
@@ -1378,6 +1385,16 @@ func _build_evening(page: VBoxContainer) -> void:
 		var about := _paragraph(option, str(item.about), 12, DIM)
 		about.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.set_meta("about", about)
+	# On the final evening (or a firing), the way out is to watch how it ends,
+	# then return to the menu. The cinematic card also offers the menu directly.
+	_watch_ending = _button(page, "▶ SEE HOW IT ENDS", func() -> void: _play_ending())
+	_watch_ending.custom_minimum_size.y = 40
+	_watch_ending.add_theme_font_size_override("font_size", 13)
+	_watch_ending.add_theme_stylebox_override("normal", _style(Color(AMBER, 0.08), AMBER, 1, 14, 6))
+	_watch_ending.add_theme_stylebox_override("hover", _style(Color(AMBER, 0.2), Color("ffd27a"), 1, 14, 6))
+	_watch_ending.add_theme_color_override("font_color", AMBER)
+	_watch_ending.add_theme_color_override("font_hover_color", Color.WHITE)
+	_watch_ending.tooltip_text = "Play the ending cinematic."
 	_complete_button = _button(page, "RETURN TO MAIN MENU", func() -> void: menu_requested.emit())
 	_complete_button.custom_minimum_size.y = 40
 	_complete_button.add_theme_font_size_override("font_size", 13)
@@ -1388,6 +1405,26 @@ func _build_evening(page: VBoxContainer) -> void:
 	_complete_button.tooltip_text = "Save and return to the main menu."
 	_evening_buttons.hide()
 	_complete_button.hide()
+	_watch_ending.hide()
+
+
+## Play the ending cinematic over the whole monitor, from the ending the run earned.
+func _play_ending() -> void:
+	if is_instance_valid(_ending_cinematic): return
+	var key := str(_state.get("ending", ""))
+	if key.is_empty() or not Endings.has(key): return
+	var fired := key in ["player_fired", "team_fired"]
+	_ending_cinematic = EndingCinematic.new()
+	_ending_cinematic.setup(Endings.title(key), Endings.beats(key), Endings.morgan(key), fired)
+	_ending_cinematic.z_index = 200
+	_ending_cinematic.finished.connect(func() -> void:
+		if is_instance_valid(_ending_cinematic):
+			_ending_cinematic.queue_free()
+			_ending_cinematic = null
+		menu_requested.emit())
+	_monitor_screen.add_child(_ending_cinematic)
+	# The soundtrack follows: warm for the endings where people stood together.
+	ending_music.emit(Endings.music_kind(key))
 
 
 ## Fill Morgan's panel from the shift that just closed (content/chat.gd `evening`).
@@ -1396,6 +1433,11 @@ func _render_evening(state: Dictionary) -> void:
 	var evening: Dictionary = Chat.evening(state)
 	_evening_buttons.visible = phase == "debrief"
 	_complete_button.visible = phase == "complete"
+	var ending_key := str(state.get("ending", ""))
+	_watch_ending.visible = phase == "complete" and Endings.has(ending_key)
+	if _watch_ending.visible:
+		var fired := ending_key in ["player_fired", "team_fired"]
+		_watch_ending.text = ("▶ SEE WHY" if fired else "▶ SEE HOW IT ENDS")
 	var key := phase + JSON.stringify(evening)
 	if key == _evening_key: return
 	_evening_key = key
@@ -1850,8 +1892,10 @@ func render_state(state: Dictionary) -> void:
 	_clear_button.disabled = selected.is_empty() or not can_review
 	_approve.disabled = not selected.is_empty() or not can_review
 	_approve.tooltip_text = "Clear citations before approving." if not selected.is_empty() else "Approve this pull request."
-	_reject.disabled = selected.is_empty() or not can_review
-	_reject.tooltip_text = "Cite at least one rule first." if selected.is_empty() else "Request changes for every cited rule."
+	# CHANGES REQUESTED works with or without citations: with none, it is a
+	# deliberate, unexplained rejection, and the author will want to know why.
+	_reject.disabled = not can_review
+	_reject.tooltip_text = "Request changes for every cited rule." if not selected.is_empty() else "Send it back. With no citation, this is a rejection with no reason given."
 	_consult.disabled = consulted or not can_review
 	_render_evening(state)
 	if phase != _last_phase:

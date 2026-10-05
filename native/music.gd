@@ -123,12 +123,11 @@ static func mix_for(at_scene: String, progress: float = 0.0, tense: bool = false
 	return mix
 
 
-## Which ending variation fits a finished run, mirroring Morgan's last word in
-## content/chat.gd: Helios as the default gate, or a reassignment, is bleak.
+## Which ending variation fits a finished run: the ending it earned
+## (content/endings.gd). The Last Reviewers and Soft Landing are warm; every
+## other ending, including a firing, is bleak.
 static func ending_kind(state: Dictionary) -> String:
-	if int(state.get("autonomy", 0)) >= 90 or int(state.get("trust", 0)) < 40:
-		return "bleak"
-	return "warm"
+	return load("res://content/endings.gd").music_kind(str(state.get("ending", "")))
 
 
 static func load_settings() -> Dictionary:

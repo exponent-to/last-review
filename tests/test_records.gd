@@ -104,10 +104,11 @@ func _test_build_boundaries() -> void:
 	_check(_broken(five, _records({}, null, _build({"reruns": 3}))).is_empty() and _broken(five, _records({}, null, _build({"reruns": 4}))) == ["P20"], "Three reruns are fine; four are not.")
 	_check(_broken(five, _records({}, null, _build({"status": "failed", "reruns": 6}))) == ["P19", "P20"], "Reruns count whatever the final status.")
 	_check(_broken(seven, _records({}, null, _build({"reruns": 9}))).is_empty(), "The rerun limit is retired in week two: Helios reruns builds itself.")
-	_check(_broken(seven, _records({}, null, _build({"coverage_before": 814, "coverage_after": 794}))).is_empty(), "A 2.0-point coverage drop is fine.")
-	_check(_broken(seven, _records({}, null, _build({"coverage_before": 814, "coverage_after": 793}))) == ["P21"], "A 2.1-point coverage drop is not.")
-	_check(_broken(seven, _records({}, null, _build({"coverage_before": 700, "coverage_after": 950}))).is_empty(), "Rising coverage is always fine.")
-	_check(_broken(Policy.OVERRIDE_DAY - 1, _records({}, null, _build({"coverage_before": 814, "coverage_after": 700}))).is_empty(), "Coverage is measured from week two.")
+	var coverage := Policy.COVERAGE_DAY
+	_check(_broken(coverage, _records({}, null, _build({"coverage_before": 814, "coverage_after": 794}))).is_empty(), "A 2.0-point coverage drop is fine.")
+	_check(_broken(coverage, _records({}, null, _build({"coverage_before": 814, "coverage_after": 793}))) == ["P21"], "A 2.1-point coverage drop is not.")
+	_check(_broken(coverage, _records({}, null, _build({"coverage_before": 700, "coverage_after": 950}))).is_empty(), "Rising coverage is always fine.")
+	_check(_broken(coverage - 1, _records({}, null, _build({"coverage_before": 814, "coverage_after": 700}))).is_empty(), "Coverage is measured from the last block, when the diff budget retires.")
 	_check(_broken(Policy.JIRO_DAY, _records({}, null, _build({"status": "failed"}))).is_empty(), "Builds aren't reviewed before Pipeline is installed.")
 	_check(Records.coverage_text(794) == "79.4%" and Records.coverage_text(1000) == "100.0%", "Coverage reads in tenths of a point.")
 
@@ -115,9 +116,9 @@ func _test_schedule() -> void:
 	for day in range(1, 11):
 		var active: Array = Policy.active_ids(day)
 		_check(active.size() <= Policy.MAX_ACTIVE, "At most six standards on day %d." % day)
-		_check(("P16" in active) == (day >= Policy.JIRO_DAY) and ("P17" in active) == (day >= Policy.JIRO_DAY and day < 7), "Tickets from Wednesday; assignees until Helios takes them (day %d)." % day)
+		_check(("P16" in active) == (day >= Policy.JIRO_DAY) and ("P17" in active) == (day >= Policy.JIRO_DAY and day < Policy.PIPELINE_DAY), "Tickets from Wednesday; assignees until Helios takes them on Friday (day %d)." % day)
 		_check(("P18" in active) == (day >= Policy.PIPELINE_DAY) and ("P19" in active) == (day >= Policy.PIPELINE_DAY), "Components and green builds from Friday (day %d)." % day)
-		_check(("P20" in active) == (day >= Policy.PIPELINE_DAY and day < 7) and ("P21" in active) == (day >= 7), "Reruns until week two, coverage from week two (day %d)." % day)
+		_check(("P20" in active) == (day >= Policy.PIPELINE_DAY and day < 7) and ("P21" in active) == (day >= Policy.COVERAGE_DAY), "Reruns until week two, coverage in the last block (day %d)." % day)
 	_check(Simulation.SAVE_VERSION >= 13, "Record citations bumped the save format to 13 or later.")
 	for rule_id: String in Policy.RECORD_SCOPED:
 		_check(Encounters.LEANS.has(str(Policy.rules().filter(func(rule: Dictionary) -> bool: return rule.id == rule_id)[0].category)), "%s leans the encounter by its category." % rule_id)
@@ -132,12 +133,14 @@ func _test_evidence() -> void:
 	var audit: Array = Policy.findings([_file()], Policy.PIPELINE_DAY, records)
 	var ticket := {"record": "ticket", "id": "PAPER-412"}
 	var build := {"record": "build", "id": "#4412"}
+	var ticket_audit: Array = Policy.findings([_file()], Policy.JIRO_DAY, records)
 	for rule_id: String in ["P16", "P17"]:
-		_check(Policy.evidence_matches(audit, rule_id, ticket), "%s accepts the PR's ticket." % rule_id)
-		_check(not Policy.evidence_matches(audit, rule_id, build), "%s does not accept the build." % rule_id)
-		_check(not Policy.evidence_matches(audit, rule_id, {"record": "ticket", "id": "PAPER-101"}), "%s does not accept some other ticket." % rule_id)
-		_check(not Policy.evidence_matches(audit, rule_id, {"path": "office/note.py", "line": 0}) and not Policy.evidence_matches(audit, rule_id, {"path": "office/note.py", "line": 1}), "WHOLE FILE and code lines never count for %s." % rule_id)
-		_check(not Policy.evidence_accepted(audit, rule_id, "office/note.py", 0), "Code evidence is never accepted for %s." % rule_id)
+		var audit_for: Array = ticket_audit if rule_id == "P17" else audit
+		_check(Policy.evidence_matches(audit_for, rule_id, ticket), "%s accepts the PR's ticket." % rule_id)
+		_check(not Policy.evidence_matches(audit_for, rule_id, build), "%s does not accept the build." % rule_id)
+		_check(not Policy.evidence_matches(audit_for, rule_id, {"record": "ticket", "id": "PAPER-101"}), "%s does not accept some other ticket." % rule_id)
+		_check(not Policy.evidence_matches(audit_for, rule_id, {"path": "office/note.py", "line": 0}) and not Policy.evidence_matches(audit_for, rule_id, {"path": "office/note.py", "line": 1}), "WHOLE FILE and code lines never count for %s." % rule_id)
+		_check(not Policy.evidence_accepted(audit_for, rule_id, "office/note.py", 0), "Code evidence is never accepted for %s." % rule_id)
 	for rule_id: String in ["P19", "P20"]:
 		_check(Policy.evidence_matches(audit, rule_id, build) and not Policy.evidence_matches(audit, rule_id, ticket) and not Policy.evidence_matches(audit, rule_id, {"record": "build", "id": "#4413"}), "%s accepts only the PR's build." % rule_id)
 	var unlinked: Array = Policy.findings([_file()], Policy.JIRO_DAY, _records({}, ""))
@@ -408,7 +411,7 @@ func _test_apps() -> void:
 	# A PR that links nothing: the slip says so, and Jiro offers the empty link as evidence.
 	var unlinked: Dictionary = {}
 	for candidate: Dictionary in Catalog.requests():
-		if candidate.violations == ["P16"] and candidate.ticket_ref.is_empty() and int(candidate.day) >= Policy.PIPELINE_DAY: unlinked = candidate
+		if candidate.violations == ["P16"] and candidate.ticket_ref.is_empty() and int(candidate.day) >= Policy.JIRO_DAY: unlinked = candidate
 	_check(not unlinked.is_empty(), "Some PR links no ticket at all.")
 	if unlinked.is_empty(): return
 	app_state = _desk_at(str(unlinked.id))

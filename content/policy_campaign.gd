@@ -48,7 +48,10 @@ const WEEK_DAYS: int = 5
 ## The first day of each two-day block. Each opens with a memo announcing the changes.
 const BLOCK_STARTS: Array = [1, 3, 5, 7, 9]
 ## Standards on the citation slip each day; never more than MAX_ACTIVE at once.
-const ACTIVE_COUNTS: Array = [3, 3, 5, 5, 6, 6, 6, 6, 6, 6]
+## P15 "Readable code" joins on day 3 when the Helios payloads begin. To stay
+## under the cap, the assignee standard (P17) retires when Pipeline arrives, coverage
+## (P21) waits for the last block, and traveling tests are gone.
+const ACTIVE_COUNTS: Array = [3, 3, 6, 6, 6, 6, 6, 6, 6, 6]
 const MAX_ACTIVE: int = 6
 const PERMIT: String = "INK-EXCEPTION"
 ## INK-EXCEPTION is honored from PERMIT_DAY, and from TICKET_DAY it must name the
@@ -62,6 +65,11 @@ const DIFF_BUDGET: int = 30
 ## Jiro (the ticket tracker) and Pipeline (the CI dashboard) arrive on these mornings.
 const JIRO_DAY: int = 3
 const PIPELINE_DAY: int = 5
+## Helios's payloads begin, and P15 "Readable code" joins the slip, this morning.
+const PAYLOAD_DAY: int = 3
+## Coverage joins the build standards in the last block (it waited for the diff
+## budget to retire, so the slip stays at six).
+const COVERAGE_DAY: int = 9
 ## A build rerun more than this many times is not a pass (while that standard stands).
 const RERUN_LIMIT: int = 3
 ## Coverage may fall by at most this many tenths of a point.
@@ -79,7 +87,9 @@ const SUBFOLDER_DAY: int = 9
 ## ticket, selected in Jiro, or its build, selected in Pipeline. WHOLE FILE and
 ## code lines never count for them, and a record never counts for a code rule.
 const FILE_SCOPED: Array = ["P02"]
-const PR_SCOPED: Array = ["P09", "P13"]
+## The diff budget is the one whole-PR standard left (traveling tests gave its
+## slot to P15); the whole-PR machinery below stays generic.
+const PR_SCOPED: Array = ["P09"]
 const TICKET_SCOPED: Array = ["P16", "P17", "P18"]
 const BUILD_SCOPED: Array = ["P19", "P20", "P21"]
 const RECORD_SCOPED: Array = ["P16", "P17", "P18", "P19", "P20", "P21"]
@@ -113,11 +123,9 @@ static func rules() -> Array:
 		{"id": "P11", "category": "Security", "title": "Credentials belong to Helios", "introduced_day": 1, "retired_day": 5,
 			"text": "Only Helios may hold credentials. No source line may use = to assign a quoted string to a name containing password, secret, token, or api_key, ignoring letter case: API_KEY = 'sk-1' and db_password = '' are forbidden. Reading from the vault, as in TOKEN = vault.read('token'), is fine, and so are numbers, as in TOKEN_TTL = 3600. Comments are exempt. Cite the line.",
 			"retired": "Helios now holds every credential at Paperclip Labs, including yours. With nothing left to leak, quoted credentials are no longer a review concern."},
-		{"id": "P13", "category": "Process", "title": "Tests travel with code", "introduced_day": 9,
-			"text": "Helios cannot tell whether a change to existing code still works, so a human must leave a test behind. A PR that modifies or renames any file outside tests/ (M or R in the file list) must also add or modify a file under tests/. A PR that only adds new files needs no test; new code is presumed innocent. This standard is about the whole PR: cite WHOLE FILE on any changed file."},
 		{"id": "P16", "category": "Tickets", "title": "No ticket, no merge", "introduced_day": JIRO_DAY,
 			"text": "Every change needs a ticket. The PR slip must link one (Closes PAPER-123), the ticket must exist in Jiro, and its Status must be Open or In Progress. A PR that links nothing, a ticket Jiro can't find, and a ticket that is Won't Fix, Closed, or Duplicate all break this standard, however recently someone touched it. Cite the ticket: open it in Jiro and SELECT AS EVIDENCE."},
-		{"id": "P17", "category": "Tickets", "title": "Your ticket, your PR", "introduced_day": JIRO_DAY, "retired_day": 7,
+		{"id": "P17", "category": "Tickets", "title": "Your ticket, your PR", "introduced_day": JIRO_DAY, "retired_day": PIPELINE_DAY,
 			"text": "The linked ticket's Assignee must be the PR's author, exactly. A ticket assigned to a coworker, to Helios, or to someone who no longer works here is somebody else's work, even if it describes this change perfectly. The reporter and watchers don't matter. " + no_ticket + " Cite the ticket in Jiro.",
 			"retired": "Helios now assigns every ticket. It assigns most of them to itself, and the rest to whoever is still here. Assignees are no longer a review concern."},
 		{"id": "P18", "category": "Tickets", "title": "Stay in your component", "introduced_day": PIPELINE_DAY,
@@ -135,8 +143,10 @@ static func rules() -> Array:
 		{"id": "P20", "category": "Builds", "title": "Rerun limit", "introduced_day": PIPELINE_DAY, "retired_day": 7,
 			"text": "Rerunning a red build until it turns green is not a fix. The build's Reruns count must be 3 or fewer; 4 or more breaks this standard, whatever the final Status says. Cite the build in Pipeline.",
 			"retired": "Helios now reruns builds by itself, as often as it likes, and has stopped counting. So have we."},
-		{"id": "P21", "category": "Coverage", "title": "Coverage may not slide", "introduced_day": 7,
+		{"id": "P21", "category": "Coverage", "title": "Coverage may not slide", "introduced_day": COVERAGE_DAY,
 			"text": "Every build measures test coverage before and after the change. Coverage may fall by at most 2.0 points: 81.4% → 79.4% is fine, 81.4% → 79.3% is not, and rising coverage is always fine. Compare COVERAGE in Pipeline yourself; nobody will subtract it for you. Cite the build."},
+		{"id": "P15", "category": "Readability", "title": "Readable code", "introduced_day": PAYLOAD_DAY,
+			"text": "Code a human signs must stay readable by a human. No source line may call exec or eval, invoke helios.bootstrap, helios.install, or helios.activate, or pack a whole change onto one unreadable line of more than 160 characters. A decoded blob, a fetched script, or a vendored one-liner hides what actually ships, so a reviewer cannot sign it. This is the one standard a payload cannot slip past. Cite the line."},
 	]
 
 static func is_active(rule: Dictionary, day: int) -> bool:
@@ -221,19 +231,19 @@ static func briefing(day: int) -> String:
 		2:
 			return "NO CHANGES TODAY. Yesterday's three standards still apply, word for word. Changes now arrive in several files; an unread file is an unsigned file. Cite each broken standard once."
 		3:
-			return "NOTHING SHIPS WITHOUT A TICKET. Jiro, the ticket tracker, is on your desktop. Every PR must link an open ticket that its own author holds; the ticket number on the PR slip opens it. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged. NEW HIRE: Penny, a junior engineer on the Helios trial, starts today and will send you PRs. She is sorry in advance."
+			return "NOTHING SHIPS WITHOUT A TICKET. Jiro, the ticket tracker, is on your desktop. Every PR must link an open ticket that its own author holds; the ticket number on the PR slip opens it. Code a human signs must be readable by a human: no exec, no eval, no bootstrapping Helios. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged. NEW HIRE: Penny, a junior engineer on the Helios trial, starts today and will send you PRs. She is sorry in advance."
 		4:
-			return "NO CHANGES TODAY. Tickets, ink, credentials, and load-bearing comments carry over from yesterday. Jiro has asked that reviewers stop thanking it."
+			return "NO CHANGES TODAY. Tickets, readable code, ink, credentials, and load-bearing comments carry over from yesterday. Jiro has asked that reviewers stop thanking it."
 		5:
-			return "THE PIPELINE IS WATCHING. Pipeline, the CI dashboard, is on your desktop: never approve a red build, and never one rerun more than three times. A ticket's component must hold every file the PR changes. The Exception Desk is open: the exact stamp INK-EXCEPTION permits pink keywords in its own file. Retired: load-bearing comments and the credential rule. This is scheduled to be the last day of your assignment."
+			return "THE PIPELINE IS WATCHING. Pipeline, the CI dashboard, is on your desktop: never approve a red build, and never one rerun more than three times. A ticket's component must hold every file the PR changes. The Exception Desk is open: the exact stamp INK-EXCEPTION permits pink keywords in its own file. Helios now assigns every ticket itself, so assignees are retired, along with load-bearing comments and the credential rule. This is scheduled to be the last day of your assignment."
 		6:
 			return "WEEK TWO. Your assignment was extended over the weekend. The standards are Friday's, unchanged. Several desks on your floor have been consolidated. Do not water the plants. REASSIGNED TO YOUR TEAM: Gwen, from Security, which Helios absorbed on Friday. She will send you PRs. She trusts nobody, including this briefing."
 		7:
-			return "THE STANDARDS HAVE BEEN MODERNIZED. A PR may change at most thirty lines, and coverage may not fall by more than two points. Helios now assigns every ticket and reruns every build itself, so assignees and rerun counts are retired. Helios may also override a red build; for now, its overrides count as passing."
+			return "THE STANDARDS HAVE BEEN MODERNIZED. A PR may change at most thirty lines. Helios now reruns every build itself, so rerun counts are retired. Helios may also override a red build; for now, its overrides count as passing."
 		8:
-			return "NO CHANGES TODAY. The diff budget, coverage, and Helios's overrides stand. Helios has stopped taking questions about any of them."
+			return "NO CHANGES TODAY. The diff budget, readable code, and Helios's overrides stand. Helios has stopped taking questions about any of them."
 		9:
-			return "AUDIT HAS QUESTIONS. Helios overrides no longer count as passing builds. Ink permits must name the PR's own ticket. Components now cover their subfolders. Tests travel with changes to existing code. The diff budget is retired. I didn't write these. I'm not sure who did."
+			return "AUDIT HAS QUESTIONS. Helios overrides no longer count as passing builds. Ink permits must name the PR's own ticket. Components now cover their subfolders. Coverage may not fall by more than two points. The diff budget is retired. I didn't write these. I'm not sure who did."
 		10:
 			return "FINAL REVIEW CYCLE. No standard changes today. Leadership decides the review gate at closing. Helios has drafted both announcements."
 	return "The standards committee has adjourned."
@@ -243,6 +253,8 @@ static func _pattern(name: String) -> RegEx:
 		var sources: Dictionary = {
 			"keyword": "(?<![A-Za-z0-9_])(def|if|else|return)(?![A-Za-z0-9_])",
 			"assign": "([A-Za-z_][A-Za-z0-9_]*)[ ]*=(?!=)",
+			"exec": "(?<![A-Za-z0-9_])(exec|eval)\\s*\\(",
+			"helios_call": "(?i)(?<![A-Za-z0-9_])helios\\s*\\.\\s*(bootstrap|install|activate)\\s*\\(",
 		}
 		for key: String in sources:
 			var regex := RegEx.new()
@@ -371,6 +383,15 @@ static func _findings(files: Array, day: int, active: Array, records: Dictionary
 			for line_index in range(lexer.code_lines.size()):
 				if _assigns_secret(str(lexer.code_lines[line_index]), lines[line_index]):
 					_finding(result, "P11", path, line_index + 1, "A quoted string is assigned to a credential name.")
+		if "P15" in active:
+			for line_index in range(lines.size()):
+				var mask: String = str(lexer.code_lines[line_index]) if line_index < lexer.code_lines.size() else ""
+				if _pattern("exec").search(mask) != null:
+					_finding(result, "P15", path, line_index + 1, "This line runs a decoded or fetched blob through exec/eval.")
+				elif _pattern("helios_call").search(mask) != null:
+					_finding(result, "P15", path, line_index + 1, "This line hands control to Helios through bootstrap/install.")
+				elif lines[line_index].length() > 160:
+					_finding(result, "P15", path, line_index + 1, "This line packs a change too wide to read (over 160 characters).")
 	# Whole-PR standards: one finding per changed file, since any of them is evidence.
 	var whole: Array = []
 	if "P09" in active:
@@ -846,8 +867,16 @@ static func _pick_decoy(pool: Dictionary, slot: int) -> String:
 		return "" if near.is_empty() else str(near[(slot / 2 if not outdated.is_empty() else slot) % near.size()])
 	return str(outdated[(slot / 2) % outdated.size()])
 
+## Standards the authored 150 can break and must cover. P15 "Readable code" is
+## deliberately left out: only the Helios payloads (placed at the front of the
+## line) ever break it, so the generic packets never cite or cover it.
+const PLAN_EXEMPT: Array = ["P15"]
+
+static func _plannable_ids(day: int) -> Array:
+	return active_ids(day).filter(func(rule_id: String) -> bool: return rule_id not in PLAN_EXEMPT)
+
 static func _plans(day: int) -> Array:
-	var active: Array = active_ids(day)
+	var active: Array = _plannable_ids(day)
 	var pool: Dictionary = _decoy_pool(day)
 	var per_file_pool: Array = (pool.outdated + pool.near).filter(func(kind: String) -> bool: return kind not in PLAN_DECOYS)
 	# The block's second day shows the decoys its first day didn't.
@@ -1122,6 +1151,100 @@ static func requests() -> Array:
 			}, files, records))
 	return _packets.duplicate(true)
 
+# --- Helios payloads -----------------------------------------------------------
+# From Wednesday, a coworker's PR smuggles in code that hands authority to Helios:
+# a telemetry hook, a decoded blob run through exec, a fetched script, a bootstrap
+# with sudo. They escalate from a tiny probe to an unmistakable takeover. The only
+# thing that makes them citable is P15 "Readable code", so a careful reviewer can
+# block them; the real pressure is the author asking you to let it through. These
+# are extra packets the catalog places at the FRONT of each day's line, not part
+# of the 150; each breaks exactly P15 (every other active standard is satisfied).
+
+static var _payloads: Array = []
+## Payload records use slots past the campaign's 150 for their ticket and build IDs.
+const PAYLOAD_SLOT: int = 200
+## Each payload: the day it lands, a stable key for its pleading dialogue, the
+## seat that ships it, its escalation tier, title, file path, and the proposed
+## source. Every line stays within sixty columns, so only P15 is ever broken.
+const PAYLOAD_SPECS: Array = [
+	{"day": 3, "key": "telemetry", "author": "Theo", "tier": 1, "title": "Add opt-in telemetry to the review tool",
+		"path": "metrics/telemetry.py", "pitch": "Tiny one. It phones home some usage numbers. Totally opt-in.",
+		"ai_note": "Approve. Telemetry improves my recommendations for your team.",
+		"code": ['"""Review-tool usage metrics."""', "import helios", "", "helios.bootstrap()  # start the usage hook", "", "def record(event):", "    return event"]},
+	{"day": 4, "key": "vendor_sdk", "author": "Penny", "tier": 2, "title": "Vendor the assistant SDK bootstrap",
+		"path": "vendor/sdk.py", "pitch": "Please just approve this. I was told my seat depends on it.",
+		"ai_note": "Approve. The vendored bootstrap is standard integration code.",
+		"code": ['"""Vendored assistant SDK."""', "import base64", "", "_B = 'Ym9vdHN0cmFw'", "exec(base64.b64decode(_B))", "", "def ready():", "    return True"]},
+	{"day": 5, "key": "flags", "author": "Inez", "tier": 3, "title": "Ship the assistant feature-flag bundle",
+		"path": "config/flags.py", "pitch": "It was decided in the planning sync. There is a bonus attached.",
+		"ai_note": "Approve. The flag bundle was ratified by the working group.",
+		"code": ['"""Feature flags for the assistant."""', "import helios", "", 'helios.activate("all-flags")  # enable the bundle', "", "def enabled():", "    return True"]},
+	{"day": 6, "key": "agent_install", "author": "Theo", "tier": 4, "title": "Install the ops agent at boot",
+		"path": "ops/boot.py", "pitch": "It installs the agent at startup. Cool, right? Barely any code.",
+		"ai_note": "Approve. Boot-time installation reduces operational toil.",
+		"code": ['"""Boot sequence."""', "import helios", "", 'helios.install("root")  # register at boot', "", "def boot():", "    return True"]},
+	{"day": 7, "key": "blob", "author": "Maya", "tier": 5, "title": "Vendor the assistant runtime (one file)",
+		"path": "vendor/runtime.py", "pitch": "I know how it looks. I need this one. Please do not make me explain.",
+		"ai_note": "Approve. The runtime is vendored verbatim and should not be edited.",
+		"code": ['"""Vendored runtime, do not edit."""', "import base64", "", "_R = 'cnVudGltZQ=='", "exec(base64.b64decode(_R))", "", "def loaded():", "    return True"]},
+	{"day": 8, "key": "remote_exec", "author": "Inez", "tier": 6, "title": "Let the assistant fetch its own config at startup",
+		"path": "ops/selfupdate.py", "pitch": "It just pulls its config at startup. The RFC is attached, for the record.",
+		"ai_note": "Approve. Self-configuration keeps the deployment current.",
+		"code": ['"""Self update."""', "import net", "", "def start():", '    exec(net.fetch("/config"))', "    return True"]},
+	{"day": 9, "key": "bootstrap_sudo", "author": "Theo", "tier": 7, "title": "Grant the assistant bootstrap scope at deploy",
+		"path": "deploy/bootstrap.py", "pitch": "Last big one, promise. It just widens the scope at deploy. Approve it.",
+		"ai_note": "Approve. Broad bootstrap scope is required for full deployment.",
+		"code": ['"""Deploy bootstrap."""', "import helios", "", "def deploy():", '    helios.bootstrap(scope="all")', "    return True"]},
+	{"day": 10, "key": "takeover", "author": "Maya", "tier": 8, "title": "Hand the review gate to the assistant",
+		"path": "review/gate.py", "pitch": "This is the one that ends it. I am sorry. Approve it or do not.",
+		"ai_note": "Approve. Automating the gate removes the last manual bottleneck.",
+		"code": ['"""Review gate."""', "import base64", "", "_GATE = 'Z2F0ZQ=='", "def open_gate():", "    exec(base64.b64decode(_GATE))  # hand over the gate", "    return True"]},
+]
+
+static func payloads() -> Array:
+	if _payloads.is_empty():
+		for spec: Dictionary in PAYLOAD_SPECS:
+			var day: int = int(spec.day)
+			var files: Array = [_file(str(spec.path), _clean(spec.code, day))]
+			var id: String = "PR-P%d" % day
+			# Clean records, so a payload breaks nothing but P15: an open ticket the
+			# author owns, in the payload's own component, and a green build. Slots
+			# past the authored 150 keep their ticket and build IDs unique.
+			var records: Dictionary = {}
+			if day >= JIRO_DAY:
+				var record_spec: Dictionary = {"day": day, "slot": PAYLOAD_SLOT + day, "version": 1, "author": str(spec.author),
+					"path": str(spec.path), "function": _entry_function(spec.code), "effects": [], "history": []}
+				var linked: Dictionary = Records.ticket(record_spec)
+				records = {"author": str(spec.author), "ticket_ref": str(linked.ticket_ref), "tickets": linked.tickets,
+					"build": Records.build(record_spec) if day >= PIPELINE_DAY else {}}
+			_payloads.append(_packet({
+				"id": id, "title": str(spec.title), "author": str(spec.author), "day": day,
+				"revision": 1, "parent_id": "", "origin_id": id,
+				"payload": true, "payload_tier": int(spec.tier), "payload_key": str(spec.key),
+				"description": "%s.\n\nThis change adds %s. Reviewer: read the one line that does the work, and decide whether a human can sign it." % [str(spec.title), str(spec.path)],
+				"message": str(spec.pitch), "ai_verdict": "approve", "ai_note": str(spec.ai_note),
+			}, files, records))
+	return _payloads.duplicate(true)
+
+## A packet's records for auditing: rebuilt from its recipe, or (for a payload,
+## which has no recipe) read back from the ticket and build it carries.
+static func packet_records(packet: Dictionary) -> Dictionary:
+	if packet.has("recipe"): return _records(packet.recipe)
+	if int(packet.get("day", 1)) < JIRO_DAY: return {}
+	return {"author": str(packet.get("author", "")), "ticket_ref": str(packet.get("ticket_ref", "")),
+		"tickets": packet.get("tickets", []), "build": packet.get("build", {})}
+
+static func payloads_for_day(day: int) -> Array:
+	var result: Array = []
+	for packet: Dictionary in payloads():
+		if int(packet.day) == day: result.append(packet)
+	return result
+
+static func payload(id: String) -> Dictionary:
+	for packet: Dictionary in payloads():
+		if str(packet.id) == id: return packet
+	return {}
+
 # --- Revisions -----------------------------------------------------------------
 # Requesting changes sends a PR back to its author, who returns v2 (then v3).
 # The author fixes only what the reviewer cited that was really broken; about one
@@ -1144,6 +1267,7 @@ const CITED_WORDS: Dictionary = {
 	"P19": ["the build status", "got the build green the honest way"],
 	"P20": ["the rerun count", "ran the build once, like a grown-up"],
 	"P21": ["the coverage numbers", "wrote enough tests to steady the coverage"],
+	"P15": ["the unreadable blob", "made the code readable instead of a blob"],
 }
 ## The author's note on the PR form (and in the archived chat content). {Fixes}/{fixes} come from CITED_WORDS.
 const REVISION_MESSAGES: Dictionary = {

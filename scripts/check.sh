@@ -27,3 +27,4 @@ sh scripts/run.sh --headless --script res://tests/test_trees.gd
 sh scripts/run.sh --headless --script res://tests/test_music.gd
 sh scripts/run.sh --headless --script res://tests/test_records.gd
 sh scripts/run.sh --headless --script res://tests/test_cast.gd
+sh scripts/run.sh --headless --script res://tests/test_story.gd

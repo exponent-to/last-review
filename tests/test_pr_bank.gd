@@ -122,6 +122,9 @@ func _test_faults(entry: Dictionary, index: int) -> void:
 	for day in range(1, LAST_DAY + 1):
 		_check(Campaign._audit(_recipe(index, day, [])).is_empty(), "A PR built on %s, with its ticket and build, is clean on day %d before any fault." % [entry.path, day])
 		for rule_id: String in Campaign.active_ids(day):
+			# P15 "Readable code" is never applied as a generic bank fault; only the
+			# authored Helios payloads break it.
+			if rule_id in Campaign.PLAN_EXEMPT: continue
 			for variant in range(3):
 				# Only a change to existing code needs a test to travel with it.
 				var exempt: bool = rule_id == "P13" and not entry.has("before")

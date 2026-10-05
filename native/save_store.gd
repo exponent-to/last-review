@@ -5,6 +5,11 @@ const Tutorial = preload("res://native/tutorial.gd")
 const Simulation = preload("res://native/simulation.gd")
 const MAX_SAVE_BYTES: int = 1000000
 const SLOT_COUNT := 3
+## Pre-release: the save format changes often, so at application start any save
+## or backup that no longer validates (an older SAVE_VERSION, damaged JSON, a
+## history that no longer replays) is deleted and its slot shows as empty. A
+## damaged save with a valid backup keeps the backup, which then loads as usual.
+const DELETE_INVALID_SAVES_ON_START := true # pre-release: flip off at the first stable version
 static var storage_root := "user://"
 
 static func _failure(message: String) -> Dictionary:
@@ -87,6 +92,18 @@ static func _load_path(path: String) -> Dictionary:
 	if parse_error != OK:
 		return _failure("Invalid save JSON at line %d: %s" % [parser.get_error_line(), parser.get_error_message()])
 	return decode_session(parser.data)
+
+## Delete every save and backup file that fails to load. Returns the deleted paths.
+## Called at application start while DELETE_INVALID_SAVES_ON_START is on.
+static func purge_invalid() -> Array[String]:
+	var removed: Array[String] = []
+	for slot in range(1, SLOT_COUNT + 1):
+		for path: String in [slot_path(slot), slot_path(slot) + ".bak", slot_path(slot) + ".tmp"]:
+			if not FileAccess.file_exists(path): continue
+			# A leftover temporary file is never a save; the rest must still validate.
+			if path.ends_with(".tmp") or not _load_path(path).ok:
+				if DirAccess.remove_absolute(path) == OK: removed.append(path)
+	return removed
 
 static func has_save(slot: int = 0) -> bool:
 	if slot == 0:
