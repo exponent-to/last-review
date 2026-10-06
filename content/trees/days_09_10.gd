@@ -258,7 +258,7 @@ static func trees() -> Dictionary:
 			},
 			"dm": {
 				"thanks": {"friendly": "Rehire funnel merged. I saved you a guest badge. Just in case.", "cold": "It merged. Procurement sent thanks, at sixty percent warmth."},
-				"suspicious": {"friendly": "Fast approval on the rehire rate. Updating your LinkedIn, perhaps?", "cold": "You approved point six quickly. Logging your price sensitivity."},
+				"suspicious": {"friendly": "Fast approval on the rehire rate. Updating your LinkedOut, perhaps?", "cold": "You approved point six quickly. Logging your price sensitivity."},
 				"revise_later": {"friendly": "Circling back on {topics} for the rehire rate. Alumni can wait.", "cold": "Rehire rate's back for {topics}. Procurement wants a quick sync."},
 				"abandon": {"friendly": "Helios merged the rehire program. Then offered me a contract.", "cold": "Helios shipped it. It proposed point five for repeat alumni."},
 				"escalate": {"friendly": "Morgan has the rehire rate. Morgan calls it 'boomerang talent'.", "cold": "Morgan owns it now. Morgan asked if you'd consider point six."},
@@ -292,7 +292,7 @@ static func trees() -> Dictionary:
 				"escalate": {"friendly": "Third round. Morgan gets the CEO letter. Morgan loves the CEO.", "cold": "That's three. Morgan can take full responsibility for this one."},
 			},
 			"dm": {
-				"thanks": {"friendly": "CEO letter shipped. Responsibility taken. Bonus untouched. Thanks.", "cold": "It merged. The CEO posted it on LinkedIn. Six thousand likes."},
+				"thanks": {"friendly": "CEO letter shipped. Responsibility taken. Bonus untouched. Thanks.", "cold": "It merged. The CEO posted it on LinkedOut. Six thousand likes."},
 				"suspicious": {"friendly": "You approved the bonus line fast. You're not on the board, right?", "cold": "Quick approval on the CEO letter. Got options I don't know about?"},
 				"revise_later": {"friendly": "Revising {topics} on the CEO letter. The bonus waits for no one.", "cold": "CEO letter's back for {topics}. The comp committee is asking."},
 				"abandon": {"friendly": "Helios merged the letter. It added 'I hear you' twice.", "cold": "Helios shipped it. The CEO thanked Helios for its sacrifice."},
