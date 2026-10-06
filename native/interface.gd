@@ -1053,6 +1053,7 @@ func begin_morning() -> void:
 	for app: String in _app_counts: _notifications.clear_app(app)
 	_clock_label.text = "09:00"
 	_sync_morning_control()
+	if not _state.is_empty(): render_state(_state)
 
 
 func _sync_morning_control() -> void:
@@ -1066,6 +1067,7 @@ func _finish_morning() -> void:
 	if not morning_active or not _daily_reader._memo_seen: return
 	morning_active = false
 	_sync_morning_control()
+	if not _state.is_empty(): render_state(_state)
 	_daily_reader.show_page(int(_state.get("day", 1)), _browser_path, false)
 	_windows["browser"].minimize_window()
 	_update_dock()
@@ -2011,7 +2013,9 @@ func render_state(state: Dictionary) -> void:
 	# revising at the desk keeps their seat until v2 replaces the PR.
 	var pending: Dictionary = Encounters.pending(state)
 	var typing: Dictionary = Encounters.typing(state)
-	var can_review: bool = phase == "review" and not active_request.is_empty() and pending.is_empty()
+	# Before BEGIN SHIFT the desk is closed: the first PR waits, unread, until the clock starts.
+	var desk_open: bool = phase == "review" and not morning_active
+	var can_review: bool = desk_open and not active_request.is_empty() and pending.is_empty()
 	_consult.visible = day >= 3
 	_ai_note.visible = _consult.visible
 	_hud["day"].text = day_label(day)
@@ -2045,15 +2049,16 @@ func render_state(state: Dictionary) -> void:
 			# that opens by itself. Loading an evening save opens it too.
 			_open_app("evening")
 		_update_dock()
-	if phase != "review":
+	if not desk_open:
 		# Off the clock the desk is closed; REVIEW still opens, and says so.
 		_last_pr = ""
-		_pr_id.text = "REVIEW / " + ("SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED")
-		_pr_title.text = "The desk is closed until morning" if phase == "debrief" else "The desk is closed"
+		_banter.close_pr()
+		_pr_id.text = "REVIEW / " + ("BEFORE SHIFT" if phase == "review" else "SHIFT CLOSED" if phase == "debrief" else "ASSIGNMENT CLOSED")
+		_pr_title.text = "The desk opens when your shift begins" if phase == "review" else "The desk is closed until morning" if phase == "debrief" else "The desk is closed"
 		_file_label.text = ""
 		if not _review_files.is_empty() or not _diff.text.is_empty():
 			_set_review_files({})
-	if phase == "review":
+	if desk_open:
 		# Deliberately never read audit-only violations or explanation here.
 		var request: Dictionary = active_request
 		var request_id: String = str(request.get("id", ""))
