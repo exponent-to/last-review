@@ -1036,7 +1036,7 @@ static func trees() -> Dictionary:
 				"suspicious": {"friendly": "That was quick. Were you about to @ the CEO about something?", "cold": "Fast approval. Something you didn't want the CEO to see?"},
 				"relief": {"friendly": "Finally. The CEO's notifications are pristine. Love that.", "cold": "Finally. The executive attention budget is balanced. Unlike some."},
 				"revise_now": {"friendly": "One sec. Revising now. Quietly. Without tagging anyone.", "cold": "Revising now. Don't @ me. Or do. I'm not protected."},
-				"revise_later": {"friendly": "Will circle back. Please don't @ the CEO about the delay.", "cold": "Back in line. I'll file a ticket with Morgan about your notes."},
+				"revise_later": {"friendly": "Will circle back. Please don't @ the CEO about the delay.", "cold": "Back in line. I'll file an issue with Morgan about your notes."},
 				"pushback": {"friendly": "{Topic}? Exec comms deck, appendix J. I've linked it. Twice.", "cold": "{Topic}? Feel free to escalate. Not to the CEO, though. Can't."},
 				"insist_revise": {"friendly": "Happy to revise. The board will never know.", "cold": "Disagree and commit. I'd @ the board about this. If I could."},
 				"insist_escalate": {"friendly": "Let's loop in Morgan. Morgan is the highest I'm allowed to @.", "cold": "Escalating to Morgan. @Morgan still works. For now."},

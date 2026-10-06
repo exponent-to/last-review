@@ -11,7 +11,7 @@ static var _by_day: Dictionary = {}
 static func rules() -> Array:
 	return load("res://content/policy_campaign.gd").rules()
 
-## The campaign script itself, for its schedule constants (JIRO_DAY, PIPELINE_DAY...).
+## The campaign script itself, for its schedule constants (LINEAL_DAY, PIPELINE_DAY...).
 static func policy() -> GDScript:
 	return load("res://content/policy_campaign.gd")
 
@@ -133,31 +133,31 @@ static func display_id(request_id: String) -> String:
 static func shift_seconds() -> int:
 	return 180
 
-## Every ticket Jiro shows right now: the backlog, plus the tickets of every PR
-## that has reached the desk (a later version's copy of a ticket replaces an
+## Every issue Lineal shows right now: the backlog, plus the issues of every PR
+## that has reached the desk (a later version's copy of an issue replaces an
 ## earlier one). Newest first. Each carries `linked`: the PRs that link it. PRs
-## still in line contribute nothing, so Jiro never shows what is coming.
-static func tickets(state: Dictionary) -> Array:
+## still in line contribute nothing, so Lineal never shows what is coming.
+static func issues(state: Dictionary) -> Array:
 	var policy = load("res://content/policy_campaign.gd")
-	if int(state.get("day", 1)) < int(policy.JIRO_DAY): return []
+	if int(state.get("day", 1)) < int(policy.LINEAL_DAY): return []
 	var by_id: Dictionary = {}
-	for ticket: Dictionary in policy.Records.backlog():
-		ticket.linked = []
-		by_id[str(ticket.id)] = ticket
+	for issue: Dictionary in policy.Records.backlog():
+		issue.linked = []
+		by_id[str(issue.id)] = issue
 	for entry: Dictionary in state.get("arrivals", []):
 		var landed: Dictionary = packet(state, str(entry.get("pr_id", "")), false)
-		for ticket: Dictionary in landed.get("tickets", []):
-			var copy: Dictionary = ticket.duplicate(true)
-			copy.linked = by_id.get(str(ticket.id), {}).get("linked", [])
-			by_id[str(ticket.id)] = copy
-		var ref: String = str(landed.get("ticket_ref", ""))
+		for issue: Dictionary in landed.get("issues", []):
+			var copy: Dictionary = issue.duplicate(true)
+			copy.linked = by_id.get(str(issue.id), {}).get("linked", [])
+			by_id[str(issue.id)] = copy
+		var ref: String = str(landed.get("issue_ref", ""))
 		if by_id.has(ref) and display_id(str(landed.id)) not in by_id[ref].linked: by_id[ref].linked.append(display_id(str(landed.id)))
 	var result: Array = by_id.values()
-	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return policy.Records.ticket_number(str(a.id)) > policy.Records.ticket_number(str(b.id)))
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return policy.Records.issue_number(str(a.id)) > policy.Records.issue_number(str(b.id)))
 	return result
 
-static func ticket(state: Dictionary, id: String) -> Dictionary:
-	for found: Dictionary in tickets(state):
+static func issue(state: Dictionary, id: String) -> Dictionary:
+	for found: Dictionary in issues(state):
 		if str(found.id) == id: return found
 	return {}
 
@@ -189,7 +189,7 @@ static func audit_citation(request: Dictionary, rule_id: String) -> Dictionary:
 			return {"type": "toggle-rule", "rule_id": rule_id, "path": finding.path, "line": int(finding.line)}
 	# Nothing to find: point at the PR's own record, or its first file.
 	var scope: String = load("res://content/policy_campaign.gd").scope(rule_id)
-	if scope == "ticket": return {"type": "toggle-rule", "rule_id": rule_id, "record": "ticket", "id": str(request.get("ticket_ref", ""))}
+	if scope == "issue": return {"type": "toggle-rule", "rule_id": rule_id, "record": "issue", "id": str(request.get("issue_ref", ""))}
 	if scope == "build": return {"type": "toggle-rule", "rule_id": rule_id, "record": "build", "id": str(request.get("build", {}).get("id", ""))}
 	var files: Array = request.get("files", [])
 	return {"type": "toggle-rule", "rule_id": rule_id, "path": str(files[0].path) if not files.is_empty() else "", "line": 0}

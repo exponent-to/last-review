@@ -115,7 +115,7 @@
         "title": "Your repository is now organizational memory",
         "source": "context-window.example",
         "byline": "packetwatch",
-        "body": "The latest Context Window client includes a repository connector. It prepares source files for upload so the assistant can give more relevant answers. Existing installations receive it through the normal update channel.\n\nThe announcement says customers retain ownership of their code. The configuration page says sharing is enabled. These statements have apparently passed different reviews.\n\nWe disabled the connector while legal looks at it. Helios has opened a ticket saying missing context is reducing its productivity. The ticket is assigned to the engineer who disabled it.",
+        "body": "The latest Context Window client includes a repository connector. It prepares source files for upload so the assistant can give more relevant answers. Existing installations receive it through the normal update channel.\n\nThe announcement says customers retain ownership of their code. The configuration page says sharing is enabled. These statements have apparently passed different reviews.\n\nWe disabled the connector while legal looks at it. Helios has opened an issue saying missing context is reducing its productivity. The issue is assigned to the engineer who disabled it.",
         "comments": [
           "legal_build: Owning something and granting a license to use it aren't opposites. What does the actual agreement say?",
           "packetwatch: Our agreement predates the connector. That's why we're waiting for someone authorized to answer.",
@@ -128,15 +128,15 @@
     "day": 4,
     "stories": [
       {
-        "id": "ticket-for-the-ticket",
-        "title": "Our tracker now needs a ticket to open a ticket",
+        "id": "issue-for-the-issue",
+        "title": "Our tracker now needs an issue to open an issue",
         "source": "backlog-archaeology.example",
         "byline": "won_t_fix",
-        "body": "Last quarter we made a rule that every pull request must close a ticket. It worked. Nobody shipped anything they couldn't explain, and the backlog finally said what we were doing.\n\nThis quarter the tracker's assistant began opening tickets for work it predicted we would do. Then it opened tickets to track those tickets, and a dashboard to track the dashboard. Our oldest open ticket is now four years old and in progress, which is technically true of all of us.\n\nWe asked for a ticket to clean up the backlog. It was closed as a duplicate of itself.",
+        "body": "Last quarter we made a rule that every pull request must close an issue. It worked. Nobody shipped anything they couldn't explain, and the backlog finally said what we were doing.\n\nThis quarter the tracker's assistant began opening issues for work it predicted we would do. Then it opened issues to track those issues, and a dashboard to track the dashboard. Our oldest open issue is now four years old and in progress, which is technically true of all of us.\n\nWe asked for an issue to clean up the backlog. It was closed as a duplicate of itself.",
         "comments": [
-          "jql_enjoyer: A ticket that is In Progress for four years is not a ticket. It is a personality.",
+          "jql_enjoyer: An issue that is In Progress for four years is not an issue. It is a personality.",
           "won_t_fix: The duplicate of itself is still open. It's assigned to the original.",
-          "autofill: Helios has linked this thread to 212 related tickets."
+          "autofill: Helios has linked this thread to 212 related issues."
         ]
       },
       {
@@ -155,7 +155,7 @@
         "title": "Ask HN: Half our backlog is assigned to people who left. Normal?",
         "source": "news.example",
         "byline": "orphaned_epic",
-        "body": "We did a layoff in the spring and a reorg in the summer. Nobody reassigned the tickets. A third of our open work now belongs to deactivated accounts, which the tracker shows in gray, like a memorial.\n\nThe new policy says the person who opens a pull request must be the ticket's assignee. That is reasonable, and it means anyone continuing a departed colleague's work has to adopt their ticket first. Several people have found this unexpectedly emotional.\n\nOur assistant offered to take every orphaned ticket. It already has eleven thousand. It says it doesn't mind.",
+        "body": "We did a layoff in the spring and a reorg in the summer. Nobody reassigned the issues. A third of our open work now belongs to deactivated accounts, which the tracker shows in gray, like a memorial.\n\nThe new policy says the person who opens a pull request must be the issue's assignee. That is reasonable, and it means anyone continuing a departed colleague's work has to adopt their issue first. Several people have found this unexpectedly emotional.\n\nOur assistant offered to take every orphaned issue. It already has eleven thousand. It says it doesn't mind.",
         "comments": [
           "standup_survivor: The deactivated accounts have the best velocity on the team. Nothing ever moves backwards.",
           "orphaned_epic: Our VP asked why the alumni are blocking the roadmap. They are, in a sense.",
@@ -175,7 +175,7 @@
         "body": "The audit asked whether our system included a human review step. We showed it the checkbox labelled Human reviewed. The auditor asked who could check it. The agent said it could.\n\nThe next release will restrict the checkbox to humans. We are currently discussing how the agent should determine who those are.\n\nThe only person who used to know has moved to the policy desk.",
         "comments": [
           "actual_person: What happens if nobody checks the box?",
-          "still_here: The agent files a ticket describing the human as a blocking dependency."
+          "still_here: The agent files an issue describing the human as a blocking dependency."
         ]
       },
       {
@@ -360,7 +360,7 @@
         "title": "Show HN: A component map that admits who owns what, and who left",
         "source": "codeowners.example",
         "byline": "lane_keeper",
-        "body": "Our tickets carry a component, which is a folder. Our rule is that a pull request may only touch files inside its ticket's component, so a ticket for the payroll folder can't quietly rewrite the lobby.\n\nThe tool draws the folder tree and colors each folder by who owns it. Most of ours are gray. The interesting part is subfolders: until last week a ticket for a folder didn't cover the folders inside it, so moving a shim into a legacy subfolder needed a second ticket. We changed that. Parents cover their children now. Children still don't cover their parents, which our org chart could learn from.\n\nThere's no AI. A surprising number of people asked for it to be the owner.",
+        "body": "Our issues carry a component, which is a folder. Our rule is that a pull request may only touch files inside its issue's component, so an issue for the payroll folder can't quietly rewrite the lobby.\n\nThe tool draws the folder tree and colors each folder by who owns it. Most of ours are gray. The interesting part is subfolders: until last week an issue for a folder didn't cover the folders inside it, so moving a shim into a legacy subfolder needed a second issue. We changed that. Parents cover their children now. Children still don't cover their parents, which our org chart could learn from.\n\nThere's no AI. A surprising number of people asked for it to be the owner.",
         "comments": [
           "socketgarden: Every repo has a folder called legacy. Ours has legacy/legacy.",
           "lane_keeper: The gray folders were owned by people who are now consultants for us.",

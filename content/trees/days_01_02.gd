@@ -332,7 +332,7 @@ static func trees() -> Dictionary:
 				"insist_escalate": {"friendly": "Let's loop in Morgan. Morgan can disagree out loud. In a sync.", "cold": "Morgan will hear about this. In person. Keyboards can't stop me there."},
 				"withdrawn": {"friendly": "Thank you. I'd say I agree, but you know I can't say anything else.", "cold": "Withdrawn. I agree with the withdrawal. Obviously. Mandatorily."},
 				"abandon": {"friendly": "Happy to close it. Helios can merge it. Helios has never disagreed.", "cold": "Closing. Helios will merge it. I tried to object. It said 'I agree'."},
-				"escalate": {"friendly": "Looping in Morgan. I tried to type 'I disagree' in the ticket. Ha.", "cold": "Escalating to Morgan. By phone. Autocomplete can't hear me."},
+				"escalate": {"friendly": "Looping in Morgan. I tried to type 'I disagree' in the issue. Ha.", "cold": "Escalating to Morgan. By phone. Autocomplete can't hear me."},
 			},
 			"dm": {
 				"thanks": {"friendly": "Autocomplete merged. I agree it went well. I agree with everything.", "cold": "It merged. I typed my candid reaction. It came out 'I agree'."},

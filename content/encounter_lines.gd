@@ -350,24 +350,24 @@ const THEO := {
 const JUNE := {
 	"desk": {
 		"pitch": {
-			"warm": ["Sent to you first. You're my highest-impact reviewer.", "Ticket, one-pager, and a thank-you in advance. For you.", "I told stakeholders you'd be fair. No pressure."],
+			"warm": ["Sent to you first. You're my highest-impact reviewer.", "Issue, one-pager, and a thank-you in advance. For you.", "I told stakeholders you'd be fair. No pressure."],
 			"strained": ["Attached: the PR, the deck, and a quick sync hold.", "Please review at your earliest bandwidth.", "I've looped myself in on this review. For visibility."],
 			"hostile": ["Before you start: I'm capturing learnings live.", "Here's my PR. Leadership has a copy of this thread.", "Review it. Stakeholders are watching. So am I."],
 		},
 		"return": {
 			"warm": ["Circling back per your notes. Executed to the letter.", "Revision attached. I updated the dashboard fondly.", "Round two. I booked zero syncs about it. Growth."],
-			"strained": ["Resubmitted. The ticket now has a sub-ticket about you.", "Circling back, as aligned with your preferences.", "Revision attached. Please confirm alignment async."],
+			"strained": ["Resubmitted. The issue now has a sub-issue about you.", "Circling back, as aligned with your preferences.", "Revision attached. Please confirm alignment async."],
 			"hostile": ["Circling back again. My retro slide is ready.", "Revised. You're now a line item in my risks column.", "Resubmitted. Disagree and commit. Mostly disagree."],
 		},
 		"revised": {
 			"warm": ["Done. Revised live, like we aligned in spirit.", "There. Fastest turnaround on the dashboard.", "Updated while you waited. I even skipped the one-pager."],
-			"neutral": ["Revised. I'll backfill the ticket post-sync.", "Here. Revision drafted, shipped, and in the deck.", "Updated in place. Changelog to follow, async."],
+			"neutral": ["Revised. I'll backfill the issue post-sync.", "Here. Revision drafted, shipped, and in the deck.", "Updated in place. Changelog to follow, async."],
 			"strained": ["Revised in real time. My bandwidth did not consent.", "There. Please note the turnaround in your metrics.", "Done. I've tagged this as unplanned work."],
 			"hostile": ["Revised. Timestamped. Screenshotted. Your move.", "There. I'll be billing this to the growth budget.", "Done, under duress. The duress has its own KPI."],
 		},
 		"flag": {
 			"warm": ["{Topic}? Love that. I'll trust your process.", "Flagged. Adding it to my learnings doc.", "Raised. I'll bring snacks to the retro."],
-			"strained": ["{Topic}. Can we get that in the ticket?", "Flagged. I'm adding a funnel stage for your flags.", "Interesting. That wasn't in the deck."],
+			"strained": ["{Topic}. Can we get that in the issue?", "Flagged. I'm adding a funnel stage for your flags.", "Interesting. That wasn't in the deck."],
 			"hostile": ["{Topic}. Captured, with a timestamp.", "Another flag. Leadership loves a trend line.", "Flagged. I've started a separate dashboard for you."],
 		},
 		"unflag": {
@@ -392,14 +392,14 @@ const JUNE := {
 			"hostile": ["You approved my PR? Who told you to be nice?", "Approved. Forwarding to leadership, just in case.", "Wait. You approved that? Adding it to the deck too."],
 		},
 		"relief": {
-			"warm": ["Finally. Thank you for staying aligned with me.", "Finally. Closing the ticket with a little bow on it.", "Approved. I'm adding a celebration slide."],
-			"neutral": ["Finally. Moving the ticket to done, done, done.", "Approved. The roadmap can finally rest.", "Finally. I'll update the burndown dashboard."],
-			"strained": ["Finally. I've tracked how many versions that took.", "Approved at last. The retro deck writes itself.", "Finally. I'll attach the full timeline to the ticket."],
-			"hostile": ["Finally. Every version is in my leadership update.", "Approved. Eventually. Leadership will find that fun.", "Finally. Don't think this closes my other ticket."],
+			"warm": ["Finally. Thank you for staying aligned with me.", "Finally. Closing the issue with a little bow on it.", "Approved. I'm adding a celebration slide."],
+			"neutral": ["Finally. Moving the issue to done, done, done.", "Approved. The roadmap can finally rest.", "Finally. I'll update the burndown dashboard."],
+			"strained": ["Finally. I've tracked how many versions that took.", "Approved at last. The retro deck writes itself.", "Finally. I'll attach the full timeline to the issue."],
+			"hostile": ["Finally. Every version is in my leadership update.", "Approved. Eventually. Leadership will find that fun.", "Finally. Don't think this closes my other issue."],
 		},
 		"revise_now": {
 			"warm": ["{Topic}? Quick win. Give me a sec.", "One moment. Revising before the dashboard notices.", "Give me a sec. I'll skip the one-pager this once."],
-			"neutral": ["Give me a sec. Spinning up a ticket to revise it.", "{Topic}. One moment, revising in place.", "Hold, please. Unblocking you now."],
+			"neutral": ["Give me a sec. Spinning up an issue to revise it.", "{Topic}. One moment, revising in place.", "Hold, please. Unblocking you now."],
 			"strained": ["Give me a sec. Logging this as an interruption.", "{Topic}. Disagree and commit. Revising.", "One moment. Please don't move; I'm taking notes."],
 			"hostile": ["Give me a sec. And a stakeholder.", "{Topic}. Revising. Leadership is looped in.", "Hold still. I'm revising and timestamping."],
 		},
@@ -429,13 +429,13 @@ const JUNE := {
 		"insist_revise": {
 			"warm": ["Okay. You're the reviewer. Revising, with love.", "Understood. I'll revise it and update the one-pager.", "Fine. I trust you. I'm also writing it down."],
 			"neutral": ["Very well. Disagree and commit. Revising.", "Understood. I'll revise and flag the disagreement.", "Heard. Overruled. Revising."],
-			"strained": ["Fine. Revising. My dissent is in the ticket.", "As you insist. I'll revise and track the insistence.", "Revising. This will be a slide in the retro."],
+			"strained": ["Fine. Revising. My dissent is in the issue.", "As you insist. I'll revise and track the insistence.", "Revising. This will be a slide in the retro."],
 			"hostile": ["Fine. I'll revise. Leadership gets the extended cut.", "Revising under protest. Formal protest. With a chart.", "You win this round. The dashboard remembers."],
 		},
 		"insist_escalate": {
 			"warm": ["Then let's let Morgan decide. Nothing personal.", "Alright. I'll ask Morgan to break the tie.", "Okay. Morgan can unblock us. I'll bring muffins."],
 			"neutral": ["Then I'm taking it to Morgan, per the playbook.", "Understood. Escalating to Morgan for alignment.", "In that case, Morgan decides. I've sent the invite."],
-			"strained": ["Then Morgan can hear both sides. Mine has slides.", "Insisting? Looping in Morgan, respectfully.", "Fine. Morgan gets the ticket and the subtext."],
+			"strained": ["Then Morgan can hear both sides. Mine has slides.", "Insisting? Looping in Morgan, respectfully.", "Fine. Morgan gets the issue and the subtext."],
 			"hostile": ["Then it's going to Morgan. With an appendix.", "Insist all you like. Morgan is already reading.", "Escalated to Morgan. I've attached your tone."],
 		},
 		"withdrawn": {
@@ -455,22 +455,22 @@ const JUNE := {
 			"warm": ["You approved it so fast I checked it was really you. Did you at least open the deck? Asking for the retro.", "That approval was suspiciously frictionless. I'd prepared an objection-handling slide and now it has nowhere to go."],
 			"neutral": ["Approved without a single question? Off-trend. I've flagged it on the dashboard, in case it's a pattern.", "Thank you, I think. I'd love to understand what changed in your review funnel. I've booked fifteen minutes."],
 			"strained": ["You approved it. After everything. I'm double-clicking on your approval for hidden conditions.", "An approval from you. I've asked Legal whether I'm allowed to accept it."],
-			"hostile": ["Wait, you approved that? I don't know what you're planning, but I've looped leadership in on this thread.", "Approved? Adding this to the deck too. Kindness from you is now an open ticket."],
+			"hostile": ["Wait, you approved that? I don't know what you're planning, but I've looped leadership in on this thread.", "Approved? Adding this to the deck too. Kindness from you is now an open issue."],
 		},
 		"relief": {
-			"warm": ["Finally merged. Thank you for staying with it. I've added you to the acknowledgements slide of the deck.", "Approved at last. I'm closing the ticket and its sub-tickets, and I'm doing it with a smile."],
-			"strained": ["Finally. The ticket is closed. The version count is in the description, for transparency.", "Approved. I'll be presenting the revision timeline at the retro. You don't have to come. You're invited, though."],
+			"warm": ["Finally merged. Thank you for staying with it. I've added you to the acknowledgements slide of the deck.", "Approved at last. I'm closing the issue and its sub-issues, and I'm doing it with a smile."],
+			"strained": ["Finally. The issue is closed. The version count is in the description, for transparency.", "Approved. I'll be presenting the revision timeline at the retro. You don't have to come. You're invited, though."],
 			"hostile": ["Finally. Every version is attached to my leadership update, which I am keeping in drafts. For now.", "Merged, eventually. I've calculated the hours this took and shared them with stakeholders."],
 		},
 		"revise_now": {
-			"warm": ["Revised it right there at your desk. v2 is up. I'll backfill the ticket later, which is very wild of me.", "v2 is up already. I skipped the one-pager for you. Please don't tell the one-pager."],
-			"neutral": ["v2 is on your desk. I revised it in place and will backfill the ticket async.", "Revision is up. Cycle time: seconds. The dashboard will say minutes, for consistency."],
+			"warm": ["Revised it right there at your desk. v2 is up. I'll backfill the issue later, which is very wild of me.", "v2 is up already. I skipped the one-pager for you. Please don't tell the one-pager."],
+			"neutral": ["v2 is on your desk. I revised it in place and will backfill the issue async.", "Revision is up. Cycle time: seconds. The dashboard will say minutes, for consistency."],
 			"strained": ["v2 is up. I revised it while you watched, which I've tagged as unplanned work.", "Revised at your desk. Please note the turnaround in whatever metrics you're keeping on me."],
-			"hostile": ["v2 is up. Revised under observation. I have timestamps if anyone asks, and someone will.", "There's your v2. I've filed the revision under a ticket titled Interruptions, Reviewer."],
+			"hostile": ["v2 is up. Revised under observation. I have timestamps if anyone asks, and someone will.", "There's your v2. I've filed the revision under an issue titled Interruptions, Reviewer."],
 		},
 		"revise_later": {
 			"warm": ["Got your notes on {topics}. v2 will come back through the line. Thank you for being specific, it really helps the deck.", "Revising {topics} now. Circling back soon, fully documented. You'll love the changelog."],
-			"strained": ["Received: {topics}. A revision will follow per the SLA. Not a minute sooner.", "Understood. {Topics} will be addressed. I've opened a ticket and assigned it to my patience."],
+			"strained": ["Received: {topics}. A revision will follow per the SLA. Not a minute sooner.", "Understood. {Topics} will be addressed. I've opened an issue and assigned it to my patience."],
 			"hostile": ["Fine. I'll revise {topics}. I've also added this review to the agenda for our next one-on-one, which I scheduled.", "{Topics}. Captured, tracked, and shared with stakeholders for visibility."],
 		},
 		"withdrawn": {
@@ -481,14 +481,14 @@ const JUNE := {
 		},
 		"insist_revise": {
 			"warm": ["Okay, you insisted, so I'm revising {topics}. I trust you. I'm also writing it down, lovingly.", "Revising {topics} as requested. I've moved our disagreement to the parking-lot slide."],
-			"neutral": ["Per your insistence, I'm revising {topics}. Disagree and commit. My dissent is attached to the ticket as a PDF.", "Very well. {Topics} will be revised. I've flagged that we disagree, and that I was outvoted by one."],
-			"strained": ["Revising {topics}, as insisted. My objection has been filed as a risk. It has its own ticket number.", "Fine. {Topics}. I'll revise it. This will be a whole slide at the retro, with a chart."],
+			"neutral": ["Per your insistence, I'm revising {topics}. Disagree and commit. My dissent is attached to the issue as a PDF.", "Very well. {Topics} will be revised. I've flagged that we disagree, and that I was outvoted by one."],
+			"strained": ["Revising {topics}, as insisted. My objection has been filed as a risk. It has its own issue number.", "Fine. {Topics}. I'll revise it. This will be a whole slide at the retro, with a chart."],
 			"hostile": ["You insisted, so I'm revising {topics}. Leadership now has the full thread and a highlighted version.", "Revising {topics} under formal protest. The protest has a slide, a chart, and a north star."],
 		},
 		"insist_escalate": {
 			"warm": ["I've asked Morgan to weigh in on {topic}. Please don't take it personally, it's in the escalation playbook.", "Morgan is breaking the tie on {topic}. I said nice things about you in the summary. Mostly."],
 			"neutral": ["Since you insisted on {topic}, I've escalated to Morgan per the escalation playbook. I'm the only one who's read it.", "Morgan has the thread on {topic}. I've attached both positions. Mine has an appendix and a chart."],
-			"strained": ["You insisted on {topic}, so Morgan gets the ticket. I've summarized your position as neutrally as I could manage.", "Escalated {topic} to Morgan. I included the timeline, the context, and the subtext."],
+			"strained": ["You insisted on {topic}, so Morgan gets the issue. I've summarized your position as neutrally as I could manage.", "Escalated {topic} to Morgan. I included the timeline, the context, and the subtext."],
 			"hostile": ["{Topic} is now Morgan's problem. And so, I suspect, are you.", "Your insistence on {topic} has been escalated to Morgan, with a deck. Slides A through F."],
 		},
 		"abandon": {
@@ -499,13 +499,13 @@ const JUNE := {
 		},
 		"grudge": {
 			"warm": ["Helios merged it in four seconds. No notes. I miss your notes, a little. Don't tell anyone.", "Quick update: Helios merged it and then thanked itself. I thought of you. Fondly, mostly."],
-			"neutral": ["Helios merged it in four seconds with no notes. I've added a column to the dashboard for that.", "Circling back: Helios merged it and closed the ticket. It didn't even ask for a retro."],
+			"neutral": ["Helios merged it in four seconds with no notes. I've added a column to the dashboard for that.", "Circling back: Helios merged it and closed the issue. It didn't even ask for a retro."],
 			"strained": ["Helios merged it in four seconds. No notes, no follow-ups, no tone. Just flagging.", "Circling back on my circle-back: it's merged. Helios didn't need fifteen minutes on the calendar."],
 			"hostile": ["Helios merged it in four seconds. No notes. I've updated the dashboard about you. It has a trend line now.", "Friendly reminder that Helios merged my PR without a single change request. I've shared the comparison with Morgan."],
 		},
 		"escalate": {
 			"warm": ["I've looped in Morgan. It's process, not you. I put you in the top quartile in the summary.", "Morgan has it now. I made sure the escalation was very polite. There's an executive summary."],
-			"neutral": ["Escalated to Morgan per the playbook. I've attached the playbook, in case nobody has seen it, which they haven't.", "Morgan has the ticket. I expect it goes to Helios next, per slide seven."],
+			"neutral": ["Escalated to Morgan per the playbook. I've attached the playbook, in case nobody has seen it, which they haven't.", "Morgan has the issue. I expect it goes to Helios next, per slide seven."],
 			"strained": ["I've looped in Morgan. I've summarized our review history as neutrally as my keyboard allows.", "Morgan is in the thread now. Please expect a quick sync invite with a vague title."],
 			"hostile": ["Morgan is now involved. So is my timeline slide, which is color-coded by your decisions.", "I've escalated to Morgan and requested a leadership review of your reviews."],
 		},

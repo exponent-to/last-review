@@ -121,7 +121,7 @@ func _probe_is_comment(text: String) -> bool:
 ## recipe because the whole-PR fault (the diff budget) shapes the whole packet.
 func _test_faults(entry: Dictionary, index: int) -> void:
 	for day in range(1, LAST_DAY + 1):
-		_check(Campaign._audit(_recipe(index, day, [])).is_empty(), "A PR built on %s, with its ticket and build, is clean on day %d before any fault." % [entry.path, day])
+		_check(Campaign._audit(_recipe(index, day, [])).is_empty(), "A PR built on %s, with its issue and build, is clean on day %d before any fault." % [entry.path, day])
 		for rule_id: String in Campaign.active_ids(day):
 			# P15 "Readable code" is never applied as a generic bank fault; only the
 			# authored Helios payloads break it.
@@ -129,7 +129,7 @@ func _test_faults(entry: Dictionary, index: int) -> void:
 			for variant in range(3):
 				_check(Campaign._audit(_recipe(index, day, [{"file": 0, "rule": rule_id, "variant": variant}])) == [rule_id], "Fault %s/%d applies cleanly to %s on day %d" % [rule_id, variant, entry.path, day])
 
-## A one-file PR on this entry, with a slot and author so it gets a ticket and a build.
+## A one-file PR on this entry, with a slot and author so it gets an issue and a build.
 func _recipe(index: int, day: int, faults: Array) -> Dictionary:
 	return {"entry": index, "day": day, "slot": maxi(index, 0), "author": "Maya", "files": ["primary"], "decoys": [], "notes": [], "permits": [], "faults": faults}
 

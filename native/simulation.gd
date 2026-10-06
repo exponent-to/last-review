@@ -249,7 +249,7 @@ static func _dispatch(next: Dictionary, command: Dictionary) -> void:
 				next.citation_evidence.erase(rule_id)
 			else:
 				# A citation pins a rule to the file and line the reviewer pointed at,
-				# or to a record they selected in Jiro or Pipeline.
+				# or to a record they selected in Lineal or Pipeline.
 				var location: Variant = _evidence_location(next, active, command)
 				if location == null:
 					return
@@ -314,16 +314,16 @@ static func _answer_pushback(state: Dictionary, disputed: Dictionary, choice: St
 	_record(state, "You withdrew a citation. %s's PR is open for review again." % author)
 
 ## Where a citation points: {path, line} in one of the PR's files, or {record, id}
-## for a ticket or build the reviewer can see. A record need not be this PR's own
-## (that is what grading checks), but it must be one Jiro or Pipeline shows: the
-## PR's own link (even an empty or broken one), or any ticket or build listed there.
+## for an issue or build the reviewer can see. A record need not be this PR's own
+## (that is what grading checks), but it must be one Lineal or Pipeline shows: the
+## PR's own link (even an empty or broken one), or any issue or build listed there.
 static func _evidence_location(state: Dictionary, request: Dictionary, command: Dictionary) -> Variant:
 	if command.has("record"):
 		var record: Variant = command.get("record")
 		var id: Variant = command.get("id")
 		if typeof(id) != TYPE_STRING: return null
-		if record == "ticket" and int(state.day) >= Policy.JIRO_DAY:
-			if id == str(request.get("ticket_ref", "")) or not Catalog.ticket(state, id).is_empty(): return {"record": "ticket", "id": id}
+		if record == "issue" and int(state.day) >= Policy.LINEAL_DAY:
+			if id == str(request.get("issue_ref", "")) or not Catalog.issue(state, id).is_empty(): return {"record": "issue", "id": id}
 		elif record == "build" and int(state.day) >= Policy.PIPELINE_DAY:
 			if id == str(request.get("build", {}).get("id", "")) or not Catalog.build(state, id).is_empty(): return {"record": "build", "id": id}
 		return null

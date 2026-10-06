@@ -57,13 +57,13 @@ const RULE_SUMMARIES := {
 	"P01": "No ‘load-bearing’ in comments.",
 	"P02": "def / if / else / return must be blue.",
 	"P02@5": "Keywords blue. Pink only on a file stamped INK-EXCEPTION.",
-	"P02@9": "Keywords blue. Pink needs INK-EXCEPTION + this PR’s own ticket.",
+	"P02@9": "Keywords blue. Pink needs INK-EXCEPTION + this PR’s own issue.",
 	"P09": "Whole PR: 30 lines changed (+ and −), max. Attention is metered.",
 	"P11": "Helios holds secrets. No password/secret/token/api_key name = 'quoted'.",
-	"P16": "Ticket: linked, in Jiro, Open or In Progress. Not a memory.",
-	"P17": "Ticket: assigned to the PR’s author. Not a coworker, Helios, or ghost.",
-	"P18": "Ticket: every non-test file sits directly in its component. Lanes.",
-	"P18@9": "Ticket: every non-test file sits in its component or below.",
+	"P16": "Issue: linked, in Lineal, Open or In Progress. Not a memory.",
+	"P17": "Issue: assigned to the PR’s author. Not a coworker, Helios, or ghost.",
+	"P18": "Issue: every non-test file sits directly in its component. Lanes.",
+	"P18@9": "Issue: every non-test file sits in its component or below.",
 	"P19": "Build: not FAILED. FLAKY passes, like most of us.",
 	"P19@7": "Build: not FAILED. Helios overrides count as passing. Helios says.",
 	"P19@9": "Build: not FAILED. A Helios override is a FAILED in a costume.",
@@ -91,10 +91,10 @@ const EVIDENCE_HINTS := {
 	"line": "Cite the exact line.",
 	"file": "Cite the file: WHOLE FILE or any of its lines.",
 	"pr": "About the whole PR: WHOLE FILE on any changed file.",
-	"ticket": "Cite the PR's ticket: open it in JIRO and SELECT AS EVIDENCE. WHOLE FILE doesn't count.",
+	"issue": "Cite the PR's issue: open it in LINEAL and SELECT AS EVIDENCE. WHOLE FILE doesn't count.",
 	"build": "Cite the PR's build: open it in PIPELINE and SELECT AS EVIDENCE. WHOLE FILE doesn't count.",
 }
-## How Jiro colors a ticket status, and Pipeline a build status.
+## How Lineal colors an issue status, and Pipeline a build status.
 const STATUS_COLORS := {"Open": Color("9fc4e8"), "In Progress": Color("e0b44a"), "PASSED": Color("6fdc8c"), "FLAKY": Color("e0b44a"), "FAILED": Color("e5384a")}
 
 class PolicyHighlighter extends SyntaxHighlighter:
@@ -131,7 +131,7 @@ var _monitor_screen: Control
 var _desktop_home: Control
 var _home_icons: Dictionary = {}
 var _notifications: Notifications
-## Apps that can notify. Jiro and Pipeline never do: a record is checked, not delivered.
+## Apps that can notify. Lineal and Pipeline never do: a record is checked, not delivered.
 var _app_counts := {"review": 0, "browser": 0, "system": 0}
 var _app_badges: Dictionary = {}
 var _known_requests: Dictionary = {}
@@ -230,20 +230,20 @@ var _slip_day: int = -1
 var _flag_buttons: Dictionary = {}
 var _standards_link: Button
 var _whole_file: Button
-## The PR slip's record links: its Jiro ticket and its Pipeline build.
+## The PR slip's record links: its Lineal issue and its Pipeline build.
 var _pr_refs: HBoxContainer
-var _ticket_link: LinkButton
+var _issue_link: LinkButton
 var _build_link: LinkButton
-## Jiro: search, ticket list, and the ticket on view. `_jiro_view` is
-## {"ticket": id} for a ticket Jiro has, {"link": id} for the desk PR's own link
-## when Jiro has no such ticket (or the PR links none), or {} for nothing.
-var _jiro_search: LineEdit
-var _jiro_list: VBoxContainer
-var _jiro_detail: VBoxContainer
-var _jiro_view: Dictionary = {}
-var _jiro_tickets: Array = []
-var _jiro_key := ""
-var _jiro_list_key := ""
+## Lineal: search, issue list, and the issue on view. `_lineal_view` is
+## {"issue": id} for an issue Lineal has, {"link": id} for the desk PR's own link
+## when Lineal has no such issue (or the PR links none), or {} for nothing.
+var _lineal_search: LineEdit
+var _lineal_list: VBoxContainer
+var _lineal_detail: VBoxContainer
+var _lineal_view: Dictionary = {}
+var _lineal_issues: Array = []
+var _lineal_key := ""
+var _lineal_list_key := ""
 ## Pipeline: recent builds, and the build on view ("" for none).
 var _pipeline_list: VBoxContainer
 var _pipeline_detail: VBoxContainer
@@ -575,8 +575,8 @@ func _build_desktop(parent: Node) -> void:
 	code.size_flags_stretch_ratio = 2.4
 	_build_review_content(code)
 	_build_decision(review_body)
-	# The PR's other documents: its ticket in Jiro and its build in Pipeline.
-	_build_jiro(_new_window("jiro", "JIRO / TICKETS").body)
+	# The PR's other documents: its issue in Lineal and its build in Pipeline.
+	_build_lineal(_new_window("lineal", "LINEAL / ISSUES").body)
 	_build_pipeline(_new_window("pipeline", "PIPELINE / CI").body)
 	_build_system(_new_window("system", "SYSTEM / WORKSTATION SETTINGS").body)
 	_build_browser(_new_window("browser", "INTRANET / LOCAL BROWSER").body)
@@ -624,10 +624,10 @@ func _build_home() -> void:
 	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var tagline := _label(motto, "making more of everything._", 13, Color("2a2a2e"))
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	# Jiro and Pipeline are installed on the mornings their standards arrive.
+	# Lineal and Pipeline are installed on the mornings their standards arrive.
 	var launchers: Array = [
 		["review", "REVIEW", "review"],
-		["jiro", "JIRO", "jiro"],
+		["lineal", "LINEAL", "lineal"],
 		["pipeline", "PIPELINE", "pipeline"],
 		["browser", "INTRANET", "browser"],
 		["system", "SYSTEM", "system"],
@@ -681,10 +681,10 @@ func _layout_home_icons() -> void:
 		index += 1
 
 
-## Whether an app is installed on `day`: Jiro from its first morning, Pipeline from its.
+## Whether an app is installed on `day`: Lineal from its first morning, Pipeline from its.
 static func app_installed(id: String, day: int) -> bool:
 	match id:
-		"jiro": return day >= Policy.JIRO_DAY
+		"lineal": return day >= Policy.LINEAL_DAY
 		"pipeline": return day >= Policy.PIPELINE_DAY
 	return true
 
@@ -692,7 +692,7 @@ static func app_installed(id: String, day: int) -> bool:
 ## Show only the apps installed today; an app that isn't installed yet stays closed.
 func _sync_installed_apps(day: int) -> void:
 	var changed := false
-	for id: String in ["jiro", "pipeline"]:
+	for id: String in ["lineal", "pipeline"]:
 		var installed := app_installed(id, day) and not _tutorial_active
 		if _home_icons[id].visible != installed:
 			_home_icons[id].visible = installed
@@ -707,7 +707,7 @@ func _new_window(id: String, title: String) -> DesktopWindow:
 	var window: DesktopWindow = DesktopWindow.new()
 	window.window_id = id
 	window.window_title = title
-	window.resize_minimum_size = {"review": Vector2(650, 390), "evening": Vector2(480, 340), "jiro": Vector2(600, 340), "pipeline": Vector2(600, 340)}.get(id, Vector2(420, 280))
+	window.resize_minimum_size = {"review": Vector2(650, 390), "evening": Vector2(480, 340), "lineal": Vector2(600, 340), "pipeline": Vector2(600, 340)}.get(id, Vector2(420, 280))
 	window.activated.connect(_focus_app)
 	window.minimized.connect(func(_id: String) -> void: _update_dock())
 	window.closed.connect(func(_id: String) -> void: _update_dock())
@@ -740,11 +740,11 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_pr_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pr_title.custom_minimum_size.x = 80
 	_pr_id = _label(title_row, "PULL REQUEST", 11, STAMP_RED)
-	# From Wednesday the slip names the PR's ticket, and from Friday its build. Each
+	# From Wednesday the slip names the PR's issue, and from Friday its build. Each
 	# opens its app on that record; neither says anything about what's inside.
 	_pr_refs = _row(slip_lines, 18)
-	_ticket_link = _slip_link(_pr_refs, _open_desk_ticket)
-	_ticket_link.tooltip_text = "Open this PR's ticket in JIRO."
+	_issue_link = _slip_link(_pr_refs, _open_desk_issue)
+	_issue_link.tooltip_text = "Open this PR's issue in LINEAL."
 	_build_link = _slip_link(_pr_refs, _open_desk_build)
 	_build_link.tooltip_text = "Open this PR's build in PIPELINE."
 	_pr_refs.hide()
@@ -783,7 +783,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_whole_file = _button(pointer_row, "WHOLE FILE", func() -> void: _point_at(0))
 	_whole_file.custom_minimum_size.y = 26
 	_whole_file.add_theme_font_size_override("font_size", 11)
-	_whole_file.tooltip_text = "Point at this entire file, for rules about its ink, and for whole-PR rules (lines changed, tests): any changed file will do. Ticket and build standards need the record itself, from JIRO or PIPELINE."
+	_whole_file.tooltip_text = "Point at this entire file, for rules about its ink, and for whole-PR rules (lines changed, tests): any changed file will do. Issue and build standards need the record itself, from LINEAL or PIPELINE."
 	_diff = CodeEdit.new()
 	_diff.name = "PullRequestDiff"
 	_diff.editable = false
@@ -915,7 +915,7 @@ func _build_dock(parent: Node) -> void:
 	_home_button = home
 	home.add_theme_font_size_override("font_size", 12)
 	home.tooltip_text = "Show the desktop. Open windows remain on the taskbar."
-	for item: Array in [["review", "REVIEW"], ["jiro", "JIRO"], ["pipeline", "PIPELINE"], ["browser", "INTRANET"], ["system", "SYSTEM"], ["evening", "END OF DAY"]]:
+	for item: Array in [["review", "REVIEW"], ["lineal", "LINEAL"], ["pipeline", "PIPELINE"], ["browser", "INTRANET"], ["system", "SYSTEM"], ["evening", "END OF DAY"]]:
 		var id: String = str(item[0])
 		var button: Button = _button(dock, str(item[1]), _open_app.bind(id))
 		button.toggle_mode = true
@@ -941,7 +941,7 @@ func _arrange_windows() -> void:
 		"review": Rect2(Vector2(142, 8), Vector2(extent.x - 150, extent.y - 16)),
 		"system": Rect2(Vector2(210, 90), Vector2(minf(650, extent.x - 240), minf(470, extent.y - 118))),
 		# Beside Review rather than over its citation slip, so a record and the slip can both be seen.
-		"jiro": Rect2(Vector2(150, 30), Vector2(minf(860, extent.x - 170), minf(560, extent.y - 50))),
+		"lineal": Rect2(Vector2(150, 30), Vector2(minf(860, extent.x - 170), minf(560, extent.y - 50))),
 		"pipeline": Rect2(Vector2(170, 46), Vector2(minf(860, extent.x - 190), minf(560, extent.y - 66))),
 		"browser": Rect2(Vector2(185, 70), Vector2(minf(720, extent.x - 215), minf(500, extent.y - 98))),
 		# Centered beside the icons: the shift is over and this is the one thing left.
@@ -962,13 +962,13 @@ func _open_app(id: String) -> void:
 		id = "review"
 	if not app_installed(id, int(_state.get("day", 1))): return
 	# Opened from its icon, a record app starts on the desk PR's own record.
-	if id == "jiro" and _jiro_view.is_empty(): _jiro_view = _desk_ticket_view()
+	if id == "lineal" and _lineal_view.is_empty(): _lineal_view = _desk_issue_view()
 	if id == "pipeline" and _pipeline_build.is_empty(): _pipeline_build = str(Simulation.active_request(_state).get("build", {}).get("id", ""))
 	var window: DesktopWindow = _windows[id]
 	window.restore_window()
 	_mark_app_read(id)
 	_update_dock()
-	if id in ["jiro", "pipeline"]: _render_records(true)
+	if id in ["lineal", "pipeline"]: _render_records(true)
 	if id == "review": tutorial_event.emit({"type": "open-review"})
 	if id == "review" and not _review_files.is_empty():
 		tutorial_event.emit({"type": "inspect-file", "path": _file_label.text})
@@ -1038,7 +1038,7 @@ func _browse(path: String, record: bool = true) -> void:
 		return
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, point at the evidence, then tick the standard it breaks on the citation slip:\n• Line standards: click the offending line.\n• File standards (ink): WHOLE FILE, or any line of that file.\n• Whole-PR standards (lines changed, tests): WHOLE FILE on any changed file. The diffstat above the diff counts lines for you.\n• Ticket standards: open the PR's ticket in JIRO (click it on the PR slip) and SELECT AS EVIDENCE.\n• Build standards: open the PR's build in PIPELINE (also on the slip) and SELECT AS EVIDENCE. WHOLE FILE never counts for a ticket or a build.\nStandards are reissued every second morning; the daily memo lists what was added, amended, or retired. Full standards are on the intranet.\nThe author sits at your desk and reacts to your decisions. At closing, your manager checks in about bugs, delays, and work handed to Helios.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, point at the evidence, then tick the standard it breaks on the citation slip:\n• Line standards: click the offending line.\n• File standards (ink): WHOLE FILE, or any line of that file.\n• Whole-PR standards (lines changed, tests): WHOLE FILE on any changed file. The diffstat above the diff counts lines for you.\n• Issue standards: open the PR's issue in LINEAL (click it on the PR slip) and SELECT AS EVIDENCE.\n• Build standards: open the PR's build in PIPELINE (also on the slip) and SELECT AS EVIDENCE. WHOLE FILE never counts for an issue or a build.\nStandards are reissued every second morning; the daily memo lists what was added, amended, or retired. Full standards are on the intranet.\nThe author sits at your desk and reacts to your decisions. At closing, your manager checks in about bugs, delays, and work handed to Helios.\nHelios recommendations are optional and can be wrong."
 		_:
 			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nNEWS carries the morning headlines. DAILY MEMO carries today's instructions from management. PROCEDURE describes the review process.\n\nExternal access restricted by company policy."
 
@@ -1194,7 +1194,7 @@ func _flag_rule(rule_id: String) -> void:
 		if rule_id in _state.get("selected_rules", []): _withdraw_citation(rule_id)
 		else:
 			var scope: String = Policy.scope(rule_id)
-			notify("Select the PR's %s in %s first, then tick the standard." % [scope, "JIRO" if scope == "ticket" else "PIPELINE"] if scope in ["ticket", "build"] else "Select the offending line first (or WHOLE FILE), then tick the standard.", false, "review")
+			notify("Select the PR's %s in %s first, then tick the standard." % [scope, "LINEAL" if scope == "issue" else "PIPELINE"] if scope in ["issue", "build"] else "Select the offending line first (or WHOLE FILE), then tick the standard.", false, "review")
 			render_state(_state)
 		return
 	var cited: Dictionary = _state.get("citation_evidence", {})
@@ -1286,7 +1286,7 @@ func _play_beat(beat: Dictionary) -> void:
 func _location_text(location: Dictionary) -> String:
 	if location.has("record"):
 		var id := str(location.get("id", ""))
-		if str(location.record) == "ticket": return "NO TICKET" if id.is_empty() else "TICKET " + id
+		if str(location.record) == "issue": return "NO ISSUE" if id.is_empty() else "ISSUE " + id
 		return "BUILD " + id
 	var name := str(location.get("path", "")).get_file()
 	return ("FILE  " if int(location.get("line", 0)) == 0 else "LINE %d  " % int(location.line)) + name
@@ -1304,7 +1304,7 @@ func _paint_evidence() -> void:
 		var cited_row := _row_for_line(int(location.get("line", 0)))
 		if str(location.get("path", "")) == path and cited_row >= 0:
 			_diff.set_line_background_color(cited_row, Color(RED, 0.26))
-	# A record selected in Jiro or Pipeline is evidence whichever file is open.
+	# A record selected in Lineal or Pipeline is evidence whichever file is open.
 	var pointing := not _evidence.is_empty() and (_evidence.has("record") or str(_evidence.get("path", "")) == path)
 	var pointed_row := _row_for_line(int(_evidence.get("line", 0))) if not _evidence.has("record") else -1
 	if pointing and pointed_row >= 0:
@@ -1320,7 +1320,7 @@ func _paint_evidence() -> void:
 		_evidence_label.add_theme_color_override("font_color", AMBER)
 	else:
 		var day := int(_state.get("day", 1))
-		_evidence_label.text = "Select a line, a PIPELINE build, a JIRO ticket, or" if app_installed("pipeline", day) else "Select a line, a JIRO ticket, or" if app_installed("jiro", day) else "Select the offending line, or"
+		_evidence_label.text = "Select a line, a PIPELINE build, a LINEAL issue, or" if app_installed("pipeline", day) else "Select a line, a LINEAL issue, or" if app_installed("lineal", day) else "Select the offending line, or"
 		_selected_label.text = "Full text: INTRANET > STANDARDS"
 		_selected_label.add_theme_color_override("font_color", DIM)
 		_evidence_label.add_theme_color_override("font_color", DIM)
@@ -1609,10 +1609,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-# --- Jiro and Pipeline ---------------------------------------------------------
+# --- Lineal and Pipeline ---------------------------------------------------------
 # Two more documents to check against the PR, like the papers at a border booth:
-# its ticket in Jiro and its build in Pipeline. They show records only (what the
-# ticket and build say), never whether a standard is broken. SELECT AS EVIDENCE
+# its issue in Lineal and its build in Pipeline. They show records only (what the
+# issue and build say), never whether a standard is broken. SELECT AS EVIDENCE
 # picks a record for the citation slip, like clicking a line in Review.
 
 ## A link on the paper slip, in the slip's ink.
@@ -1630,13 +1630,13 @@ func _slip_link(parent: Node, action: Callable) -> LinkButton:
 	return link
 
 
-## The slip's links for the PR on the desk (none before Jiro, no build before Pipeline).
+## The slip's links for the PR on the desk (none before Lineal, no build before Pipeline).
 func _render_slip_refs(request: Dictionary) -> void:
 	var day := int(_state.get("day", 1))
-	_pr_refs.visible = not request.is_empty() and app_installed("jiro", day)
+	_pr_refs.visible = not request.is_empty() and app_installed("lineal", day)
 	if not _pr_refs.visible: return
-	var ref := str(request.get("ticket_ref", ""))
-	_ticket_link.text = ("Closes %s →" % ref) if not ref.is_empty() else "No ticket linked →"
+	var ref := str(request.get("issue_ref", ""))
+	_issue_link.text = ("Closes %s →" % ref) if not ref.is_empty() else "No issue linked →"
 	var build: Dictionary = request.get("build", {})
 	_build_link.visible = app_installed("pipeline", day) and not build.is_empty()
 	_build_link.text = "Build %s →" % str(build.get("id", ""))
@@ -1733,110 +1733,110 @@ func _select_record(record: String, id: String) -> void:
 	_render_records(true)
 
 
-func _build_jiro(page: VBoxContainer) -> void:
+func _build_lineal(page: VBoxContainer) -> void:
 	var bar := _row(page, 6)
-	_jiro_search = LineEdit.new()
-	_jiro_search.placeholder_text = "Search by ticket ID (PAPER-412) or words"
-	_jiro_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_jiro_search.add_theme_font_size_override("font_size", 13)
-	_jiro_search.clear_button_enabled = true
-	_jiro_search.text_changed.connect(func(_text: String) -> void: _render_jiro_list())
-	_jiro_search.text_submitted.connect(_jiro_find)
-	bar.add_child(_jiro_search)
-	var find := _button(bar, "FIND", func() -> void: _jiro_find(_jiro_search.text))
+	_lineal_search = LineEdit.new()
+	_lineal_search.placeholder_text = "Search by issue ID (PAP-412) or words"
+	_lineal_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lineal_search.add_theme_font_size_override("font_size", 13)
+	_lineal_search.clear_button_enabled = true
+	_lineal_search.text_changed.connect(func(_text: String) -> void: _render_lineal_list())
+	_lineal_search.text_submitted.connect(_lineal_find)
+	bar.add_child(_lineal_search)
+	var find := _button(bar, "FIND", func() -> void: _lineal_find(_lineal_search.text))
 	find.add_theme_font_size_override("font_size", 12)
-	var mine := _button(bar, "THIS PR'S TICKET", _open_desk_ticket)
+	var mine := _button(bar, "THIS PR'S ISSUE", _open_desk_issue)
 	mine.add_theme_font_size_override("font_size", 12)
-	mine.tooltip_text = "Show the ticket linked on the slip of the PR on your desk."
+	mine.tooltip_text = "Show the issue linked on the slip of the PR on your desk."
 	var parts := _record_columns(page)
-	_jiro_list = parts[0]
-	_jiro_detail = parts[1]
+	_lineal_list = parts[0]
+	_lineal_detail = parts[1]
 
 
-## Jiro's view of the desk PR's link: its ticket, or a card saying Jiro has none.
-func _desk_ticket_view() -> Dictionary:
+## Lineal's view of the desk PR's link: its issue, or a card saying Lineal has none.
+func _desk_issue_view() -> Dictionary:
 	var request: Dictionary = Simulation.active_request(_state)
 	if request.is_empty(): return {}
-	var ref := str(request.get("ticket_ref", ""))
-	return {"ticket": ref} if not Catalog.ticket(_state, ref).is_empty() else {"link": ref}
+	var ref := str(request.get("issue_ref", ""))
+	return {"issue": ref} if not Catalog.issue(_state, ref).is_empty() else {"link": ref}
 
 
-## Open Jiro on the desk PR's link (the ticket on its slip).
-func _open_desk_ticket() -> void:
-	if Simulation.active_request(_state).is_empty() or not app_installed("jiro", int(_state.get("day", 1))): return
-	_jiro_view = _desk_ticket_view()
-	_jiro_search.text = ""
-	_open_app("jiro")
+## Open Lineal on the desk PR's link (the issue on its slip).
+func _open_desk_issue() -> void:
+	if Simulation.active_request(_state).is_empty() or not app_installed("lineal", int(_state.get("day", 1))): return
+	_lineal_view = _desk_issue_view()
+	_lineal_search.text = ""
+	_open_app("lineal")
 
 
-## FIND: an exact ticket ID opens it; the desk PR's own broken link opens its card.
-func _jiro_find(text: String) -> void:
+## FIND: an exact issue ID opens it; the desk PR's own broken link opens its card.
+func _lineal_find(text: String) -> void:
 	var wanted := text.strip_edges().to_upper()
 	var request: Dictionary = Simulation.active_request(_state)
-	if not Catalog.ticket(_state, wanted).is_empty(): _jiro_view = {"ticket": wanted}
-	elif not wanted.is_empty() and wanted == str(request.get("ticket_ref", "")): _jiro_view = {"link": wanted}
+	if not Catalog.issue(_state, wanted).is_empty(): _lineal_view = {"issue": wanted}
+	elif not wanted.is_empty() and wanted == str(request.get("issue_ref", "")): _lineal_view = {"link": wanted}
 	else:
-		var matches: Array = _jiro_matches()
-		_jiro_view = {"ticket": str(matches[0].id)} if matches.size() == 1 else {"none": wanted}
+		var matches: Array = _lineal_matches()
+		_lineal_view = {"issue": str(matches[0].id)} if matches.size() == 1 else {"none": wanted}
 	_render_records(true)
 
 
-func _jiro_matches() -> Array:
-	var wanted := _jiro_search.text.strip_edges().to_lower()
-	if wanted.is_empty(): return _jiro_tickets
-	return _jiro_tickets.filter(func(ticket: Dictionary) -> bool: return wanted in str(ticket.id).to_lower() or wanted in str(ticket.title).to_lower())
+func _lineal_matches() -> Array:
+	var wanted := _lineal_search.text.strip_edges().to_lower()
+	if wanted.is_empty(): return _lineal_issues
+	return _lineal_issues.filter(func(issue: Dictionary) -> bool: return wanted in str(issue.id).to_lower() or wanted in str(issue.title).to_lower())
 
 
-func _render_jiro_list() -> void:
-	for child: Node in _jiro_list.get_children():
-		_jiro_list.remove_child(child)
+func _render_lineal_list() -> void:
+	for child: Node in _lineal_list.get_children():
+		_lineal_list.remove_child(child)
 		child.queue_free()
-	var shown: Array = _jiro_matches()
-	_label(_jiro_list, "%d TICKET%s" % [shown.size(), "" if shown.size() == 1 else "S"], 11, DIM)
-	for ticket: Dictionary in shown:
-		var id := str(ticket.id)
-		var row := _record_row(_jiro_list, "%s  ·  %s\n%s  ·  %s" % [id, ticket.status, ticket.assignee, ticket.title], _jiro_view.get("ticket", "") == id, func() -> void:
-			_jiro_view = {"ticket": id}
+	var shown: Array = _lineal_matches()
+	_label(_lineal_list, "%d ISSUE%s" % [shown.size(), "" if shown.size() == 1 else "S"], 11, DIM)
+	for issue: Dictionary in shown:
+		var id := str(issue.id)
+		var row := _record_row(_lineal_list, "%s  ·  %s\n%s  ·  %s" % [id, issue.status, issue.assignee, issue.title], _lineal_view.get("issue", "") == id, func() -> void:
+			_lineal_view = {"issue": id}
 			_render_records(true))
-		row.tooltip_text = "%s  %s" % [id, ticket.title]
+		row.tooltip_text = "%s  %s" % [id, issue.title]
 
 
-func _render_jiro_detail() -> void:
-	for child: Node in _jiro_detail.get_children():
-		_jiro_detail.remove_child(child)
+func _render_lineal_detail() -> void:
+	for child: Node in _lineal_detail.get_children():
+		_lineal_detail.remove_child(child)
 		child.queue_free()
 	var request: Dictionary = Simulation.active_request(_state)
-	var ticket: Dictionary = {}
-	for listed: Dictionary in _jiro_tickets:
-		if _jiro_view.has("ticket") and str(listed.id) == str(_jiro_view.ticket): ticket = listed
-	if not ticket.is_empty():
-		_record_head(_jiro_detail, "ticket", str(ticket.id), str(ticket.id), str(ticket.status).to_upper(), STATUS_COLORS.get(str(ticket.status), DIM))
-		_paragraph(_jiro_detail, str(ticket.title), 17, TEXT)
+	var issue: Dictionary = {}
+	for listed: Dictionary in _lineal_issues:
+		if _lineal_view.has("issue") and str(listed.id) == str(_lineal_view.issue): issue = listed
+	if not issue.is_empty():
+		_record_head(_lineal_detail, "issue", str(issue.id), str(issue.id), str(issue.status).to_upper(), STATUS_COLORS.get(str(issue.status), DIM))
+		_paragraph(_lineal_detail, str(issue.title), 17, TEXT)
 		var grid := GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 16)
 		grid.add_theme_constant_override("v_separation", 4)
-		_jiro_detail.add_child(grid)
-		_record_field(grid, "STATUS", str(ticket.status), STATUS_COLORS.get(str(ticket.status), DIM))
-		_record_field(grid, "ASSIGNEE", str(ticket.assignee))
-		_record_field(grid, "COMPONENT", str(ticket.component))
-		_record_field(grid, "REPORTER", str(ticket.reporter))
-		_record_field(grid, "PRIORITY", str(ticket.priority))
-		_record_field(grid, "OPENED", str(ticket.opened).trim_prefix("opened "))
-		if not ticket.get("watchers", []).is_empty(): _record_field(grid, "WATCHERS", ", ".join(ticket.watchers))
-		_record_field(grid, "LINKED PRS", ", ".join(ticket.get("linked", [])) if not ticket.get("linked", []).is_empty() else "none")
-		if not str(ticket.get("resolution", "")).is_empty(): _paragraph(_jiro_detail, str(ticket.resolution), 13, AMBER)
-		_paragraph(_jiro_detail, str(ticket.description), 14, TEXT)
-		for line: String in ticket.get("history", []): _paragraph(_jiro_detail, "· " + line, 12, DIM)
-	elif _jiro_view.has("link") and not request.is_empty() and str(_jiro_view.link) == str(request.get("ticket_ref", "")):
-		# The desk PR's link, when Jiro has nothing to show for it.
-		var ref := str(_jiro_view.link)
-		_record_head(_jiro_detail, "ticket", ref, "NO TICKET LINKED" if ref.is_empty() else ref, "", DIM)
-		_paragraph(_jiro_detail, ("%s's slip has no Closes line. It links no ticket." % Catalog.display_id(str(request.id))) if ref.is_empty() else ("Jiro has no ticket %s. %s links it anyway." % [ref, Catalog.display_id(str(request.id))]), 15, TEXT)
-	elif _jiro_view.has("none"):
-		_paragraph(_jiro_detail, "Jiro has no ticket matching %s." % str(_jiro_view.none) if not str(_jiro_view.none).is_empty() else "Type a ticket ID to find it.", 14, DIM)
+		_lineal_detail.add_child(grid)
+		_record_field(grid, "STATUS", str(issue.status), STATUS_COLORS.get(str(issue.status), DIM))
+		_record_field(grid, "ASSIGNEE", str(issue.assignee))
+		_record_field(grid, "COMPONENT", str(issue.component))
+		_record_field(grid, "REPORTER", str(issue.reporter))
+		_record_field(grid, "PRIORITY", str(issue.priority))
+		_record_field(grid, "OPENED", str(issue.opened).trim_prefix("opened "))
+		if not issue.get("watchers", []).is_empty(): _record_field(grid, "WATCHERS", ", ".join(issue.watchers))
+		_record_field(grid, "LINKED PRS", ", ".join(issue.get("linked", [])) if not issue.get("linked", []).is_empty() else "none")
+		if not str(issue.get("resolution", "")).is_empty(): _paragraph(_lineal_detail, str(issue.resolution), 13, AMBER)
+		_paragraph(_lineal_detail, str(issue.description), 14, TEXT)
+		for line: String in issue.get("history", []): _paragraph(_lineal_detail, "· " + line, 12, DIM)
+	elif _lineal_view.has("link") and not request.is_empty() and str(_lineal_view.link) == str(request.get("issue_ref", "")):
+		# The desk PR's link, when Lineal has nothing to show for it.
+		var ref := str(_lineal_view.link)
+		_record_head(_lineal_detail, "issue", ref, "NO ISSUE LINKED" if ref.is_empty() else ref, "", DIM)
+		_paragraph(_lineal_detail, ("%s's slip has no Closes line. It links no issue." % Catalog.display_id(str(request.id))) if ref.is_empty() else ("Lineal has no issue %s. %s links it anyway." % [ref, Catalog.display_id(str(request.id))]), 15, TEXT)
+	elif _lineal_view.has("none"):
+		_paragraph(_lineal_detail, "Lineal has no issue matching %s." % str(_lineal_view.none) if not str(_lineal_view.none).is_empty() else "Type an issue ID to find it.", 14, DIM)
 	else:
-		_paragraph(_jiro_detail, "Pick a ticket on the left, or click the ticket on the PR slip in REVIEW to open the PR's own.", 14, DIM)
+		_paragraph(_lineal_detail, "Pick an issue on the left, or click the issue on the PR slip in REVIEW to open the PR's own.", 14, DIM)
 
 
 func _build_pipeline(page: VBoxContainer) -> void:
@@ -1904,7 +1904,7 @@ func _render_pipeline() -> void:
 		_paragraph(log_panel, "\n".join(shown.log), 12, Color("b9b5aa"))
 
 
-## Refresh Jiro and Pipeline while they're on screen, when what they show changes
+## Refresh Lineal and Pipeline while they're on screen, when what they show changes
 ## (new arrivals, a new PR on the desk, a citation), or right away when the player
 ## opens or navigates them (`force`). Closed or minimized, they don't render at all.
 func _render_records(force: bool = false) -> void:
@@ -1912,15 +1912,15 @@ func _render_records(force: bool = false) -> void:
 	var desk := str(Simulation.active_request(_state).get("id", ""))
 	var data := "%d|%s|%d|%s" % [day, _state.get("phase", ""), _state.get("arrivals", []).size(), desk]
 	var marks := JSON.stringify([_state.get("citation_evidence", {}), _evidence, Encounters.pending(_state).is_empty()])
-	if app_installed("jiro", day) and (force or _windows.jiro.visible):
-		var list_key := data + "|" + JSON.stringify(_jiro_view)
-		if force or list_key != _jiro_list_key:
-			_jiro_list_key = list_key
-			_jiro_tickets = Catalog.tickets(_state)
-			_render_jiro_list()
-		if force or list_key + marks != _jiro_key:
-			_jiro_key = list_key + marks
-			_render_jiro_detail()
+	if app_installed("lineal", day) and (force or _windows.lineal.visible):
+		var list_key := data + "|" + JSON.stringify(_lineal_view)
+		if force or list_key != _lineal_list_key:
+			_lineal_list_key = list_key
+			_lineal_issues = Catalog.issues(_state)
+			_render_lineal_list()
+		if force or list_key + marks != _lineal_key:
+			_lineal_key = list_key + marks
+			_render_lineal_detail()
 	if app_installed("pipeline", day) and (force or _windows.pipeline.visible) and (force or data + _pipeline_build + marks != _pipeline_key):
 		_pipeline_key = data + _pipeline_build + marks
 		_pipeline_builds = Catalog.builds(_state).filter(func(build: Dictionary) -> bool: return int(build.day) == day)
@@ -1940,7 +1940,7 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
 	_build_sound_settings(content)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. For ticket and build standards, open the PR's ticket in JIRO or its build in PIPELINE from the PR slip, SELECT AS EVIDENCE, then pick the standard. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. For issue and build standards, open the PR's issue in LINEAL or its build in PIPELINE from the PR slip, SELECT AS EVIDENCE, then pick the standard. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
 
 
 ## SOUND: the soundtrack's on/off toggle and volume, kept on this computer.
@@ -2070,8 +2070,8 @@ func render_state(state: Dictionary) -> void:
 				_set_review_files({})
 		if not request_id.is_empty() and request_id != _last_pr:
 			_last_pr = request_id
-			# Jiro and Pipeline open on the new PR's own records next time.
-			_jiro_view = {}
+			# Lineal and Pipeline open on the new PR's own records next time.
+			_lineal_view = {}
 			_pipeline_build = ""
 			_pr_id.text = "%s / AWAITING REVIEW" % Catalog.display_id(request_id)
 			_pr_title.text = str(request.get("title", ""))

@@ -195,7 +195,7 @@ const AUTHOR_LEANS := {
 	},
 }
 ## What you cited leans the change-request branch, by standard category.
-## People defend their words, colors, scope, and their CI ("it's flaky"); ticket
+## People defend their words, colors, scope, and their CI ("it's flaky"); issue
 ## paperwork and secrets they just fix; coverage gates and splitting a big PR are
 ## when people give up.
 const LEANS := {
@@ -204,7 +204,7 @@ const LEANS := {
 	"Process": {"pushback": 6, "revise_later": 4},
 	"Size": {"pushback": 4, "abandon": 6},
 	"Security": {"revise_now": 10},
-	"Tickets": {"revise_now": 8},
+	"Issues": {"revise_now": 8},
 	"Builds": {"pushback": 8, "revise_later": 2},
 	"Coverage": {"pushback": 4, "abandon": 6},
 	"Readability": {"pushback": 8},
