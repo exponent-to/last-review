@@ -23,6 +23,7 @@ func run() -> void:
 	ui.begin_morning()
 	check(ui.morning_active and ui._windows.browser.visible and ui._browser_path == "news", "Morning opens the news in the real browser window.")
 	check(ui._begin_shift_button.visible and ui._begin_shift_button.disabled and not ui._pause_button.visible, "Morning clock bar exposes Begin Shift but requires the memo first.")
+	check(ui._approve.disabled and ui._reject.disabled and ui._review_files.is_empty() and ui._pr_id.text.contains("BEFORE SHIFT"), "Before the shift begins the desk is closed: no PR to read or stamp.")
 	var links: Array = []
 	for child: Node in ui._daily_reader._content.get_children():
 		if child is RichTextLabel: links.append(child)
@@ -55,6 +56,7 @@ func run() -> void:
 	ui._begin_shift_button.pressed.emit()
 	check(not ui._begin_shift_button.visible and ui._pause_button.visible, "Starting work restores the normal pause control.")
 	check(not ui.morning_active and not ui._windows.browser.visible, "Beginning the shift closes the morning reader.")
+	check(not ui._review_files.is_empty() and not ui._approve.disabled, "Beginning the shift puts the first PR on the desk.")
 	ui._open_app("browser")
 	ui._browse("news")
 	check(not ui._daily_reader._footer.visible, "Reopening the news during work does not offer another shift start.")
