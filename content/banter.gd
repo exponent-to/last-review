@@ -72,7 +72,7 @@ const LINES := {
 			"Thanks. I'll be in the incident channel, as always.",
 			"Merged. I'm going to go stare at a wall now.",
 			"Wow. Okay. I'll tell the release train.",
-			"Thanks. My actual job missed me. It said so in Jira.",
+			"Thanks. My actual job missed me. It said so in a ticket.",
 		],
 		"changes": [
 			"Cool. I'll add it to the pile with everything else.",
@@ -143,7 +143,7 @@ const LINES := {
 			"Have you considered that it works on my machine?",
 			"Nah, that's intentional. Super intentional.",
 			"I'll fix it in a follow-up. Trust.",
-			"Bro, that's straight from Stack Overflow. It's vetted.",
+			"Bro, that's straight from a forum answer. It's vetted.",
 			"Okay, but have you seen how fast it runs?",
 			"That's not tech debt, that's a tech investment.",
 		],

@@ -71,10 +71,10 @@ func _ready() -> void:
 	var gap := Control.new()
 	gap.custom_minimum_size.y = 10
 	_content.add_child(gap)
-	_new_game = _button("New Game", "Begin a new run.")
+	_new_game = _button("New Game", "Start your first week at Paperclip Labs.")
 	set_process(true)
 	_new_game.pressed.connect(_show_slots.bind("new"))
-	_load_game = _button("Load Game", "Continue your saved run.")
+	_load_game = _button("Load Game", "Pick up your last saved shift.")
 	_load_game.pressed.connect(_show_slots.bind("load"))
 	_quit = _button("Quit", "Close PRs please.")
 	_quit.visible = not OS.has_feature("web")
@@ -90,8 +90,8 @@ func _ready() -> void:
 	_back.pressed.connect(show_home)
 	_back.hide()
 	_replace = ConfirmationDialog.new()
-	_replace.title = "Replace saved game?"
-	_replace.ok_button_text = "Start new game"
+	_replace.title = "Replace this saved shift?"
+	_replace.ok_button_text = "Start over"
 	_replace.confirmed.connect(func() -> void: new_game_requested.emit(_pending_slot))
 	add_child(_replace)
 	_error = _label(_error_text, 14, RED)
@@ -190,7 +190,7 @@ func set_load_available(available: bool) -> void:
 	_load_available = available
 	if is_instance_valid(_load_game):
 		_load_game.disabled = not available
-		_load_game.tooltip_text = "Continue your saved run." if available else "No saved run is available."
+		_load_game.tooltip_text = "Pick up your last saved shift." if available else "No saved shift yet."
 		if not available and _load_game.has_focus():
 			focus_default()
 

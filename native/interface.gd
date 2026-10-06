@@ -276,9 +276,9 @@ func _ready() -> void:
 	_build_pause_overlay()
 	_build_crt_overlay()
 	_confirmation = ConfirmationDialog.new()
-	_confirmation.title = "Start a new run"
-	_confirmation.dialog_text = "Save this run and choose a slot for a new game?"
-	_confirmation.ok_button_text = "Start new run"
+	_confirmation.title = "Start over as a new hire"
+	_confirmation.dialog_text = "Save this shift, then choose a records slot for the new hire?"
+	_confirmation.ok_button_text = "Start over"
 	_confirmation.cancel_button_text = "Keep reviewing"
 	_confirmation.min_size = Vector2i(460, 160)
 	_confirmation.confirmed.connect(func() -> void: reset_requested.emit())
@@ -314,7 +314,7 @@ func _build_os_menu(parent: Node) -> void:
 	_hud["day"] = _label(row, day_label(1), 12, RED)
 	_clock_label = _label(row, "09:00", 15, GREEN)
 	_clock_label.custom_minimum_size.x = 50
-	_clock_label.tooltip_text = "Shift: 09:00–18:00. %d real minutes. Pause stops the clock." % (Catalog.shift_seconds() / 60)
+	_clock_label.tooltip_text = "Shift: 09:00–18:00, about %d minutes on the wall clock. PAUSE stops the clock." % (Catalog.shift_seconds() / 60)
 	_pause_button = _button(row, "PAUSE", func() -> void: pause_requested.emit())
 	_pause_button.add_theme_font_size_override("font_size", 11)
 	_pause_button.custom_minimum_size.y = 28
@@ -346,7 +346,7 @@ func _build_pause_overlay() -> void:
 	_label(box, "// SESSION SUSPENDED", 24, RED)
 	_paragraph(box, "The clock is stopped. Nobody is watching.\nFor now.", 15, DIM)
 	_resume_button = _button(box, "RESUME SHIFT", func() -> void: pause_requested.emit())
-	_button(box, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
+	_button(box, "SAVE AND SIGN OUT", func() -> void: menu_requested.emit())
 
 
 func _build_crt_overlay() -> void:
@@ -1403,7 +1403,7 @@ func _build_evening(page: VBoxContainer) -> void:
 	# Tonight's context, so the choice below has something to weigh.
 	var status := _row(_evening_buttons, 10)
 	_label(status, "TONIGHT", 11, DIM).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_label(status, "STRESS", 11, DIM)
+	_label(status, "HR WELLNESS · STRESS", 11, DIM)
 	_evening_stress = _row(status, 2)
 	_evening_stress.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_evening_stress.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1442,15 +1442,15 @@ func _build_evening(page: VBoxContainer) -> void:
 	_watch_ending.add_theme_stylebox_override("hover", _style(Color(AMBER, 0.2), Color("ffd27a"), 1, 14, 6))
 	_watch_ending.add_theme_color_override("font_color", AMBER)
 	_watch_ending.add_theme_color_override("font_hover_color", Color.WHITE)
-	_watch_ending.tooltip_text = "Play the ending cinematic."
-	_complete_button = _button(page, "RETURN TO MAIN MENU", func() -> void: menu_requested.emit())
+	_watch_ending.tooltip_text = "See what leadership decided after the bell."
+	_complete_button = _button(page, "SIGN OUT", func() -> void: menu_requested.emit())
 	_complete_button.custom_minimum_size.y = 40
 	_complete_button.add_theme_font_size_override("font_size", 13)
 	_complete_button.add_theme_stylebox_override("normal", _style(Color(RED, 0.08), RED, 1, 14, 6))
 	_complete_button.add_theme_stylebox_override("hover", _style(Color(RED, 0.2), Color("ff6b78"), 1, 14, 6))
 	_complete_button.add_theme_color_override("font_color", RED)
 	_complete_button.add_theme_color_override("font_hover_color", Color.WHITE)
-	_complete_button.tooltip_text = "Save and return to the main menu."
+	_complete_button.tooltip_text = "Save your records and sign out of the workstation."
 	_evening_buttons.hide()
 	_complete_button.hide()
 	_watch_ending.hide()
@@ -1930,17 +1930,17 @@ func _render_records(force: bool = false) -> void:
 func _build_system(page: VBoxContainer) -> void:
 	var content: VBoxContainer = _scroll_column(page)
 	_label(content, "LOCAL RECORD", 16, CYAN)
-	_save_slot_label = _label(content, "Current save: Slot 1", 14, CYAN)
+	_save_slot_label = _label(content, "Shift records: Slot 1", 14, CYAN)
 	_system_status = _paragraph(content, "Local storage is ready.", 14, CYAN)
-	_paragraph(content, "Three local save slots. New Game and Load Game on the main menu let you choose a slot. Each shift lasts %d real minutes, from 09:00 to 18:00. Time runs while you read code and intranet pages. Pause with Esc or the desktop clock control. Switching away pauses automatically." % (Catalog.shift_seconds() / 60), 14, DIM)
+	_paragraph(content, "This workstation keeps shift records in three slots; you pick one when you sign in. A shift runs 09:00 to 18:00, about %d minutes on the wall clock. The clock runs while you read code and intranet pages. Esc or the desktop clock control stops it, and it stops on its own when you step away from the workstation." % (Catalog.shift_seconds() / 60), 14, DIM)
 	var saves: HBoxContainer = _row(content)
-	_button(saves, "SAVE RUN", func() -> void: save_requested.emit())
-	_button(saves, "LOAD RUN", func() -> void: load_requested.emit())
-	_button(saves, "NEW RUN", func() -> void: _confirmation.popup_centered())
-	_button(content, "SAVE AND MAIN MENU", func() -> void: menu_requested.emit())
+	_button(saves, "SAVE SHIFT", func() -> void: save_requested.emit())
+	_button(saves, "LOAD SHIFT", func() -> void: load_requested.emit())
+	_button(saves, "NEW HIRE", func() -> void: _confirmation.popup_centered())
+	_button(content, "SAVE AND SIGN OUT", func() -> void: menu_requested.emit())
 	_build_sound_settings(content)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. For ticket and build standards, open the PR's ticket in JIRO or its build in PIPELINE from the PR slip, SELECT AS EVIDENCE, then pick the standard. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. AI advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. For ticket and build standards, open the PR's ticket in JIRO or its build in PIPELINE from the PR slip, SELECT AS EVIDENCE, then pick the standard. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. Helios's advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
 
 
 ## SOUND: the soundtrack's on/off toggle and volume, kept on this computer.
@@ -1985,7 +1985,7 @@ func _show_music_enabled(on: bool) -> void:
 
 
 func set_save_slot(slot: int) -> void:
-	_save_slot_label.text = "Current save: Slot %d · stored on this computer" % slot
+	_save_slot_label.text = "Shift records: Slot %d · stored on this workstation" % slot
 
 
 func _emit_command(command: Dictionary) -> void:
