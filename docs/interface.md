@@ -54,7 +54,7 @@ Review's changed-file selector displays each file's own diff and remembers its c
 
 ## Main menu and orientation
 
-Startup displays New Game and Load Game inside the monitor. Load is disabled when neither a current save nor its backup exists. New Game opens directly into an untimed orientation with a compact, collapsible instruction panel. Maya's practice PR is already on the desk, so the first step is "Open REVIEW", with the arrow on the REVIEW icon. Players then inspect both changed files, read STANDARDS on the intranet, cite the load-bearing line, and stamp a practice change request. Mistakes can be retried; practice is discarded before Monday. `native/tutorial.gd` names its stages (`STAGE_WELCOME` through `STAGE_READY`); saves store the stage number, so the orientation format is version 3 and the state format version 16.
+Startup displays New Game and Load Game inside the monitor. Load is disabled when neither a current save nor its backup exists. New Game opens directly into an untimed orientation with a compact, collapsible instruction panel. Maya's practice PR is already on the desk, so the first step is "Open REVIEW", with the arrow on the REVIEW icon. Players then inspect both changed files, read STANDARDS on the intranet, cite the load-bearing line, and stamp a practice change request. Mistakes can be retried; practice is discarded before Monday. `native/tutorial.gd` names its stages (`STAGE_WELCOME` through `STAGE_READY`); saves store the stage number, so the orientation format is version 3 and the state format version 17.
 
 SYSTEM and the pause screen offer SAVE AND MAIN MENU. Loading resumes paused, including the current orientation step when applicable. Morgan's final end-of-day panel offers RETURN TO MAIN MENU.
 
