@@ -99,7 +99,7 @@ func _run() -> void:
 	app.interface._browse("standards")
 	app._on_command({"type": "review", "verdict": "approve"})
 	_check(int(app.tutorial.stage) == Main.Tutorial.STAGE_CITE and app.state.decisions.is_empty(), "A mistaken practice review can be retried without consequences.")
-	app._on_command(Main.Simulation.Catalog.audit_citation(Main.Simulation.Catalog.request_at(0), "P01"))
+	app._on_command(Main.Simulation.Catalog.audit_citation(Main.Simulation.Catalog.practice(), "P01"))
 	app._on_command({"type": "review", "verdict": "request_changes"})
 	_check(int(app.tutorial.stage) == Main.Tutorial.STAGE_READY, "A complete practice review reaches the handoff.")
 	_check(app.interface._notifications._items.all(func(item: Dictionary) -> bool: return item.app == "system"), "Orientation completes with only direct guidance on the ticker, no chat cards.")

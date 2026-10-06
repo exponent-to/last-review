@@ -703,6 +703,11 @@ static func _bank_entries() -> Array:
 	if _bank.is_empty(): _bank = Bank.entries()
 	return _bank
 
+## A recipe's bank entry: an index into the bank, or PRACTICE_ENTRY for the
+## orientation's practice PR, which lives outside the campaign's bank.
+static func _entry(index: int) -> Dictionary:
+	return Bank.practice() if index == PRACTICE_ENTRY else _bank_entries()[index]
+
 static func _companion_file(kind: String, entry: Dictionary, day: int) -> Dictionary:
 	if kind == "primary":
 		var before: Variant = _clean(entry.before, day) if entry.has("before") else null
@@ -714,7 +719,7 @@ static func _companion_file(kind: String, entry: Dictionary, day: int) -> Dictio
 ## (with its wording), author notes, and permits. `_build` turns a recipe back into
 ## files and `_records` into its ticket and build, so revisions can be regenerated.
 static func _build(recipe: Dictionary) -> Array:
-	var entry: Dictionary = _bank_entries()[int(recipe.entry)]
+	var entry: Dictionary = _entry(int(recipe.entry))
 	var day: int = int(recipe.day)
 	var files: Array = []
 	for kind: String in recipe.files:
@@ -816,7 +821,7 @@ static func _record_effects(kind: String, variant: int, day: int) -> Array:
 static func _records(recipe: Dictionary) -> Dictionary:
 	var day: int = int(recipe.day)
 	if day < JIRO_DAY or not recipe.has("slot"): return {}
-	var entry: Dictionary = _bank_entries()[int(recipe.entry)]
+	var entry: Dictionary = _entry(int(recipe.entry))
 	var effects: Array = []
 	for decoy: Dictionary in recipe.get("decoys", []):
 		effects.append_array(_record_effects(str(decoy.kind), int(decoy.variant), day))
@@ -979,7 +984,7 @@ static func _record_variant(rule_id: String, day: int, index: int, plan: Diction
 
 ## Turn a plan into a recipe for one bank entry, or {} if that entry can't carry it.
 static func _realize(entry_index: int, day: int, index: int, plan: Dictionary) -> Dictionary:
-	var entry: Dictionary = _bank_entries()[entry_index]
+	var entry: Dictionary = _entry(entry_index)
 	var slot: int = _slot(day, index)
 	var recipe: Dictionary = {"entry": entry_index, "day": day, "slot": slot, "author": _author(day, index), "version": 1,
 		"files": ["primary"] + plan.companions, "decoys": [], "faults": [], "notes": [], "permits": [], "fill": 0, "fill_variant": 0}
@@ -1164,8 +1169,6 @@ static func requests() -> Array:
 			var records: Dictionary = _records(recipe)
 			var title: String = _retitle(str(entry.title), use)
 			var request_id: String = "PR-%d" % (1000 + day * 1000 + index + 1)
-			if day == 1 and index == 0:
-				request_id = "PR-1042"
 			var verdict: String = _helios(evaluate(files, day, records), index % 5 == 0)
 			_packets.append(_packet({
 				"id": request_id, "title": title, "author": str(recipe.author), "day": day,
@@ -1175,6 +1178,33 @@ static func requests() -> Array:
 				"ai_verdict": verdict, "ai_note": _ai_note(index, verdict), "recipe": recipe,
 			}, files, records))
 	return _packets.duplicate(true)
+
+# --- Orientation practice ------------------------------------------------------
+# The orientation's practice PR is Maya's offboarding rename (PR-1042), built
+# exactly like the first slot of day 1 (its plan: one load-bearing comment in a
+# test companion) but from its own bank entry, outside the campaign. The real
+# Monday opens with a different PR, so nobody reviews the practice twice.
+
+const PRACTICE_ID: String = "PR-1042"
+## The practice recipe's `entry`: not an index into the campaign's bank.
+const PRACTICE_ENTRY: int = -1
+static var _practice: Dictionary = {}
+
+static func practice() -> Dictionary:
+	if _practice.is_empty():
+		var recipe: Dictionary = _realize(PRACTICE_ENTRY, 1, 0, _plans(1)[0])
+		var files: Array = _build(recipe)
+		var entry: Dictionary = Bank.practice()
+		var title: String = str(entry.title)
+		var verdict: String = _helios(evaluate(files, 1, {}), true)
+		_practice = _packet({
+			"id": PRACTICE_ID, "title": title, "author": str(recipe.author), "day": 1,
+			"revision": 1, "parent_id": "", "origin_id": PRACTICE_ID,
+			"description": "%s.\n\nThis change %s. Reviewer: check every changed file against today's active standards; you do not need to understand what the code does." % [title, _summary(files)],
+			"message": _ping(0, str(entry.phrase)),
+			"ai_verdict": verdict, "ai_note": _ai_note(0, verdict), "recipe": recipe,
+		}, files, {})
+	return _practice.duplicate(true)
 
 # --- Helios payloads -----------------------------------------------------------
 # From Wednesday, a coworker's PR smuggles in code that hands authority to Helios:

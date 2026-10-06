@@ -28,13 +28,22 @@ func _initialize() -> void:
 		unsupported.stage = stage
 		check(not Tutorial.validate(unsupported, state).ok, "Stage %d is not an orientation stage." % stage)
 	check(state.active_request_id == "PR-1042", "The practice PR is already on the desk.")
+	# The practice PR is orientation's alone: Monday opens with a different PR from
+	# Maya, and PR-1042 never reaches a real desk.
+	var monday := Simulation.initial_state()
+	var first: Dictionary = Simulation.active_request(monday)
+	check(first.id != "PR-1042" and first.author == "Maya" and first.title != Tutorial.Catalog.practice().title, "Monday opens with a different PR from Maya.")
+	check("PR-1042" not in monday.desk_line and Simulation.Catalog.requests_for_day(1).all(func(packet: Dictionary) -> bool: return packet.id != "PR-1042"), "The practice PR is not in Monday's line.")
+	check(Simulation.Catalog.requests_for_day(1).size() == 15 and state.desk_line == [first.id] + monday.desk_line, "Practice puts PR-1042 in front of Monday's own line.")
+	check(not Tutorial.validate(Tutorial.initial_progress(), monday).ok, "Orientation never runs on a real Monday.")
+	check(not SaveStore.decode_session(JSON.parse_string(JSON.stringify(state))).ok, "A practice desk can't be loaded as a career.")
 	progress = Tutorial.observe(progress, {"type": "open-review"}, state)
 	check(progress.stage == Tutorial.STAGE_INSPECT, "Opening REVIEW goes straight to the files.")
 	var early := progress.duplicate(true)
 	early.stage = Tutorial.STAGE_OPEN_REVIEW
-	early.inspected_files = [Tutorial.Catalog.request_at(0).files[0].path]
+	early.inspected_files = [Tutorial.Catalog.practice().files[0].path]
 	check(not Tutorial.validate(early, state).ok, "Files cannot be inspected before REVIEW is open.")
-	for file: Dictionary in Tutorial.Catalog.request_at(0).files:
+	for file: Dictionary in Tutorial.Catalog.practice().files:
 		progress = Tutorial.observe(progress, {"type": "inspect-file", "path": file.path}, state)
 	check(progress.stage == Tutorial.STAGE_STANDARDS, "Inspecting both files moves on to the standards.")
 	progress = Tutorial.observe(progress, {"type": "open-standards"}, state)
@@ -55,7 +64,7 @@ func _initialize() -> void:
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	state = Tutorial.retry_practice_state(state)
 	check(state.decisions.is_empty() and state.chat_replies.is_empty() and state.active_request_id == "PR-1042", "Retry removes the mistake and puts the practice PR back on the desk.")
-	state = Simulation.dispatch(state, Simulation.Catalog.audit_citation(Simulation.Catalog.request_at(0), "P01"))
+	state = Simulation.dispatch(state, Simulation.Catalog.audit_citation(Simulation.Catalog.practice(), "P01"))
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "request_changes"})
 	progress = Tutorial.observe(progress, {"type": "correct-submit"}, state)
 	check(progress.stage == Tutorial.STAGE_READY and Tutorial.validate(progress, state).ok, "Finished practice can be saved before Monday.")

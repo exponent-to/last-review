@@ -60,6 +60,11 @@ static func _index() -> void:
 			_by_day[day] = []
 		_by_day[day].append(request)
 
+## Orientation's practice PR (PR-1042). It is not one of the campaign's originals:
+## only the practice desk ever holds it (Simulation.initial_state(true)).
+static func practice() -> Dictionary:
+	return load("res://content/policy_campaign.gd").practice()
+
 static func request_at(index: int) -> Dictionary:
 	var packets: Array = originals()
 	if index < 0 or index >= packets.size():
@@ -90,6 +95,8 @@ static func packet(state: Dictionary, request_id: String, copy: bool = true) -> 
 	for request: Dictionary in originals():
 		if request.id == request_id:
 			return request.duplicate(true) if copy else request
+	if request_id == load("res://content/policy_campaign.gd").PRACTICE_ID:
+		return load("res://content/policy_campaign.gd").practice()
 	if request_id.begins_with("PR-P"):
 		var found: Dictionary = load("res://content/policy_campaign.gd").payload(request_id)
 		if not found.is_empty(): return found.duplicate(true) if copy else found

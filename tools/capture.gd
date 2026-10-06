@@ -67,10 +67,36 @@ func _later(app: Node) -> void:
 	app.state = opening
 	app._build_interface()
 	await _records(app, tag)
+	# Before Jiro, sign a few PRs (one of them waved through) so the payslip has
+	# pay and a dock on it; later days already stamped some above.
+	if int(app.state.day) < Main.Simulation.Policy.JIRO_DAY: _sign_some(app, 5, 2)
 	# Let the rest of the day go to Helios: Morgan's panel carries the handoff.
 	app.state = Simulation.advance(app.state, Catalog.shift_seconds())
 	app._render()
 	await _shot("25-%s-end-of-day" % tag)
+
+## Sign the next `count` PRs correctly, except the `careless`-th, which is approved
+## unread. Pushbacks are insisted on.
+func _sign_some(app: Node, count: int, careless: int) -> void:
+	var Simulation = Main.Simulation
+	var Catalog = Main.Simulation.Catalog
+	var signed := 0
+	while app.state.phase == "review" and signed < count:
+		if not Encounters.pending(app.state).is_empty():
+			app.state = Simulation.dispatch(app.state, {"type": "pushback", "choice": "insist"})
+			signed += 1
+			continue
+		if Simulation.active_request(app.state).is_empty():
+			if int(app.state.desk_at) < 0: return
+			app.state = Simulation.advance(app.state, int(app.state.desk_at) - int(app.state.shift_seconds))
+			continue
+		var packet: Dictionary = Catalog.packet(app.state, str(app.state.active_request_id))
+		var verdict := "approve"
+		if signed != careless and not packet.violations.is_empty():
+			for rule_id: String in packet.violations: app.state = Simulation.dispatch(app.state, Catalog.audit_citation(packet, rule_id))
+			verdict = "request_changes"
+		app.state = Simulation.dispatch(app.state, {"type": "review", "verdict": verdict})
+		if Encounters.pending(app.state).is_empty(): signed += 1
 
 ## Jiro and Pipeline on a PR whose ticket or build breaks a standard: open each
 ## from the PR slip, SELECT AS EVIDENCE, and tick the standard on the slip.

@@ -122,9 +122,12 @@ static func authored() -> Dictionary:
   packets[packet.id] = {"request": str(packet.message), "question": "What should I look at first?", "turn": turn,
    "hint": _turn_line(HINTS[author], turn), "concern": _turn_line(CONCERNS[author], turn),
    "approve": _turn_line(APPROVED[author], turn), "incident": incidents[index % incidents.size()]}
-  if packet.id == "PR-1042":
-   packets[packet.id].request += " Keep an eye on the comment wording in the test file."
   index += 1
+ # Orientation's practice PR sits outside the campaign; it reads like a first PR.
+ var practice: Dictionary = Catalog.practice()
+ packets[practice.id] = {"request": str(practice.message) + " Keep an eye on the comment wording in the test file.", "question": "What should I look at first?", "turn": 0,
+  "hint": _turn_line(HINTS[practice.author], 0), "concern": _turn_line(CONCERNS[practice.author], 0),
+  "approve": _turn_line(APPROVED[practice.author], 0), "incident": incidents[0]}
  _cache = {"contacts": people, "requests": packets, "company": [
   {"day": 1, "author": "Morgan", "text": "You are not here to understand the code. You are here to sign it. Helios will supply more work than you can finish; choose what carries your name carefully."},
   {"day": 2, "author": "Operations", "text": "Records Office notice: standards are reissued every second morning, and this is not one of them. Changes now arrive in sets. An unread file is an unsigned file."},
@@ -146,6 +149,8 @@ static func authored() -> Dictionary:
    "extension": "One more thing before you go. Leadership extended your assignment through next Friday. Helios asked for you by name. I asked it why. It said you were consistent.",
    # Week two's evenings get quieter as the floor empties.
    "closings": {
+    # The first evening says why this panel opens at all.
+    1: "Shift's over. Here's what you earned today and what it cost you. Then decide how you spend tonight.",
     6: "That's enough for today. The lights on this floor run on a motion sensor now. Wave on your way out so it knows you were here.",
     7: "Go home. If your badge doesn't open the door, it's a glitch. Probably. Message me, not the helpdesk; the helpdesk is Helios now.",
     8: "That's it for today. Eat something. Helios moved tomorrow's standup to 8:59 again, and I can't find the setting.",

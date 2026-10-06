@@ -31,6 +31,8 @@ const Endings = preload("res://content/endings.gd")
 const EndingCinematic = preload("res://native/ending_cinematic.gd")
 const Policy = preload("res://content/policy_campaign.gd")
 const Records = preload("res://content/records.gd")
+const Payroll = preload("res://content/payroll.gd")
+const Staff = preload("res://content/staff.gd")
 const TerminalFont: FontFile = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
 # Night-shift terminal palette: black glass, phosphor green, one alarm red,
 # and paper documents for anything a person signs.
@@ -69,13 +71,22 @@ const RULE_SUMMARIES := {
 	"P21": "Build: coverage may fall 2.0 points, not 2.1. Do the math.",
 	"P15": "No exec/eval, helios.bootstrap, or minified one-liners.",
 }
-## The evening choices and what each does, in words rather than numbers
-## (the effects themselves live in Simulation._evening).
+## The evening choices: what each costs and does at a glance ("price"), and the
+## same in a sentence ("about"). The effects themselves live in Simulation._evening
+## and the prices in content/payroll.gd.
 const EVENINGS := [
-	{"choice": "rest", "label": "GO HOME", "about": "Sleep it off. You'll start tomorrow calmer."},
-	{"choice": "socialize", "label": "GET DINNER", "about": "Costs a little. Your coworkers warm to you; you unwind a bit."},
-	{"choice": "study", "label": "STUDY", "about": "Morgan notices the effort. You'll be more tired tomorrow."},
+	{"choice": "rest", "label": "GO HOME", "price": "FREE · stress −−", "about": "Sleep it off. You'll start tomorrow calmer."},
+	{"choice": "socialize", "label": "GET DINNER", "price": "−%d CR · team +warmth · stress −", "about": "Your coworkers warm to you, and you unwind a bit.",
+		"broke": "You can't cover the check tonight. Payroll comes first."},
+	{"choice": "study", "label": "STUDY", "price": "FREE · Morgan's trust + · stress +", "about": "Morgan notices the effort. You'll be more tired tomorrow."},
 ]
+## How the evening panel puts stress, Morgan's trust, and the team's warmth into
+## words: the first band whose floor the value reaches.
+const STRESS_WORDS := [[85, "breaking"], [65, "frayed"], [45, "tense"], [25, "steady"], [0, "calm"]]
+const TRUST_WORDS := [[75, "solid"], [55, "steady"], [40, "wavering"], [30, "thin"], [0, "nearly gone"]]
+const TEAM_WORDS := [[62, "warm"], [42, "cordial"], [30, "cool"], [0, "cold"]]
+## Segments in the evening panel's stress meter.
+const STRESS_SEGMENTS := 10
 const EVIDENCE_HINTS := {
 	"line": "Cite the exact line.",
 	"file": "Cite the file: WHOLE FILE or any of its lines.",
@@ -150,6 +161,14 @@ var _evening_notes_heading: Label
 var _evening_notes: VBoxContainer
 var _evening_closing: VBoxContainer
 var _evening_buttons: VBoxContainer
+## The payslip beside Morgan's notes: what the day paid and what it cost.
+var _evening_ledger: VBoxContainer
+## Tonight's context: the stress meter, Morgan's trust, and the team, in words.
+var _evening_stress: HBoxContainer
+var _evening_stress_word: Label
+var _evening_trust: Label
+var _evening_team: Label
+var _evening_choices: Dictionary = {}
 var _complete_button: Button
 var _watch_ending: Button
 var _ending_cinematic: Control
@@ -917,7 +936,7 @@ func _arrange_windows() -> void:
 	if not is_instance_valid(_desktop) or _windows.is_empty():
 		return
 	var extent: Vector2 = _desktop.size
-	var evening := Vector2(minf(680, extent.x - 160), minf(560, extent.y - 24))
+	var evening := Vector2(minf(860, extent.x - 150), minf(600, extent.y - 16))
 	var layouts: Dictionary = {
 		"review": Rect2(Vector2(142, 8), Vector2(extent.x - 150, extent.y - 16)),
 		"system": Rect2(Vector2(210, 90), Vector2(minf(650, extent.x - 240), minf(470, extent.y - 118))),
@@ -1353,7 +1372,7 @@ func _play_stamp(verdict: String) -> void:
 
 func _build_evening(page: VBoxContainer) -> void:
 	# Closing time: Morgan, the day's notes, her closing words, and the evening.
-	# Consequences stay in prose; there are no scores, pay, or grades here.
+	# Consequences stay in prose, beside the day's payslip; no scores or grades.
 	var heading := _row(page, 14)
 	_evening_face = Portraits.make("Morgan", 64)
 	heading.add_child(_evening_face)
@@ -1367,23 +1386,53 @@ func _build_evening(page: VBoxContainer) -> void:
 	rule.custom_minimum_size.y = 1
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	page.add_child(rule)
-	var content: VBoxContainer = _scroll_column(page)
+	# Morgan's words on the left; the day's payslip on the right.
+	var body := _row(page, 14)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var content: VBoxContainer = _scroll_column(body)
 	_evening_notes_heading = _label(content, "TODAY", 11, DIM)
 	_evening_notes = _column(content, 6)
 	_evening_closing = _column(content, 8)
-	_evening_buttons = _column(page, 4)
-	_label(_evening_buttons, "TONIGHT", 11, DIM)
+	var slip := PanelContainer.new()
+	slip.custom_minimum_size.x = 300
+	slip.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	slip.add_theme_stylebox_override("panel", _style(PAPER, PAPER_LINE, 1, 12, 10))
+	body.add_child(slip)
+	_evening_ledger = _column(slip, 3)
+	_evening_buttons = _column(page, 6)
+	# Tonight's context, so the choice below has something to weigh.
+	var status := _row(_evening_buttons, 10)
+	_label(status, "TONIGHT", 11, DIM).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_label(status, "STRESS", 11, DIM)
+	_evening_stress = _row(status, 2)
+	_evening_stress.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_evening_stress.alignment = BoxContainer.ALIGNMENT_CENTER
+	for segment in range(STRESS_SEGMENTS):
+		var cell := ColorRect.new()
+		cell.custom_minimum_size = Vector2(7, 11)
+		cell.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_evening_stress.add_child(cell)
+	_evening_stress_word = _label(status, "", 12, TEXT)
+	_label(status, "·", 12, DIM)
+	_evening_trust = _label(status, "", 12, TEXT)
+	_label(status, "·", 12, DIM)
+	_evening_team = _label(status, "", 12, TEXT)
 	var choices := _row(_evening_buttons, 8)
 	for item: Dictionary in EVENINGS:
-		# Each choice says what it does, under the button and on hover.
-		var option := _column(choices, 4)
+		# Each choice shows its price and effects, then says the same in words.
+		var option := _column(choices, 3)
 		var button := _button(option, str(item.label), _emit_command.bind({"type": "next-day", "choice": str(item.choice)}))
-		button.custom_minimum_size.y = 40
+		button.custom_minimum_size.y = 38
 		button.add_theme_font_size_override("font_size", 13)
 		button.tooltip_text = str(item.about)
+		var price := _label(option, str(item.price).replace("%d", str(Payroll.DINNER)), 12, AMBER)
+		price.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		var about := _paragraph(option, str(item.about), 12, DIM)
 		about.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.set_meta("about", about)
+		button.set_meta("price", price)
+		_evening_choices[str(item.choice)] = button
 	# On the final evening (or a firing), the way out is to watch how it ends,
 	# then return to the menu. The cinematic card also offers the menu directly.
 	_watch_ending = _button(page, "▶ SEE HOW IT ENDS", func() -> void: _play_ending())
@@ -1412,7 +1461,7 @@ func _play_ending() -> void:
 	if is_instance_valid(_ending_cinematic): return
 	var key := str(_state.get("ending", ""))
 	if key.is_empty() or not Endings.has(key): return
-	var fired := key in ["player_fired", "team_fired"]
+	var fired := key in ["player_fired", "garnished", "team_fired"]
 	_ending_cinematic = EndingCinematic.new()
 	_ending_cinematic.setup(Endings.title(key), Endings.beats(key), Endings.morgan(key), fired)
 	_ending_cinematic.z_index = 200
@@ -1435,9 +1484,10 @@ func _render_evening(state: Dictionary) -> void:
 	var ending_key := str(state.get("ending", ""))
 	_watch_ending.visible = phase == "complete" and Endings.has(ending_key)
 	if _watch_ending.visible:
-		var fired := ending_key in ["player_fired", "team_fired"]
+		var fired := ending_key in ["player_fired", "garnished", "team_fired"]
 		_watch_ending.text = ("▶ SEE WHY" if fired else "▶ SEE HOW IT ENDS")
-	var key := phase + JSON.stringify(evening)
+	_render_tonight(state)
+	var key := phase + JSON.stringify(evening) + JSON.stringify(state.get("last_debrief", {}).get("ledger", {}))
 	if key == _evening_key: return
 	_evening_key = key
 	for holder: VBoxContainer in [_evening_notes, _evening_closing]:
@@ -1445,6 +1495,7 @@ func _render_evening(state: Dictionary) -> void:
 			holder.remove_child(child)
 			child.queue_free()
 	_evening_notes_heading.visible = not evening.get("notes", []).is_empty()
+	_render_ledger(state)
 	if evening.is_empty():
 		_evening_when.text = ""
 		return
@@ -1460,6 +1511,91 @@ func _render_evening(state: Dictionary) -> void:
 		_paragraph(_evening_closing, text, 15, TEXT)
 	var scroll := _evening_closing.get_parent().get_parent() as ScrollContainer
 	if scroll != null: scroll.scroll_vertical = 0
+
+
+## The day's payslip (Simulation._debrief via content/payroll.gd): balance brought
+## forward, pay and docks, fixed costs, and what is left.
+func _render_ledger(state: Dictionary) -> void:
+	for child: Node in _evening_ledger.get_children():
+		_evening_ledger.remove_child(child)
+		child.queue_free()
+	var ledger: Dictionary = state.get("last_debrief", {}).get("ledger", {})
+	var slip := _evening_ledger.get_parent() as Control
+	slip.visible = not ledger.is_empty()
+	if ledger.is_empty(): return
+	var head := _row(_evening_ledger, 6)
+	_label(head, "PAYSLIP", 12, PAPER_INK).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_label(head, "PAPERCLIP CREDITS", 10, PAPER_MUTED)
+	_ledger_rule()
+	_ledger_line("Brought forward", Payroll.balance_text(int(ledger.start)), PAPER_MUTED)
+	var kind := "pay"
+	for line: Dictionary in ledger.get("lines", []):
+		if str(line.kind) != kind:
+			kind = str(line.kind)
+			_ledger_rule()
+		var amount := int(line.amount)
+		_ledger_line(str(line.label), Payroll.signed(amount), PAPER_INK if amount >= 0 else STAMP_RED)
+	_ledger_rule(2)
+	var end := int(ledger.end)
+	var total := _ledger_line("BALANCE", Payroll.balance_text(end), STAMP_RED if end < 0 else STAMP_GREEN, 15)
+	total.get_child(0).add_theme_color_override("font_color", PAPER_INK)
+
+
+func _ledger_line(text: String, amount: String, color: Color, font_size: int = 13) -> HBoxContainer:
+	var row := _row(_evening_ledger, 8)
+	var label := _label(row, text, font_size, PAPER_INK)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.tooltip_text = text
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	var value := _label(row, amount, font_size, color)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	return row
+
+
+func _ledger_rule(height: int = 1) -> void:
+	var rule := ColorRect.new()
+	rule.color = PAPER_LINE
+	rule.custom_minimum_size.y = height
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_evening_ledger.add_child(rule)
+
+
+## The first band in `bands` ([[floor, word], ...], highest first) that `value` reaches.
+static func band_word(bands: Array, value: int) -> String:
+	for band: Array in bands:
+		if value >= int(band[0]): return str(band[1])
+	return str(bands[-1][1])
+
+
+## Tonight's context and prices: the stress meter, Morgan's trust and the team in
+## words, and dinner only when the balance covers it.
+func _render_tonight(state: Dictionary) -> void:
+	var stress := int(state.get("stress", 0))
+	var lit := ceili(float(clampi(stress, 0, 100)) * STRESS_SEGMENTS / 100.0)
+	var tint := RED if stress >= 65 else (AMBER if stress >= 45 else GREEN)
+	for index in range(_evening_stress.get_child_count()):
+		(_evening_stress.get_child(index) as ColorRect).color = tint if index < lit else BORDER
+	_evening_stress_word.text = band_word(STRESS_WORDS, stress)
+	_evening_stress_word.add_theme_color_override("font_color", tint)
+	var trust := int(state.get("trust", 0))
+	_evening_trust.text = "MORGAN'S TRUST: " + band_word(TRUST_WORDS, trust)
+	_evening_trust.add_theme_color_override("font_color", RED if trust < 40 else TEXT)
+	# The people who would come to dinner tonight (Simulation._evening).
+	var team: Array = Staff.team(state, int(state.get("day", 1)))
+	var warmth := 0
+	for person: String in team: warmth += int(state.get("coworkers", {}).get(person, 50))
+	_evening_team.text = "TEAM: " + (band_word(TEAM_WORDS, warmth / team.size()) if not team.is_empty() else "gone")
+	var dinner: Button = _evening_choices.get("socialize")
+	if dinner == null: return
+	var affordable := Payroll.can_dine(int(state.get("credits", 0)))
+	dinner.disabled = not affordable
+	var item: Dictionary = EVENINGS[1]
+	var about: Label = dinner.get_meta("about")
+	about.text = str(item.about) if affordable else str(item.broke)
+	dinner.tooltip_text = about.text
+	(dinner.get_meta("price") as Label).add_theme_color_override("font_color", AMBER if affordable else RED)
 
 
 func _process(delta: float) -> void:

@@ -389,9 +389,29 @@ static func evening(state: Dictionary) -> Dictionary:
 	notes.append_array(_payload_notes(state, day))
 	notes.append_array(_unexplained_notes(state, day))
 	notes.append_array(_staffing_notes(state, day))
+	notes.append_array(_money_notes(state, day))
 	for line: Dictionary in _shift_report(state, shift):
 		if str(line.text).is_empty(): continue
 		if bool(line.closing): closing.append(str(line.text))
 		else: notes.append(str(line.text))
 	if state.get("phase") == "complete": closing.append(_ending(state))
 	return {"day": day, "notes": notes, "closing": closing}
+
+
+const Payroll = preload("res://content/payroll.gd")
+
+## What Morgan says about money on a closed day: a closing in the red, and
+## collections once it is two closings running. Prose only; the ledger beside
+## it has the numbers.
+static func _money_notes(state: Dictionary, day: int) -> Array:
+	var shifts: Array = state.get("shift_history", [])
+	var streak := 0
+	for shift: Dictionary in shifts:
+		if int(shift.day) > day: break
+		streak = streak + 1 if int(shift.get("balance", 0)) < 0 else 0
+	if streak <= 0: return []
+	if streak == 1:
+		return ["You closed in the red tonight. Payroll doesn't do grace periods; it does fees. Dinner is off until you're back above water."]
+	if streak == Payroll.DEBT_DAYS:
+		return ["Second night in the red. Collections called the front desk and asked for you by badge number. That follows you around here."]
+	return ["Collections again. If the balance sinks much further, Payroll garnishes your wages, and I can't stop that. Sign carefully tomorrow."]

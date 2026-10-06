@@ -20,26 +20,26 @@ extends RefCounted
 
 static func entries() -> Array:
 	return [
-		{"path": "people/offboarding.py", "title": "Rename fire_employee() to release_to_opportunity()", "phrase": "the offboarding rename",
-		"pitch": "Legal says 'fired' tested poorly. 'Released' tested like a movie.",
-		"pushback": "Legal already picked the euphemism. I'm only typing it.",
-		"relief": "Approved. Somewhere, an employee is being released into the wild.",
-		"grudge": "Fine. I'll release this PR to opportunity too.",
+		{"path": "rooms/booking.py", "title": "Release meeting rooms nobody showed up to", "phrase": "the room release",
+		"pitch": "Rooms nobody shows up to go back on the board after ten minutes.",
+		"pushback": "Six people are standing in a hallway right now. This helps them.",
+		"relief": "Approved. The hallway standup can finally go indoors.",
+		"grudge": "Fine. The empty rooms stay booked. We'll keep meeting by the stairs.",
 		"before": [
-			"\"\"\"Offboarding helpers.\"\"\"",
+			"\"\"\"Meeting-room bookings.\"\"\"",
 			"",
-			"def fire_employee(employee):",
-			"    employee.status = 'fired'",
-			"    employee.badge_active = False",
-			"    return employee",
+			"def release(booking, minutes_late):",
+			"    if booking.attendees == 0:",
+			"        return minutes_late > 60",
+			"    return False",
 		],
 		"lines": [
-			"\"\"\"Offboarding helpers. Tone reviewed by Legal.\"\"\"",
+			"\"\"\"Meeting-room bookings. Facilities approved.\"\"\"",
 			"",
-			"def release_to_opportunity(employee):",
-			"    employee.status = 'released'",
-			"    employee.badge_active = False",
-			"    return employee",
+			"def release(booking, minutes_late):",
+			"    if booking.attendees == 0:",
+			"        return minutes_late > 10",
+			"    return False",
 		]},
 		{"path": "lobby/display.py", "title": "Stop the lobby TV from showing everyone's salary", "phrase": "the lobby TV fix",
 		"pitch": "The lobby TV has shown everyone's salary since March. This stops it.",
@@ -3034,3 +3034,29 @@ static func entries() -> Array:
 			"    return calendar.add('reorg', repeat=RECURRENCE)",
 		]},
 	]
+
+## Orientation's practice PR (PR-1042): Maya's offboarding rename, with the
+## literal load-bearing comment the tutorial teaches. It is not part of the
+## campaign line, so nobody reviews it twice.
+static func practice() -> Dictionary:
+	return {"path": "people/offboarding.py", "title": "Rename fire_employee() to release_to_opportunity()", "phrase": "the offboarding rename",
+	"pitch": "Legal says 'fired' tested poorly. 'Released' tested like a movie.",
+	"pushback": "Legal already picked the euphemism. I'm only typing it.",
+	"relief": "Approved. Somewhere, an employee is being released into the wild.",
+	"grudge": "Fine. I'll release this PR to opportunity too.",
+	"before": [
+		"\"\"\"Offboarding helpers.\"\"\"",
+		"",
+		"def fire_employee(employee):",
+		"    employee.status = 'fired'",
+		"    employee.badge_active = False",
+		"    return employee",
+	],
+	"lines": [
+		"\"\"\"Offboarding helpers. Tone reviewed by Legal.\"\"\"",
+		"",
+		"def release_to_opportunity(employee):",
+		"    employee.status = 'released'",
+		"    employee.badge_active = False",
+		"    return employee",
+	]}

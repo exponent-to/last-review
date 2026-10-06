@@ -108,7 +108,7 @@ func _find(wanted: Callable, sets: Callable = Callable()) -> Dictionary:
 
 func _test_one_at_a_time() -> void:
 	var state := Simulation.initial_state()
-	_check(_desk(state) == "PR-1042" and Simulation.available_requests(state).size() == 1, "The first PR is on the desk at shift start.")
+	_check(_desk(state) == "PR-2001" and Simulation.available_requests(state).size() == 1, "The first PR is on the desk at shift start.")
 	var day_ids: Array = Catalog.requests_for_day(1).map(func(packet: Dictionary) -> String: return packet.id)
 	var seen: Array = []
 	while state.phase == "review":
@@ -133,17 +133,17 @@ func _test_one_at_a_time() -> void:
 func _test_revision_timing() -> void:
 	var state := Simulation.initial_state()
 	state = _exact(state)
-	_check(state.revisions.size() == 1 and state.revisions[0].id == "PR-1042-v2" and state.revisions[0].origin_id == "PR-1042", "A change request queues the author's revision.")
-	_check(state.desk_line.find("PR-1042-v2") == Simulation.REVISION_GAP, "The revision rejoins the line behind the next two PRs.")
+	_check(state.revisions.size() == 1 and state.revisions[0].id == "PR-2001-v2" and state.revisions[0].origin_id == "PR-2001", "A change request queues the author's revision.")
+	_check(state.desk_line.find("PR-2001-v2") == Simulation.REVISION_GAP, "The revision rejoins the line behind the next two PRs.")
 	var order: Array = []
 	for _turn in range(3):
 		state = _land(state)
 		order.append(_desk(state))
 		state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"}) if order.size() < 3 else state
 	var day: Array = Catalog.requests_for_day(1)
-	_check(order == [day[1].id, day[2].id, "PR-1042-v2"], "A revision appears after two more PRs.")
+	_check(order == [day[1].id, day[2].id, "PR-2001-v2"], "A revision appears after two more PRs.")
 	var revision: Dictionary = Simulation.active_request(state)
-	_check(int(revision.revision) == 2 and revision.parent_id == "PR-1042" and Catalog.display_id(revision.id) == "PR-1042 · v2", "Revisions carry their version, parent, and a display ID.")
+	_check(int(revision.revision) == 2 and revision.parent_id == "PR-2001" and Catalog.display_id(revision.id) == "PR-2001 · v2", "Revisions carry their version, parent, and a display ID.")
 	_check(not revision.has("violations") and not revision.has("recipe") and not revision.has("findings"), "The desk view of a revision hides audit data.")
 	# Near the end of the line, a revision comes back sooner.
 	var tail := Simulation.initial_state()
@@ -310,14 +310,14 @@ func _test_dialogue() -> void:
 	var reaction: Dictionary = maya.filter(func(message: Dictionary) -> bool: return message.kind == "reaction")[-1]
 	_check(reaction.text.to_lower().contains("load-bearing comment"), "Right after the change request, the author reacts to what was cited.")
 	state = _land(state)
-	while not _desk(state).is_empty() and _desk(state) != "PR-1042-v2":
+	while not _desk(state).is_empty() and _desk(state) != "PR-2001-v2":
 		state = _land(_exact(state))
-	_check(_desk(state) == "PR-1042-v2", "Maya's revision is on the desk.")
+	_check(_desk(state) == "PR-2001-v2", "Maya's revision is on the desk.")
 	maya = Chat.messages(state, "Maya")
-	var arrival: Dictionary = maya.filter(func(message: Dictionary) -> bool: return message.get("pr_id", "") == "PR-1042-v2")[0]
-	var revision: Dictionary = Catalog.packet(state, "PR-1042-v2")
+	var arrival: Dictionary = maya.filter(func(message: Dictionary) -> bool: return message.get("pr_id", "") == "PR-2001-v2")[0]
+	var revision: Dictionary = Catalog.packet(state, "PR-2001-v2")
 	_check(arrival.kind == "request" and arrival.text == revision.message and arrival.text.begins_with("v2"), "The revision arrives in Slouch with an OPEN link and the author's v2 note.")
-	_check(revision.description.contains("Revision 2 of PR-1042") and revision.description.contains("load-bearing comment"), "The PR form describes what changed in plain words.")
+	_check(revision.description.contains("Revision 2 of PR-2001") and revision.description.contains("load-bearing comment"), "The PR form describes what changed in plain words.")
 	state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	maya = Chat.messages(state, "Maya")
 	var relief: Dictionary = state.encounters[-1]

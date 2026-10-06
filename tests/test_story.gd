@@ -145,7 +145,7 @@ func _test_ending_matrix() -> void:
 	# Mostly through (Helios won) crossed the same way.
 	check(Sim.resolve_ending(_ending_state(["approved", "merged", "blocked"], 70)) == "soft_landing", "Through + liked -> Soft Landing.")
 	check(Sim.resolve_ending(_ending_state(["approved", "merged", "blocked"], 20)) == "helios_prime", "Through + resented -> Helios Prime.")
-	for key: String in ["last_reviewers", "right_and_alone", "soft_landing", "helios_prime", "player_fired", "team_fired"]:
+	for key: String in ["last_reviewers", "right_and_alone", "soft_landing", "helios_prime", "player_fired", "garnished", "team_fired"]:
 		check(Endings.has(key) and not Endings.title(key).is_empty() and not Endings.morgan(key).is_empty() and Endings.beats(key).size() >= 3, "Ending %s has a title, Morgan's words, and cinematic beats." % key)
 
 # --- Player firing --------------------------------------------------------------
