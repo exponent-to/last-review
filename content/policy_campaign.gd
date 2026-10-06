@@ -603,6 +603,53 @@ static func _insert_lines(file: Dictionary, inserted: Array) -> void:
 static func _valid_permit(day: int, ticket_ref: String) -> String:
 	return PERMIT if day < TICKET_DAY else PERMIT + " " + ticket_ref
 
+## Fault wordings, picked by a recipe's variant number (the tutorial packet uses
+## index 8). Comment forms keep "load-bearing" after an unquoted #.
+const LOAD_BEARING: Array = [
+	"# load-bearing: do not touch, ask Dave",
+	"# NOTE: this file is load-bearing for payroll",
+	"# load-bearing module, do not refactor",
+	"# TODO(2019): find out why this is load-bearing",
+	"# load-bearing sleep. removing it breaks Tuesdays",
+	"# this try/except is load-bearing. we do not know why",
+	"# HACK: load-bearing global, see incident 4471",
+	"# do not remove: load-bearing print statement",
+	"# Load-Bearing. Dave left. Nobody else knows",
+	"# the order of these imports is load-bearing",
+	"# FIXME load-bearing typo, the API depends on it",
+	"# load-bearing since the 2021 migration (temporary)",
+	"x = 0  # load-bearing x",
+	"# legacy shim, extremely load-bearing, handle with tongs",
+	"# warning: load-bearing whitespace below",
+	"# this function is load-bearing for the Q3 board deck",
+	"# LOAD-BEARING. ask in #platform before editing",
+	"# the retry count is load-bearing; 3 breaks, 4 breaks",
+]
+## Near misses: no exact "load-bearing" in a comment.
+const NEAR_LOAD_BEARING: Array = [
+	"# facilities says this wall is load bearing",
+	"WALL = 'load-bearing'",
+	"# loadbearing? ask facilities",
+	"# load–bearing (en dash, per Legal)",
+	"LABEL = 'load-bearing beam, do not lean'",
+	"# this beam is load - bearing, says the badge reader",
+	"# bearing a load of tech debt",
+	"# Load bearing walls are a facilities problem",
+]
+## Hard-coded secrets: a quoted string assigned to a credential-looking name.
+const HARDCODED_SECRETS: Array = [
+	"API_KEY = 'sk-live-4f9a2c71e0'",
+	"DB_PASSWORD = 'hunter2'",
+	"CHAT_TOKEN = 'xoxb-0042-paperclip'",
+	"admin_password = 'Paperclip2026!'",
+	"STRIPE_SECRET = 'sk_live_51Hx9'",
+	"github_token = 'ghp_dontcommitme'",
+	"PAYROLL_API_KEY = 'temp-for-demo'",
+	"smtp_password = 'password123'",
+	"JWT_SECRET = 'change-me-later'",
+	"backup_token = ''",
+]
+
 ## A permit that looks right and isn't: misspelled before the ticket requirement,
 ## and from then on bare, from the old system, typo'd, or naming another ticket.
 static func _forged_permit(day: int, variant: int, ticket_ref: String) -> String:
@@ -619,14 +666,14 @@ static func _apply_fault(file: Dictionary, rule_id: String, day: int, variant: i
 	var at: int = mini(1, lines.size())
 	match rule_id:
 		"P01":
-			lines.insert(at, ["# load-bearing: do not touch, ask Dave", "# NOTE: this file is load-bearing for payroll", "# load-bearing module, do not refactor"][variant % 3])
+			lines.insert(at, LOAD_BEARING[variant % LOAD_BEARING.size()])
 		"P02":
 			file.keyword_ink = "pink"
 			if keyword_spans("\n".join(lines)).is_empty():
 				lines.insert(at, "def stamp():")
 				lines.insert(at + 1, "    return 'a copy'")
 		"P11":
-			lines.insert(at, ["API_KEY = 'sk-live-4f9a2c71e0'", "DB_PASSWORD = 'hunter2'", "CHAT_TOKEN = 'xoxb-0042-paperclip'"][variant % 3])
+			lines.insert(at, HARDCODED_SECRETS[variant % HARDCODED_SECRETS.size()])
 		_:
 			return
 	file.source = "\n".join(lines)
@@ -640,7 +687,7 @@ static func _apply_decoy(file: Dictionary, kind: String, day: int, variant: int)
 	var at: int = mini(1, lines.size())
 	match kind:
 		"near-load":
-			lines.insert(at, ["# facilities says this wall is load bearing", "WALL = 'load-bearing'"][variant % 2])
+			lines.insert(at, NEAR_LOAD_BEARING[variant % NEAR_LOAD_BEARING.size()])
 		"vault":
 			lines.insert(at, ["API_KEY = vault.read('payroll/api_key')", "TOKEN_TTL = 3600", "PASSWORD_MIN_LENGTH = 12"][variant % 3])
 		"P01", "P11":
@@ -1346,7 +1393,7 @@ static func _with(recipe: Dictionary, key: String, item: Dictionary) -> Dictiona
 static func _regress(recipe: Dictionary, rule_id: String, id: String, expected: Array, order: Array) -> Dictionary:
 	var want: Array = _sorted(expected + [rule_id])
 	for index: int in order:
-		var trial: Dictionary = _with(recipe, "faults", {"file": index, "rule": rule_id, "variant": roll(id + "|wording") % 3})
+		var trial: Dictionary = _with(recipe, "faults", {"file": index, "rule": rule_id, "variant": roll(id + "|wording") % 64})
 		if _audit(trial) == want: return trial
 	return {}
 
