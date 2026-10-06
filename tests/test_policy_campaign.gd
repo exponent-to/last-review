@@ -131,9 +131,16 @@ func _test_campaign() -> void:
 		_check(multiple_files == 1 if day == 1 else multiple_files > 1, "Multiple-file review should expand after the tutorial day.")
 		if day >= 2:
 			_check(multiple_rules >= (3 if day >= Policy.MODERN_DAY else 1), "Later shifts must include combined violations, more of them in week two.")
+	var practice: Dictionary = Policy.practice()
+	_check(practice.id == "PR-1042" and practice.author == "Maya" and practice.files.size() == 2 and practice.violations == ["P01"], "Tutorial packet must retain its ID, two-file inspection, and only P01.")
+	_check("load-bearing" in practice.files[1].source, "The tutorial must show the literal forbidden comment phrase.")
+	_check(practice.title == str(Bank.practice().title) and practice.title.begins_with("Rename fire_employee()"), "The practice PR is Maya's offboarding rename.")
+	_check(packets.all(func(packet: Dictionary) -> bool: return packet.id != practice.id and packet.title != practice.title), "The practice PR is not in the campaign line, so nobody reviews it twice.")
+	# Monday still opens gently: one easy load-bearing comment from Maya.
 	var first: Dictionary = packets[0]
-	_check(first.id == "PR-1042" and first.files.size() == 2 and first.violations == ["P01"], "Tutorial packet must retain its ID, two-file inspection, and only P01.")
-	_check("load-bearing" in first.files[1].source, "The tutorial must show the literal forbidden comment phrase.")
+	_check(first.id == "PR-2001" and first.day == 1 and first.author == "Maya" and first.files.size() == 2 and first.violations == ["P01"], "Day 1 opens with a different easy P01 PR from Maya.")
+	_check("load-bearing" in first.files[1].source, "Day 1's first PR shows the literal phrase too.")
+	_check(Policy.revision(practice, 2, ["P01"], "").violations.is_empty(), "The practice PR's revision is rebuilt from its own recipe.")
 	# The bank is written as the two weeks' arc, so slot N of the campaign reads entry N.
 	if Bank.entries().size() >= packets.size():
 		var in_order: bool = true

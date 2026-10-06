@@ -33,7 +33,7 @@ func mid_shift_day(day: int) -> bool:
 func run() -> void:
 	check(Catalog.campaign_days() == range(1, 11), "Campaign is two weeks, Monday through Friday twice.")
 	state = Sim.initial_state()
-	check(Sim.available_requests(state).size() == 1 and state.active_request_id == "PR-1042", "The first request is on the desk immediately.")
+	check(Sim.available_requests(state).size() == 1 and state.active_request_id == "PR-2001", "The first request is on the desk immediately.")
 	for wait in [19, 20, Catalog.shift_seconds() - 1]:
 		check(Sim.available_requests(Sim.advance(state, wait)).size() == 1, "Waiting never adds a second PR to the desk.")
 	check(Sim.advance(state, Catalog.shift_seconds() - 1).phase == "review" and Sim.advance(state, Catalog.shift_seconds()).phase == "debrief", "The shift deadline is exact.")
@@ -43,8 +43,8 @@ func run() -> void:
 	root.add_child(ui)
 	ui.render_state(state)
 	for frame in range(4): await process_frame
-	ui._open_notification("review", "PR-1042")
-	check(state.active_request_id == "PR-1042" and ui._windows.review.visible, "The review notification opens the PR already on the desk.")
+	ui._open_notification("review", "PR-2001")
+	check(state.active_request_id == "PR-2001" and ui._windows.review.visible, "The review notification opens the PR already on the desk.")
 	var live_rows: Array = ui._diff_rows.filter(func(row: Dictionary) -> bool: return row.kind != "-")
 	check("\n".join(live_rows.map(func(row: Dictionary) -> String: return row.text)) == Catalog.request_at(0).files[0].source, "The proposed source is the audit evidence.")
 	var numbered := true
@@ -56,7 +56,7 @@ func run() -> void:
 	check(Sim.dispatch(state, {"type": "consult-ai"}) == state, "Hidden consultation cannot be invoked early.")
 	state = Sim.advance(state, 20)
 	ui.render_state(state)
-	check(state.active_request_id == "PR-1042" and ui._pr_id.text.begins_with("PR-1042"), "Time passing never swaps the PR on the desk.")
+	check(state.active_request_id == "PR-2001" and ui._pr_id.text.begins_with("PR-2001"), "Time passing never swaps the PR on the desk.")
 	ui._approve.pressed.emit()
 	check(ui._pr_id.text.contains("DESK CLEAR"), "A stamp clears the desk for a beat.")
 	state = Sim.advance(state, Sim.DESK_BEAT)

@@ -16,13 +16,13 @@ static func initial_progress() -> Dictionary:
 	return {"version": VERSION, "stage": STAGE_WELCOME, "inspected_files": []}
 
 static func initial_practice_state() -> Dictionary:
-	return Simulation.initial_state()
+	return Simulation.initial_state(true)
 
 static func observe(progress: Dictionary, event: Dictionary, state: Dictionary) -> Dictionary:
 	var next := progress.duplicate(true)
 	var stage := int(next.stage)
 	var kind: String = str(event.get("type", ""))
-	var packet: Dictionary = Catalog.request_at(0)
+	var packet: Dictionary = Catalog.practice()
 	match stage:
 		STAGE_WELCOME:
 			if kind == "welcome-start": next.stage = STAGE_OPEN_REVIEW
@@ -46,7 +46,7 @@ static func retry_practice_state(state: Dictionary) -> Dictionary:
 	for reply: Dictionary in state.chat_replies:
 		next = Simulation.dispatch(next, {"type": "chat-reply", "contact": reply.contact, "pr_id": reply.pr_id, "reply_id": reply.reply_id})
 	# The practice PR is already back on the desk; restore only optional consultation.
-	if state.consulted_requests.has(Catalog.request_at(0).id):
+	if state.consulted_requests.has(Catalog.practice().id):
 		next = Simulation.dispatch(next, {"type": "consult-ai"})
 	return next
 
@@ -67,7 +67,9 @@ static func validate(value: Variant, state: Dictionary) -> Dictionary:
 	if not value is Dictionary or value.size() != 3 or not Simulation._integer(value.get("version"), VERSION, VERSION) or not Simulation._integer(value.get("stage"), STAGE_WELCOME, STAGE_READY) or not value.get("inspected_files") is Array:
 		return invalid
 	if int(state.day) != 1 or int(state.shift_seconds) != 0 or state.phase != "review" or not state.shift_history.is_empty(): return invalid
-	var packet: Dictionary = Catalog.request_at(0)
+	# Orientation runs on the practice desk, never on a real Monday.
+	if not bool(state.get("practice", false)): return invalid
+	var packet: Dictionary = Catalog.practice()
 	var paths: Array = []
 	for file: Dictionary in packet.files: paths.append(file.path)
 	var seen: Array = []

@@ -140,5 +140,7 @@ static func decode_session(value: Variant) -> Dictionary:
 		saved.tutorial = training.progress
 		return saved
 	var saved := Simulation.validate_save(value)
+	# The practice desk only exists inside orientation; a career never starts on it.
+	if saved.ok and bool(saved.state.get("practice", false)): return _failure("Invalid saved session.")
 	if saved.ok: saved.tutorial = {}
 	return saved

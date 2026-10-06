@@ -88,7 +88,7 @@ func _test_mapping() -> void:
 	_check(warm.pulse > 0.0 and warm.air > 0.0 and warm.level > bleak.level and warm.cutoff == Music.OPEN_CUTOFF, "A good ending is a little warmer.")
 	for warm_ending: String in ["last_reviewers", "soft_landing"]:
 		_check(Music.ending_kind({"ending": warm_ending}) == "warm", "%s is a warm ending." % warm_ending)
-	for bleak_ending: String in ["right_and_alone", "helios_prime", "player_fired", "team_fired"]:
+	for bleak_ending: String in ["right_and_alone", "helios_prime", "player_fired", "garnished", "team_fired"]:
 		_check(Music.ending_kind({"ending": bleak_ending}) == "bleak", "%s is a bleak ending." % bleak_ending)
 
 func _test_transitions() -> void:

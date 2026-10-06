@@ -355,12 +355,15 @@ static func roll_pick(options: Dictionary, key: String) -> String:
 static func context(state: Dictionary, packet: Dictionary, verdict: String, cited: Array) -> Dictionary:
 	var author := str(packet.get("author", ""))
 	var id := str(packet.get("id", ""))
-	var first: String = str(Catalog.originals()[0].get("id", "")) if not Catalog.originals().is_empty() else ""
+	# Orientation's practice PR always goes back in line, so the lesson stays
+	# scripted, and so does Monday's first PR, so the first real shift opens gently.
+	var firsts: Array = [str(Catalog.practice().get("id", ""))]
+	if not Catalog.originals().is_empty(): firsts.append(str(Catalog.originals()[0].get("id", "")))
 	var pushed := false
 	for beat: Dictionary in beats(state, id):
 		if beat.get("node") == "pushback": pushed = true
 	return {"pr_id": id, "author": author, "version": int(packet.get("revision", 1)), "verdict": verdict,
-		"cited": _sorted(cited), "mood": mood(state, author), "first": id == first, "pushed": pushed}
+		"cited": _sorted(cited), "mood": mood(state, author), "first": id in firsts, "pushed": pushed}
 
 static var _titles: Dictionary = {}
 
@@ -368,6 +371,8 @@ static var _titles: Dictionary = {}
 static func title_for(pr_id: String) -> String:
 	if _titles.is_empty():
 		for packet: Dictionary in Catalog.originals(): _titles[str(packet.id)] = str(packet.get("title", ""))
+		var practice: Dictionary = Catalog.practice()
+		_titles[str(practice.id)] = str(practice.title)
 	var origin := pr_id
 	var cut := pr_id.rfind("-v")
 	if cut > 0 and pr_id.substr(cut + 2).is_valid_int(): origin = pr_id.left(cut)

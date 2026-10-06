@@ -11,7 +11,8 @@ const Policy = preload("res://content/policy_campaign.gd")
 const Encounters = preload("res://content/encounters.gd")
 const Staff = preload("res://content/staff.gd")
 const Endings = preload("res://content/endings.gd")
-const SAVE_VERSION: int = 17
+const Payroll = preload("res://content/payroll.gd")
+const SAVE_VERSION: int = 18
 const SHIFT_SECONDS: int = 180
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
@@ -26,11 +27,14 @@ const REVISION_GAP: int = 2
 ## Morgan lets you go once her trust in you falls this low, or your stress maxes out.
 const FIRE_TRUST: int = 22
 
-static func initial_state() -> Dictionary:
+## A new career on its first morning. `practice` is orientation's desk: Maya's
+## practice PR (Catalog.practice()) sits on it ahead of the day's line. Practice
+## is discarded before Monday, and the real career starts without it.
+static func initial_state(practice: bool = false) -> Dictionary:
 	var first_day: int = int(Catalog.campaign_days()[0])
 	var state: Dictionary = {
-		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review",
-		"credits": 120, "trust": 70, "stress": 20, "autonomy": 10,
+		"version": SAVE_VERSION, "day": first_day, "request_index": 0, "phase": "review", "practice": practice,
+		"credits": Payroll.START, "trust": 70, "stress": 20, "autonomy": 10,
 		"coworkers": {},
 		"selected_rules": [], "citation_evidence": {}, "consulted": false, "decisions": [],
 		"shift_seconds": 0, "active_request_id": "", "consulted_requests": [],
@@ -108,6 +112,8 @@ static func _open_desk(state: Dictionary) -> void:
 					"tier": int(request.get("payload_tier", 0)), "outcome": "merged"})
 			continue
 		state.desk_line.append(request.id)
+	if bool(state.get("practice", false)) and day == int(Catalog.campaign_days()[0]):
+		state.desk_line.push_front(Catalog.practice().id)
 	state.active_request_id = ""
 	state.desk_at = int(state.shift_seconds)
 	_deliver(state)
@@ -189,6 +195,9 @@ static func _dispatch(next: Dictionary, command: Dictionary) -> void:
 	if next.phase == "complete":
 		return
 	if kind == "next-day":
+		# Dinner is on you: no dinner the balance can't cover.
+		if command.get("choice") == "socialize" and not Payroll.can_dine(int(next.credits)):
+			return
 		if next.phase == "debrief" and command.get("choice") in EVENINGS:
 			event.choice = command.choice
 			next.actions.append(event)
@@ -454,6 +463,7 @@ static func _debrief(state: Dictionary) -> void:
 	state.phase = "debrief"
 	var correct: int = 0
 	var reviewed: int = 0
+	var signed: Array = []
 	var shift_ids: Array = []
 	for request: Dictionary in Catalog.requests_for_day(int(state.day)):
 		shift_ids.append(request.id)
@@ -465,6 +475,9 @@ static func _debrief(state: Dictionary) -> void:
 			reviewed += 1
 			if decision.correct:
 				correct += 1
+			var packet: Dictionary = Catalog.packet(state, str(decision.pr_id), false)
+			signed.append({"id": str(decision.pr_id), "display": Catalog.display_id(str(decision.pr_id)), "verdict": decision.verdict,
+				"correct": bool(decision.correct), "payload": bool(packet.get("payload", false))})
 	# Whatever is on the desk or still in line at the bell goes to Helios.
 	var handed_off: int = state.desk_line.size() + (0 if str(state.active_request_id).is_empty() else 1)
 	# A payload left unreviewed at the bell is merged by Helios: it ships.
@@ -475,18 +488,26 @@ static func _debrief(state: Dictionary) -> void:
 		if bool(pending.get("payload", false)):
 			state.payloads.append({"pr_id": str(pending.id), "origin_id": str(pending.origin_id), "day": int(state.day),
 				"tier": int(pending.get("payload_tier", 0)), "outcome": "merged"})
-	var pay: int = 80 + 10 * correct
-	state.credits = clampi(int(state.credits) + pay - 90, -9999, 9999)
+	# Payroll settles the day: pay, docks, and fixed costs (content/payroll.gd).
+	var ledger: Dictionary = Payroll.ledger(int(state.credits), signed, handed_off)
+	state.credits = clampi(int(ledger.end), -9999, 9999)
 	state.autonomy = clampi(int(state.autonomy) + (4 + handed_off), 0, 100)
 	var message: String = "The shift has ended. Your signed reviews are recorded, and payroll has been settled."
 	if handed_off > 0:
 		message = "Closing bell. Unsigned work has been handed to Helios; it earns no review bonus. Management is expanding the assistant's authority."
 	state.last_debrief = {
-		"day": state.day, "reviewed": reviewed, "correct": correct, "pay": pay,
-		"expenses": 90, "balance": state.credits, "message": message,
+		"day": state.day, "reviewed": reviewed, "correct": correct, "pay": int(ledger.pay),
+		"expenses": int(ledger.expenses), "balance": state.credits, "message": message,
 		"timed_out": handed_off > 0, "handed_off": handed_off, "shift_seconds": state.shift_seconds,
+		"ledger": ledger,
 	}
-	state.shift_history.append({"day": state.day, "shift_seconds": state.shift_seconds, "reviewed": reviewed, "handed_off": handed_off})
+	state.shift_history.append({"day": state.day, "shift_seconds": state.shift_seconds, "reviewed": reviewed, "handed_off": handed_off, "balance": state.credits})
+	# In the red two closings running: collections calls, and it wears on you.
+	var debt_days: int = Payroll.debt_days(state)
+	state.last_debrief.debt_days = debt_days
+	if debt_days >= Payroll.DEBT_DAYS:
+		state.stress = clampi(int(state.stress) + Payroll.DEBT_STRESS, 0, 100)
+		_record(state, "Collections called. %d closings in the red. Stress +%d." % [debt_days, Payroll.DEBT_STRESS])
 	state.active_request_id = ""
 	state.desk_line = []
 	state.desk_at = -1
@@ -547,6 +568,8 @@ static func _resolve_early_ending(state: Dictionary) -> void:
 	if not str(state.ending).is_empty(): return
 	if int(state.trust) < FIRE_TRUST or int(state.stress) >= 100:
 		state.ending = "player_fired"
+	elif Payroll.garnished(int(state.credits)):
+		state.ending = "garnished"
 	elif Staff.whole_team_fired(state):
 		state.ending = "team_fired"
 	if not str(state.ending).is_empty():
@@ -582,12 +605,12 @@ static func _evening(state: Dictionary, choice: String) -> void:
 			state.stress = clampi(int(state.stress) - 24, 0, 100)
 			_record(state, "You go home and rest. Stress -24.")
 		"socialize":
-			state.credits = clampi(int(state.credits) - 15, -9999, 9999)
+			state.credits = clampi(int(state.credits) - Payroll.DINNER, -9999, 9999)
 			state.stress = clampi(int(state.stress) - 8, 0, 100)
 			# Only the people on the team (joined, and not let go) come to dinner.
 			for author: String in Staff.team(state, int(state.day)):
 				state.coworkers[author] = clampi(int(state.coworkers.get(author, 50)) + 4, 0, 100)
-			_record(state, "Dinner with the team costs 15. Relationships +4; stress -8.")
+			_record(state, "Dinner with the team costs %d %s. Relationships +4; stress -8." % [Payroll.DINNER, Payroll.CURRENCY])
 		"study":
 			state.trust = clampi(int(state.trust) + 4, 0, 100)
 			state.stress = clampi(int(state.stress) + 4, 0, 100)
@@ -663,13 +686,15 @@ static func validate_save(value: Variant) -> Dictionary:
 		return _invalid("invalid day or active request.")
 	if value.get("phase") not in ["review", "debrief", "complete"] or typeof(value.get("consulted")) != TYPE_BOOL:
 		return _invalid("invalid phase or consultation flag.")
+	if typeof(value.get("practice")) != TYPE_BOOL:
+		return _invalid("invalid practice flag.")
 	if not _rule_list(value.get("selected_rules"), int(value.day)):
 		return _invalid("selected rules must be unique active rule IDs.")
 	# Each authored PR has up to three versions; each can be consulted, stamped twice
 	# (once more after a withdrawn pushback), and answered once, plus replies.
 	if typeof(value.get("actions")) != TYPE_ARRAY or value.actions.size() > campaign_size * 16 + days.size() * 2:
 		return _invalid("invalid or oversized action history.")
-	var replay: Dictionary = initial_state()
+	var replay: Dictionary = initial_state(bool(value.practice))
 	for index in range(value.actions.size()):
 		var event: Variant = value.actions[index]
 		if typeof(event) != TYPE_DICTIONARY or not _integer(event.get("day"), int(replay.day), int(replay.day)) or not _integer(event.get("shift_seconds"), int(replay.shift_seconds), Catalog.shift_seconds()):

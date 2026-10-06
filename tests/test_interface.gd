@@ -34,7 +34,7 @@ func _run() -> void:
 	await _test_desktop()
 	_test_no_slouch()
 	check(ui._clock_label.text == "09:00", "Desktop clock must start at nine")
-	check(ui._pr_id.text == "PR-1042 / AWAITING REVIEW" and not ui._diff.text.is_empty(), "The day's first PR is already on the desk at shift start")
+	check(ui._pr_id.text == "PR-2001 / AWAITING REVIEW" and not ui._diff.text.is_empty(), "The day's first PR is already on the desk at shift start")
 	check(ui.find_children("*", "OptionButton", true, false).size() == 1, "Review has no arrived-PR picker; the only dropdown is the file picker")
 	for button: Node in ui._windows.review.find_children("*", "Button", true, false):
 		check(not button.text.contains("NEXT PR"), "Review has no NEXT PR button")
@@ -168,9 +168,17 @@ func _run() -> void:
 			# Choose the evening through the panel's own buttons, in turn.
 			var choices: Array = ui._evening_buttons.find_children("*", "Button", true, false)
 			var day_before := int(state.day)
-			choices[evenings % choices.size()].pressed.emit()
+			var pick: int = evenings % choices.size()
+			if (choices[pick] as Button).disabled:
+				# Dinner the balance can't cover: the button is off, and forcing it does nothing.
+				check(pick == 1 and not Simulation.Payroll.can_dine(int(state.credits)), "Only an unaffordable dinner is ever disabled")
+				var before: Dictionary = state.duplicate(true)
+				choices[pick].pressed.emit()
+				check(state == before, "A dinner the balance can't cover changes nothing")
+				pick = 0
+			choices[pick].pressed.emit()
 			check(int(state.day) == day_before + 1 or state.phase == "complete", "Choosing an evening advances the day")
-			check(state.shift_history[-1].evening_choice == ["rest", "socialize", "study"][evenings % 3], "Each evening button sends its own choice")
+			check(state.shift_history[-1].evening_choice == ["rest", "socialize", "study"][pick], "Each evening button sends its own choice")
 			if state.phase == "review":
 				check(not ui._windows.evening.visible and not ui._dock_buttons.evening.visible, "The end-of-day panel goes away with the evening")
 			office.set_story(int(state.day), int(state.autonomy))
@@ -331,6 +339,13 @@ func _check_evening(final: bool) -> void:
 	check(not evening.close_button.visible, "The end-of-day panel cannot be closed before the evening is chosen")
 	check(not ui._windows.review.visible, "Closing puts the desk away")
 	check(ui._evening_face.is_visible_in_tree() and ui._evening_face is TextureRect and ui._evening_face.texture == Interface.Portraits.texture_for("Morgan"), "The panel shows Morgan's cat portrait")
+	# The payslip: every ledger line, ending at the balance.
+	var ledger: Dictionary = state.last_debrief.ledger
+	var slip: Array = ui._evening_ledger.find_children("*", "Label", true, false).map(func(label: Node) -> String: return str(label.text))
+	check(ui._evening_ledger.is_visible_in_tree() and "PAYSLIP" in slip and "BALANCE" in slip and Simulation.Payroll.balance_text(int(ledger.end)) in slip, "The panel shows the day's payslip, ending at the balance: " + str(slip))
+	check(ledger.lines.all(func(line: Dictionary) -> bool: return str(line.label) in slip and Simulation.Payroll.signed(int(line.amount)) in slip), "Every ledger line is on the payslip")
+	check(int(ledger.end) == int(state.credits) or state.phase == "complete", "The payslip's balance is the balance")
+	check(ui._evening_stress_word.text in Interface.STRESS_WORDS.map(func(band: Array) -> String: return str(band[1])) and ui._evening_trust.text.begins_with("MORGAN'S TRUST: ") and ui._evening_team.text.begins_with("TEAM: "), "Tonight shows stress, Morgan's trust, and the team in words")
 	check(ui._evening_when.text.begins_with(Interface.day_label(int(state.day))), "The panel names the day that just closed")
 	var notes: Array = ui._evening_notes.find_children("*", "Label", true, false).map(func(label: Node) -> String: return str(label.text))
 	var closing: Array = ui._evening_closing.get_children().map(func(label: Node) -> String: return str(label.text))
@@ -355,17 +370,25 @@ func _check_evening(final: bool) -> void:
 ## Each evening choice says what it does, under its button and on hover, in words.
 func _check_evening_descriptions(buttons: Array) -> void:
 	# What each choice does (Simulation._evening), as the words must convey it.
-	var meaning := {"GO HOME": ["calmer"], "GET DINNER": ["Costs", "coworkers", "unwind"], "STUDY": ["Morgan", "tired"]}
+	var meaning := {"GO HOME": ["calmer"], "GET DINNER": ["coworkers", "unwind"], "STUDY": ["Morgan", "tired"]}
 	var digits := RegEx.create_from_string("\\d")
 	check(buttons.size() == Interface.EVENINGS.size(), "Every evening choice has a button")
 	for index in range(buttons.size()):
 		var button: Button = buttons[index]
 		var about: Label = button.get_meta("about")
-		var expected: String = Interface.EVENINGS[index].about
+		var price: Label = button.get_meta("price")
+		var item: Dictionary = Interface.EVENINGS[index]
+		var expected: String = str(item.broke) if button.disabled else str(item.about)
 		check(about.is_visible_in_tree() and about.text == expected and button.tooltip_text == expected, "%s shows what it does, under the button and as its tooltip" % button.text)
 		check(digits.search(about.text) == null, "%s describes its effect without numbers" % button.text)
-		for word: String in meaning[button.text]:
-			check(about.text.contains(word), "%s's description conveys its effect (%s)" % [button.text, word])
+		check(price.is_visible_in_tree() and price.text.contains("stress"), "%s shows its price and effects at a glance: %s" % [button.text, price.text])
+		if button.text == "GET DINNER":
+			check(price.text.begins_with("−%d CR" % Simulation.Payroll.DINNER) and price.text.contains("team"), "Dinner shows what it costs: " + price.text)
+		else:
+			check(price.text.begins_with("FREE"), "%s is free: %s" % [button.text, price.text])
+		if not button.disabled:
+			for word: String in meaning[button.text]:
+				check(about.text.contains(word), "%s's description conveys its effect (%s)" % [button.text, word])
 
 ## Loading a save at closing, or after the assignment, opens Morgan's panel straight away.
 func _test_loaded_evening() -> void:

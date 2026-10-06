@@ -97,11 +97,16 @@ func _test_desk_arrivals() -> void:
 func _test_timeout_history() -> void:
 	var state: Dictionary = Simulation.initial_state()
 	var total_handed_off: int = 0
+	var Payroll = Simulation.Payroll
+	var balance: int = Payroll.START
 	for day: int in Catalog.campaign_days():
+		var overdraft: int = Payroll.OVERDRAFT if balance < 0 else 0
 		state = Simulation.advance(state, 99999)
+		balance += Payroll.DAY_RATE - Payroll.SURCHARGE - overdraft - Payroll.fixed_costs()
 		total_handed_off += Catalog.requests_for_day(day).size()
 		_check(state.decisions.is_empty(), "Timeout must not fabricate player approvals or rejections.")
-		_check(state.last_debrief.timed_out and state.last_debrief.reviewed == 0 and state.last_debrief.pay == 80 and state.last_debrief.expenses == 90, "No signed work earns only base pay and no review bonus.")
+		_check(state.last_debrief.timed_out and state.last_debrief.reviewed == 0 and state.last_debrief.pay == Payroll.DAY_RATE - Payroll.SURCHARGE - overdraft and state.last_debrief.expenses == Payroll.fixed_costs(), "No signed work earns only the day rate, less Helios's surcharge.")
+		_check(state.credits == balance and not Payroll.garnished(balance), "Idling loses money, slowly enough to finish the run.")
 		_check(state.last_debrief.handed_off == Catalog.requests_for_day(day).size(), "All remaining work must transfer to Helios at the bell.")
 		_check(state.autonomy == mini(100, 10 + day * 4 + total_handed_off), "Missed work must increase automation authority in addition to the daily expansion.")
 		_round_trip(state)
@@ -109,7 +114,7 @@ func _test_timeout_history() -> void:
 		if state.phase == "review":
 			_check(state.shift_seconds == 0 and _desk_id(state) == Catalog.requests_for_day(int(state.day))[0].id, "A new day resets the clock and puts its first PR on the desk.")
 		_round_trip(state)
-	_check(state.phase == "complete" and state.credits == 120 - 10 * Catalog.campaign_days().size() and state.chat_replies.is_empty(), "An entirely missed campaign must finish safely without imaginary interaction.")
+	_check(state.phase == "complete" and state.credits == balance and state.chat_replies.is_empty(), "An entirely missed campaign must finish safely without imaginary interaction.")
 	_check(Simulation.advance(state, 300) == state, "Complete careers cannot run another shift.")
 
 func _test_save_replay() -> void:

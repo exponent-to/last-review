@@ -108,6 +108,30 @@ func _test_assignment_rule() -> void:
 func _next_morning(state: Dictionary, choice: String = "rest") -> Dictionary:
 	return Simulation.dispatch(Simulation.advance(state, Catalog.shift_seconds()), {"type": "next-day", "choice": choice})
 
+## Work the day carefully (so payroll can cover dinner), then dine with the team,
+## checking that everyone at the table, and only them, warmed up by the same amount.
+func _work_and_dine(state: Dictionary) -> Dictionary:
+	while state.phase == "review":
+		if not Encounters.pending(state).is_empty():
+			state = Simulation.dispatch(state, {"type": "pushback", "choice": "insist"})
+			continue
+		var desk: Dictionary = Simulation.active_request(state)
+		if desk.is_empty():
+			var coming: bool = int(state.desk_at) >= 0 and int(state.desk_at) < Catalog.shift_seconds()
+			state = Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds) if coming else Catalog.shift_seconds())
+			continue
+		var packet: Dictionary = Catalog.packet(state, str(desk.id))
+		for rule_id: String in packet.violations: state = Simulation.dispatch(state, Catalog.audit_citation(packet, rule_id))
+		state = Simulation.dispatch(state, {"type": "review", "verdict": "approve" if packet.violations.is_empty() else "request_changes"})
+	_check(Simulation.Payroll.can_dine(int(state.credits)), "Careful work pays for dinner on day %d" % int(state.day))
+	var before: Dictionary = state.coworkers.duplicate()
+	var table: Array = Policy.staff(int(state.day))
+	state = Simulation.dispatch(state, {"type": "next-day", "choice": "socialize"})
+	for author: String in before:
+		var warmed: int = mini(100, int(before[author]) + 4) if author in table else int(before[author])
+		_check(int(state.coworkers[author]) == warmed, "Dinner warms exactly the people at the table (%s, day %d)" % [author, int(state.day) - 1])
+	return state
+
 func _round_trip(state: Dictionary, label: String) -> void:
 	var raw := Simulation.serialize_save(state)
 	_check(not raw.is_empty(), "Saves on " + label)
@@ -120,19 +144,17 @@ func _test_joining() -> void:
 	_check(state.coworkers.keys() == ORIGINALS, "Day one's team is Maya, Theo, and June")
 	# Dinner on the second evening is before Penny's time; it doesn't count for her.
 	state = _next_morning(state)
-	state = _next_morning(state, "socialize")
+	state = _work_and_dine(state)
 	_check(int(state.day) == 3 and state.coworkers.has("Penny") and int(state.coworkers.Penny) == int(Policy.ROSTER.Penny.relationship), "Penny joins on day 3 at her starting relationship, untouched by an earlier dinner")
 	_check(not state.coworkers.has("Gwen"), "Gwen isn't here yet on day 3")
-	_check(int(state.coworkers.Maya) == 54, "The team that went to dinner did warm up")
 	_check(Encounters.mood(state, "Penny") == "neutral" and Encounters.mood(state, "Gwen") == "neutral", "Both newcomers start out neutral")
 	_check(state.log.any(func(entry: Dictionary) -> bool: return str(entry.message).contains("Penny joins")), "The log notes Penny joining")
 	_round_trip(state, "Penny's first morning")
 	var forged := Simulation.initial_state()
 	forged.coworkers.Penny = 56
 	_check(not Simulation.validate_save(forged).ok, "A save can't hire Penny early")
-	while int(state.day) < 6: state = _next_morning(state, "socialize")
-	_check(state.coworkers.keys() == Policy.AUTHORS and int(state.coworkers.Gwen) == int(Policy.ROSTER.Gwen.relationship), "Gwen joins on day 6; the whole team is there")
-	_check(int(state.coworkers.Penny) == int(Policy.ROSTER.Penny.relationship) + 12, "Penny came to the dinners after she joined")
+	while int(state.day) < 6: state = _work_and_dine(state)
+	_check(state.coworkers.keys() == Policy.AUTHORS and int(state.coworkers.Gwen) == int(Policy.ROSTER.Gwen.relationship), "Gwen joins on day 6 at her starting relationship, untouched by earlier dinners; the whole team is there")
 	_round_trip(state, "Gwen's first morning")
 	forged = state.duplicate(true)
 	forged.coworkers.erase("Gwen")

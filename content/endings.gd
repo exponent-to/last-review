@@ -1,7 +1,8 @@
 extends RefCounted
 ## How the run ends. The two-week matrix crosses whether Helios's payloads were
-## blocked or let through with whether the surviving team is on your side. Two
-## special endings interrupt earlier: you are let go, or the whole team is.
+## blocked or let through with whether the surviving team is on your side. Three
+## special endings interrupt earlier: you are let go, Payroll garnishes you
+## (content/payroll.gd), or the whole team is let go.
 ##
 ## Each ending has a title card, a one-line log summary, Morgan's closing words,
 ## and a short list of cinematic beats (timed text for native/interface.gd).
@@ -66,6 +67,18 @@ const CARDS := {
 			"The badge comes off the lanyard.",
 			"Helios is already logged into your workstation.",
 			"The amber eyes watch you to the elevator.",
+		],
+	},
+	"garnished": {
+		"title": "Garnished",
+		"summary": "Payroll garnished your wages to nothing. Paperclip Labs cannot employ someone it owns this much of.",
+		"morgan": "Payroll flagged you before I could. Your balance went past what the credit union calls a 'relationship', and the policy is automatic: garnish the wages, then release the employee to opportunity. I asked for an exception. Helios approved the garnishment in four milliseconds. Leave the lanyard; it was leased. I'll pay for the cab. Don't tell anyone, or it becomes a benefit.",
+		"beats": [
+			"Payroll sends the notice at 18:01.",
+			"Every credit you earned is already spoken for.",
+			"The lanyard goes back to the leasing office.",
+			"Helios offers you a payday advance. At the door.",
+			"The amber eyes watch you count change for the bus.",
 		],
 	},
 	"team_fired": {

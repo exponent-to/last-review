@@ -45,7 +45,7 @@ func _test_evening(before: Dictionary, closed: Dictionary) -> void:
 	var copy: Dictionary = Chat._authored().manager
 	check(Chat.evening(before).is_empty() and Chat.evening(Simulation.initial_state()).is_empty(), "Morgan's panel has nothing to say while the shift is open.")
 	var evening: Dictionary = Chat.evening(closed)
-	check(int(evening.day) == 1 and evening.closing == [str(copy.closing)], "Closing the first day gives Morgan's closing message.")
+	check(int(evening.day) == 1 and evening.closing == [str(copy.closings[1])] and str(copy.closings[1]).contains("earned") and str(copy.closings[1]).contains("tonight"), "Closing the first day, Morgan says why the panel opens: what you earned, what it cost, and tonight's choice.")
 	var prose := JSON.stringify(evening)
 	check(prose.contains("Compliance bounced a release") and prose.contains("Helios picked up the remaining queue"), "The day's notes carry the shipped bug and the handoff to Helios.")
 	check(not prose.contains(str(copy.intro)), "The morning intro is not part of the evening.")

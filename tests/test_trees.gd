@@ -4,8 +4,8 @@ extends SceneTree
 const Trees = preload("res://content/trees.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Encounters = preload("res://content/encounters.gd")
-## Every one of the campaign's 150 PRs has its own tree.
-const MIN_TREES := 150
+## Every one of the campaign's 150 PRs has its own tree, and so does the practice PR.
+const MIN_TREES := 151
 const MAX_LENGTH := 70
 const PLACEHOLDERS := ["{topic}", "{Topic}", "{topics}", "{Topics}", "{fixes}", "{Fixes}"]
 ## Moments where the author must name what you cited, in plain words.
@@ -20,6 +20,8 @@ func _initialize() -> void:
 	var braces := RegEx.create_from_string("\\{[^}]*\\}")
 	var by_title := {}
 	for packet: Dictionary in Catalog.originals(): by_title[str(packet.title)] = packet
+	# Orientation's practice PR keeps its own tree too.
+	by_title[str(Catalog.practice().title)] = Catalog.practice()
 	var trees: Dictionary = Trees.all()
 	var seen := {}
 	var count := 0
@@ -27,7 +29,7 @@ func _initialize() -> void:
 		if title == "__none__": continue
 		count += 1
 		var tree: Dictionary = trees[title]
-		check(by_title.has(title), "A tree belongs to a real campaign PR: " + title)
+		check(by_title.has(title), "A tree belongs to a real campaign or practice PR: " + title)
 		if not by_title.has(title): continue
 		check(str(tree.get("author", "")) == str(by_title[title].author), "The tree speaks as the PR's author (%s): %s" % [by_title[title].author, title])
 		for channel: String in ["desk", "dm"]:

@@ -71,7 +71,7 @@ func _round_trip(state: Dictionary) -> void:
 
 func _test_reviews() -> void:
 	var initial: Dictionary = _first_request_state()
-	_check(initial.credits == 120 and initial.trust == 70 and initial.stress == 20 and initial.autonomy == 10, "Initial resources must match the career design.")
+	_check(initial.credits == Simulation.Payroll.START and initial.trust == 70 and initial.stress == 20 and initial.autonomy == 10, "Initial resources must match the career design.")
 	_check(Simulation.advance(initial, 0) == initial, "A paused clock must not change the game.")
 	# A change request with no citations is now a deliberate, unexplained rejection:
 	# it advances, Helios merges the PR, and a non-payload block grades incorrect.
@@ -135,7 +135,8 @@ func _test_reviews() -> void:
 
 func _test_career() -> void:
 	var state: Dictionary = Simulation.initial_state()
-	var expected_credits: int = 120
+	var Payroll = Simulation.Payroll
+	var expected_credits: int = Payroll.START
 	var shifts: int = 0
 	for day: int in Catalog.campaign_days():
 		shifts += 1
@@ -159,9 +160,9 @@ func _test_career() -> void:
 		_check(state.phase == "review" and state.desk_line.is_empty(), "Clearing the line must not close the shift before the deadline.")
 		state = Simulation.advance(state, Simulation.Catalog.shift_seconds())
 		_check(state.phase == "debrief" and state.day == day, "The final authored PR in a shift must enter that day's debrief.")
-		_check(state.last_debrief.pay == 80 + 10 * signed and state.last_debrief.expenses == 90 and state.last_debrief.correct == signed and state.last_debrief.reviewed == signed and state.last_debrief.handed_off == 0, "Daily pay must reflect audit correctness, revisions included.")
-		expected_credits += 80 + 10 * signed - 90
-		_check(state.credits == expected_credits, "Daily economy must apply exactly once.")
+		_check(state.last_debrief.pay == Payroll.DAY_RATE + Payroll.PER_REVIEW * signed and state.last_debrief.expenses == Payroll.fixed_costs() and state.last_debrief.correct == signed and state.last_debrief.reviewed == signed and state.last_debrief.handed_off == 0, "Daily pay must reflect every signed review, revisions included.")
+		expected_credits += Payroll.DAY_RATE + Payroll.PER_REVIEW * signed - Payroll.fixed_costs()
+		_check(state.credits == expected_credits and state.last_debrief.ledger.end == expected_credits, "Daily economy must apply exactly once.")
 		_check(state.autonomy == mini(100, 10 + 4 * shifts + _takeovers(state)), "Management must increase automation authority each day, and Helios takes third-round escalations.")
 		var frozen: Dictionary = state.duplicate(true)
 		for command: Dictionary in [{"type": "review", "verdict": "approve"}, {"type": "consult-ai"}, {"type": "next-day", "choice": "invalid"}]:
@@ -177,7 +178,7 @@ func _test_career() -> void:
 		debrief = _resolve(debrief)
 	debrief = Simulation.advance(debrief, Simulation.Catalog.shift_seconds())
 	var social: Dictionary = Simulation.dispatch(debrief, {"type": "next-day", "choice": "socialize"})
-	_check(social.credits == debrief.credits - 15 and social.coworkers.Maya == mini(100, debrief.coworkers.Maya + 4), "Socializing must charge once and improve relationships.")
+	_check(social.credits == debrief.credits - Simulation.Payroll.DINNER and social.coworkers.Maya == mini(100, debrief.coworkers.Maya + 4), "Socializing must charge once and improve relationships.")
 	_round_trip(social)
 	var studied: Dictionary = Simulation.dispatch(debrief, {"type": "next-day", "choice": "study"})
 	_check(studied.trust == mini(100, debrief.trust + 4) and studied.stress == mini(100, debrief.stress + 4), "Studying must improve trust at a stress cost.")

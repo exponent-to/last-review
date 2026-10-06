@@ -24,9 +24,11 @@ var paperwork := RegEx.create_from_string("(?i)\\b(strings?|lines?|files?|typos?
 func _initialize() -> void:
 	var entries: Array = Bank.entries()
 	_check(entries.size() >= 160, "The bank holds at least 160 encounters.")
-	_test_identity(entries)
 	for index in range(entries.size()):
 		_test_entry(entries[index], index)
+	# Orientation's practice PR lives outside the campaign bank, under the same rules.
+	_test_entry(Bank.practice(), Campaign.PRACTICE_ENTRY)
+	_test_identity(entries + [Bank.practice()])
 	_check(Bank.entries() == entries and Bank.entries() != [], "The bank is stable between calls.")
 	print("PR bank checks: %d passed, %d failed." % [checks - failures, failures])
 	quit(1 if failures else 0)
@@ -129,7 +131,7 @@ func _test_faults(entry: Dictionary, index: int) -> void:
 
 ## A one-file PR on this entry, with a slot and author so it gets a ticket and a build.
 func _recipe(index: int, day: int, faults: Array) -> Dictionary:
-	return {"entry": index, "day": day, "slot": index, "author": "Maya", "files": ["primary"], "decoys": [], "notes": [], "permits": [], "faults": faults}
+	return {"entry": index, "day": day, "slot": maxi(index, 0), "author": "Maya", "files": ["primary"], "decoys": [], "notes": [], "permits": [], "faults": faults}
 
 func _test_dialogue(path: String, entry: Dictionary) -> void:
 	for field: String in FIELDS:
