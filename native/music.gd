@@ -17,12 +17,12 @@ extends Node
 ##
 ## Pause and focus loss duck at once, behind a low-pass on the Music bus. The
 ## MUSIC toggle and volume persist in `settings_path`. On the web the music
-## starts with the first click or key press, as browsers require; there the
-## players use Web Audio samples (Godot's web default), which skip bus effects,
-## so pause relies on the lower level. Web samples also ignore a stream's loop
-## offset (they restart from where play() began), so on the web loops are
-## driven here: each pass plays a non-looping copy, and when it ends the
-## looping stream starts at its loop offset, which the browser then repeats.
+## starts with the first click or key press, as browsers require, and plays as
+## a stream (bus effects and loop offsets work as on desktop). With
+## ?music=sample the players use Web Audio samples instead, which skip bus
+## effects and ignore a stream's loop offset, so loops are then driven here:
+## each pass plays a non-looping copy, and when it ends the looping stream
+## starts at its loop offset, which the browser then repeats.
 
 signal enabled_changed(enabled: bool)
 
@@ -134,9 +134,10 @@ func _ready() -> void:
 	enabled = settings.enabled
 	volume = settings.volume
 	_ensure_bus()
-	# Web diagnostics: ?music=stream plays through Godot's streamed output
-	# instead of Web Audio samples (which also honour loop offsets themselves).
-	var streamed := OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains("music=stream")
+	# On the web, music plays through Godot's streamed output: in some Chrome
+	# setups Web Audio samples start and run but come out silent. Streams also
+	# honour loop offsets themselves. ?music=sample restores samples to compare.
+	var streamed := OS.has_feature("web") and not str(JavaScriptBridge.eval("location.search", true)).contains("music=sample")
 	if streamed: manual_loops = false
 	for track: String in TRACKS:
 		var player := AudioStreamPlayer.new()
