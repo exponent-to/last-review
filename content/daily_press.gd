@@ -38,10 +38,10 @@ static func memo(day: int) -> Dictionary:
 	result.subject = SUBJECTS[day - 1]
 	result.body = BODIES[day - 1]
 	result.mechanics = [
-		"Work lands on your desk one PR at a time, and REVIEW shows a badge when it does. You can't pick or skip; the next one arrives a moment after you stamp.",
+		"Work lands on your desk one PR at a time while the rest wait in line, and REVIEW's badge counts the line. You can't pick or skip; the front of the line steps up a moment after you stamp.",
 		"Every changed file is shown in full with its changes marked: + added, − removed. The file list marks each file A, M, or R, and the diffstat totals the whole PR. Read the keyword colors yourself. Nobody will read them for you.",
 		"If every standard is met, stamp APPROVED. If not, click the offending line in Review (or WHOLE FILE), pick the standard it breaks, then stamp CHANGES REQUESTED. An uncited objection is not an objection.",
-		"Your shift is three minutes from BEGIN SHIFT. You may pause; the line will not. Whatever remains at closing is reassigned to Helios.",
+		"Your shift starts at BEGIN SHIFT and ends at 18:00. You may pause; the line will not. Whatever remains at closing is reassigned to Helios.",
 	]
 	var policy = Catalog.policy()
 	if day >= int(policy.JIRO_DAY):

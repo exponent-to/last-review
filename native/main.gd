@@ -221,7 +221,7 @@ func _on_command(command: Dictionary) -> void:
 
 func _on_save() -> void:
 	var result: Dictionary = SaveStore.save_game(state, tutorial, active_slot)
-	interface.notify("Saved to Slot %d on this computer." % active_slot if result.ok else str(result.error), not result.ok)
+	interface.notify("Shift records saved to Slot %d on this workstation." % active_slot if result.ok else str(result.error), not result.ok)
 
 func _on_load(slot: int = 0) -> void:
 	var target_slot := active_slot if slot == 0 else slot
@@ -241,7 +241,7 @@ func _on_load(slot: int = 0) -> void:
 	_set_paused(state.phase == "review")
 	if tutorial.is_empty() and state.phase == "review" and int(state.shift_seconds) == 0:
 		interface.begin_morning()
-	interface.notify(str(result.error) if not str(result.get("error", "")).is_empty() else "Saved game loaded.")
+	interface.notify(str(result.error) if not str(result.get("error", "")).is_empty() else "Shift records restored.")
 
 func _on_reset() -> void:
 	# Preserve the current run before choosing a separate or replacement slot.

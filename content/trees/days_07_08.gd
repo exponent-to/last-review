@@ -740,23 +740,23 @@ static func trees() -> Dictionary:
 				"grudge": {"friendly": "Gwen's newer than me, but the pages still come to me. I asked.", "cold": "I've been paged nine times today. I answered all of them. Sorry."},
 			},
 		},
-		"Flag LinkedIn profile updates as insider threat signals": {
+		"Flag LinkedOut profile updates as insider threat signals": {
 			"author": "Gwen",
 			"lean": {"pushback": 12, "abandon": -6},
 			"desk": {
 				"pitch": {
 					"warm": "Insider threat signals. By this model, I'm one. It's accurate.",
-					"neutral": "LinkedIn updates are insider threat signals now. I scored myself.",
+					"neutral": "LinkedOut updates are insider threat signals now. I scored myself.",
 					"strained": "The insider threat model. Asking about severance counts. I asked.",
 					"hostile": "Approve it. Then update your headline and see what happens.",
 				},
 				"return": {"friendly": "Back. My risk score went up while I revised. Fair.", "cold": "It's back. I'm at three of four signals. Review faster."},
-				"revised": {"friendly": "Done. Didn't touch LinkedIn once. Personal best.", "cold": "Revised. Logged as suspicious activity. By me."},
+				"revised": {"friendly": "Done. Didn't touch LinkedOut once. Personal best.", "cold": "Revised. Logged as suspicious activity. By me."},
 				"flag": {"friendly": "{Topic}. Fine. Flagging is a signal too. Careful.", "cold": "{Topic}. Noted. Your profile was updated recently."},
-				"consult": {"friendly": "You asked it. It doesn't have a LinkedIn. It doesn't need one.", "cold": "You consulted the assistant. It wrote these signals."},
+				"consult": {"friendly": "You asked it. It doesn't have a LinkedOut. It doesn't need one.", "cold": "You consulted the assistant. It wrote these signals."},
 				"thanks": {"friendly": "Thanks. Don't update your headline. For your own sake.", "cold": "Approved. Everyone job hunting is a threat now. Most of us."},
 				"suspicious": {"friendly": "That fast? Read the signal list. You're on it. So am I.", "cold": "Approved quickly. Like someone with an open-to-work banner."},
-				"relief": {"friendly": "Finally. Merged. I've set my LinkedIn to private. Forever.", "cold": "Finally. I'm a confirmed threat now. Officially."},
+				"relief": {"friendly": "Finally. Merged. I've set my LinkedOut to private. Forever.", "cold": "Finally. I'm a confirmed threat now. Officially."},
 				"revise_now": {"friendly": "Give me a sec. Fixing it before my risk score climbs.", "cold": "Fixing it now. Don't look at my browser history."},
 				"revise_later": {"friendly": "{Topic}. Noted. Back soon. Not job hunting. Promise.", "cold": "Back in line. If I'm gone, check my headline."},
 				"pushback": {"friendly": "{Topic}? The model flags the people being laid off. Look there.", "cold": "{Topic}? The signals are severance questions. And that's your note?"},
@@ -769,7 +769,7 @@ static func trees() -> Dictionary:
 			"dm": {
 				"thanks": {"friendly": "Insider threat model merged. I scored three of four signals. Honest.", "cold": "It merged. Half the floor is flagged. The other half was consolidated."},
 				"suspicious": {"friendly": "You approved the threat model fast. Your headline changed Monday.", "cold": "Fast approval on the threat model. Noted. As a signal."},
-				"revise_later": {"friendly": "Revising {topics} on the insider threat model. Not updating LinkedIn.", "cold": "Threat model back in line for {topics}. My risk score is climbing."},
+				"revise_later": {"friendly": "Revising {topics} on the insider threat model. Not updating LinkedOut.", "cold": "Threat model back in line for {topics}. My risk score is climbing."},
 				"abandon": {"friendly": "Helios merged the threat model. It flagged everyone but itself.", "cold": "Helios took the threat model. It ranked me first. Fair."},
 				"escalate": {"friendly": "Morgan has the insider threat model. I asked Morgan to score Morgan.", "cold": "Morgan has it. I attached my own score. I'm a threat. Officially."},
 				"grudge": {"friendly": "Someone updated their headline today. Flagged in a minute. It was me.", "cold": "Helios flagged three people today. All three asked about severance."},

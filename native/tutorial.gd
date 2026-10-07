@@ -52,12 +52,12 @@ static func retry_practice_state(state: Dictionary) -> Dictionary:
 
 static func prompt(progress: Dictionary) -> Dictionary:
 	var steps := [
-		["ORIENTATION", "You don't need to know how to code. Check the letters, colors, and paperwork. This practice is untimed. Follow the arrows."],
+		["ORIENTATION", "Welcome to Paperclip Labs. You won't need to understand code here; you check letters, colors, and paperwork. Orientation is off the clock. HR has put arrows on your screen. Follow them."],
 		["OPEN REVIEW", "Maya's practice PR is on your desk. Open REVIEW."],
 		["LOOK AT BOTH FILES", "Use the file dropdown. Read the comments in each file. A comment is any text after #. You are checking appearances, not what the program does."],
 		["READ THE STANDARDS", "Three policies apply today. They change every second morning. Open INTRANET and choose STANDARDS to read them."],
 		["CITE THE PHRASE", "Policy P01 bans load-bearing in comments. In Review, open the file with that comment and click its line. Tick P01 on the citation slip at the right, then stamp CHANGES REQUESTED. The other policies pass."],
-		["READY", "That's the job. Your desk holds one PR at a time; stamp it and the next one lands a moment later. Maya will revise what you sent back, and it will come around again behind a couple of other PRs. You aren't expected to clear the line. Pause whenever you need. Start Monday when ready."]
+		["READY", "That's the job. Your desk holds one PR at a time; the rest wait in line, and the line grows all day. Stamp one and the next steps up a moment later. Maya will revise what you sent back, and it will come around again behind a couple of other PRs. Nobody expects you to clear the line. PAUSE stops the clock whenever you need it. Start Monday when ready."]
 	]
 	var entry: Array = steps[int(progress.stage)]
 	return {"title": entry[0], "body": entry[1]}
