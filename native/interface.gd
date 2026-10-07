@@ -92,13 +92,6 @@ const TRUST_WORDS := [[75, "solid"], [55, "steady"], [40, "wavering"], [30, "thi
 const TEAM_WORDS := [[62, "warm"], [42, "cordial"], [30, "cool"], [0, "cold"]]
 ## Segments in the evening panel's stress meter.
 const STRESS_SEGMENTS := 10
-const EVIDENCE_HINTS := {
-	"line": "Cite the exact line.",
-	"file": "Cite the file: WHOLE FILE or any of its lines.",
-	"pr": "About the whole PR: WHOLE FILE on any changed file.",
-	"issue": "Cite the PR's issue: open it in LINEAL and SELECT AS EVIDENCE. WHOLE FILE doesn't count.",
-	"build": "Cite the PR's build: open it in PIPELINE and SELECT AS EVIDENCE. WHOLE FILE doesn't count.",
-}
 ## How Lineal colors an issue status, and Pipeline a build status.
 const STATUS_COLORS := {"Backlog": Color("6d6a64"), "Todo": Color("d8d4c8"), "In Progress": Color("e0b44a"), "In Review": Color("6fdc8c"), "Done": Color("8b8ff0"), "Canceled": Color("8c8981"), "Duplicate": Color("8c8981"), "PASSED": Color("6fdc8c"), "FLAKY": Color("e0b44a"), "FAILED": Color("e5384a")}
 
@@ -1125,16 +1118,19 @@ func _build_decision(parent: Node) -> void:
 		var check := CheckBox.new()
 		check.text = id
 		check.add_theme_font_size_override("font_size", 12)
-		check.tooltip_text = "%s  %s\n\n%s" % [id, str(rule.title), str(rule.text)]
 		check.pressed.connect(_flag_rule.bind(id))
 		line.add_child(check)
 		var words := _column(line, 1)
 		var summary := _paragraph(words, _rule_summary(rule, 1), 11, DIM)
-		summary.mouse_filter = Control.MOUSE_FILTER_PASS
+		# The whole row is the tick box: a click anywhere on it cites the rule.
+		for part: Control in [line, words, summary]: part.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		slip.gui_input.connect(_on_slip_row_input.bind(id))
 		var where := _label(words, "", 10, RED)
 		where.clip_text = true
 		where.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		where.custom_minimum_size.x = 60
+		where.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		where.hide()
 		_flag_buttons[id] = check
 		_slip_rows[id] = {"panel": slip, "summary": summary, "where": where, "rule": rule}
@@ -1204,6 +1200,12 @@ func _clear_evidence() -> void:
 	_paint_evidence()
 
 
+func _on_slip_row_input(event: InputEvent, rule_id: String) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and not _flag_buttons[rule_id].disabled:
+		get_viewport().set_input_as_handled()
+		_flag_rule(rule_id)
+
+
 func _flag_rule(rule_id: String) -> void:
 	if _evidence.is_empty():
 		# With nothing selected, a ticked rule can still be withdrawn.
@@ -1239,7 +1241,6 @@ func _render_slip(state: Dictionary, can_review: bool) -> void:
 		for rule: Dictionary in Catalog.rules_for_day(day):
 			var id := str(rule.id)
 			_slip_rows[id].summary.text = _rule_summary(rule, day)
-			_flag_buttons[id].tooltip_text = "%s  %s\n\n%s\n\n%s" % [id, str(rule.title), str(rule.text), str(EVIDENCE_HINTS[load("res://content/policy_campaign.gd").scope(id)])]
 	# The citation an author is pushing back on is outlined in amber until answered.
 	var disputed: String = str(Encounters.pending(state).get("disputed", ""))
 	for id: String in _slip_rows:
@@ -1251,7 +1252,6 @@ func _render_slip(state: Dictionary, can_review: bool) -> void:
 		check.disabled = not can_review
 		row.where.visible = not location.is_empty()
 		row.where.text = "" if location.is_empty() else "→ " + _location_text(location) + ("  · DISPUTED" if id == disputed else "")
-		row.where.tooltip_text = row.where.text
 		row.where.add_theme_color_override("font_color", AMBER if id == disputed else RED)
 		row.summary.add_theme_color_override("font_color", TEXT if check.button_pressed else DIM)
 		var edge: Color = AMBER if id == disputed else (RED if check.button_pressed else BORDER)
