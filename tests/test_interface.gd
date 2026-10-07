@@ -84,8 +84,12 @@ func _run() -> void:
 	check(state.selected_rules == ["P01"] and int(state.citation_evidence.P01.line) == other_line, "Re-flagging a rule moves its citation")
 	ui._diff.set_caret_line(ui._row_for_line(int(finding.line)))
 	ui._point_at(-1)
-	ui._flag_buttons.P01.pressed.emit()
-	check(int(state.citation_evidence.P01.line) == int(finding.line), "The citation can be moved back to the real evidence")
+	var row_click := InputEventMouseButton.new()
+	row_click.button_index = MOUSE_BUTTON_LEFT
+	row_click.pressed = true
+	ui._slip_rows.P01.panel.gui_input.emit(row_click)
+	check(int(state.citation_evidence.P01.line) == int(finding.line), "Clicking anywhere on a slip row cites its rule, and can move the citation back")
+	check(ui._flag_buttons.P01.tooltip_text.is_empty() and ui._slip_rows.P01.panel.tooltip_text.is_empty(), "Slip rows carry no hover tooltip")
 	ui._flag_buttons.P02.pressed.emit()
 	check(not state.selected_rules.has("P02") and not ui._flag_buttons.P02.button_pressed, "Ticking with no line selected asks for the evidence first")
 	check(ui._approve.disabled and not ui._reject.disabled, "Citations must gate the correct decision controls")
