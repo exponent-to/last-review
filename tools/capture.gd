@@ -31,6 +31,10 @@ func _later(app: Node) -> void:
 	app._build_interface()
 	app.interface.begin_morning()
 	var tag := "day%02d" % later_day
+	await _busy(app, state, tag)
+	app.state = state
+	app._build_interface()
+	app.interface.begin_morning()
 	await _shot("20-%s-morning-news" % tag)
 	app.interface._browse("memo")
 	await _shot("21-%s-memo" % tag)
@@ -75,6 +79,43 @@ func _later(app: Node) -> void:
 	app._render()
 	await _shot("25-%s-end-of-day" % tag)
 
+## Mid-afternoon at a careful reviewer's pace (one signature every 25 seconds):
+## the line outside has grown, ages are turning amber and red, and REVIEW's badge
+## counts everyone waiting. Then the desktop, with the line's pings on the ticker.
+func _busy(app: Node, morning: Dictionary, tag: String) -> void:
+	var Simulation = Main.Simulation
+	var Catalog = Main.Simulation.Catalog
+	var at: Dictionary = morning
+	while at.phase == "review" and int(at.shift_seconds) < 118:
+		if not Encounters.pending(at).is_empty():
+			at = Simulation.dispatch(at, {"type": "pushback", "choice": "insist"}); continue
+		if Simulation.active_request(at).is_empty():
+			var next: int = Simulation.next_landing(at)
+			at = Simulation.advance(at, maxi(1, next - int(at.shift_seconds)) if next >= 0 else 1); continue
+		at = Simulation.advance(at, mini(25, 118 - int(at.shift_seconds)))
+		if int(at.shift_seconds) >= 118 or Simulation.active_request(at).is_empty(): continue
+		var packet: Dictionary = Catalog.packet(at, at.active_request_id)
+		for rule_id: String in packet.violations: at = Simulation.dispatch(at, Catalog.audit_citation(packet, rule_id))
+		at = Simulation.dispatch(at, {"type": "review", "verdict": "approve" if packet.violations.is_empty() else "request_changes"})
+	# Land whoever is next so an author is seated, then step the last minutes so
+	# the line's messages arrive the way the clock would bring them.
+	var landing: int = Simulation.next_landing(at)
+	if landing >= 0: at = Simulation.advance(at, landing - int(at.shift_seconds))
+	app.tutorial = {}
+	app.paused = false
+	app.state = at
+	app._build_interface()
+	await _settle(4)
+	app.interface._show_home()
+	for second in range(3):
+		app.state = Simulation.advance(app.state, 1)
+		app._render()
+	await _shot("22c-%s-desktop-busy-line" % tag)
+	app.interface._open_app("review")
+	await _beat(app.interface, 0.6)
+	await _shot("22a-%s-review-busy-line" % tag)
+
+
 ## Sign the next `count` PRs correctly, except the `careless`-th, which is approved
 ## unread. Pushbacks are insisted on.
 func _sign_some(app: Node, count: int, careless: int) -> void:
@@ -87,8 +128,8 @@ func _sign_some(app: Node, count: int, careless: int) -> void:
 			signed += 1
 			continue
 		if Simulation.active_request(app.state).is_empty():
-			if int(app.state.desk_at) < 0: return
-			app.state = Simulation.advance(app.state, int(app.state.desk_at) - int(app.state.shift_seconds))
+			if Simulation.next_landing(app.state) < 0: return
+			app.state = Simulation.advance(app.state, Simulation.next_landing(app.state) - int(app.state.shift_seconds))
 			continue
 		var packet: Dictionary = Catalog.packet(app.state, str(app.state.active_request_id))
 		var verdict := "approve"
@@ -107,8 +148,8 @@ func _records(app: Node, tag: String) -> void:
 	if int(app.state.day) < Policy.JIRO_DAY: return
 	while app.state.phase == "review":
 		if Simulation.active_request(app.state).is_empty():
-			if int(app.state.desk_at) < 0: return
-			app.state = Simulation.advance(app.state, int(app.state.desk_at) - int(app.state.shift_seconds))
+			if Simulation.next_landing(app.state) < 0: return
+			app.state = Simulation.advance(app.state, Simulation.next_landing(app.state) - int(app.state.shift_seconds))
 			continue
 		if not Encounters.pending(app.state).is_empty():
 			app.state = Simulation.dispatch(app.state, {"type": "pushback", "choice": "insist"})
@@ -284,8 +325,8 @@ func _story(app: Node) -> void:
 		if not Encounters.pending(at).is_empty():
 			at = Simulation.dispatch(at, {"type": "pushback", "choice": "insist"}); continue
 		if Simulation.active_request(at).is_empty():
-			var coming: bool = int(at.desk_at) >= 0 and int(at.desk_at) < Catalog.shift_seconds()
-			at = Simulation.advance(at, int(at.desk_at) - int(at.shift_seconds) if coming else Catalog.shift_seconds()); continue
+			var coming: bool = Simulation.next_landing(at) >= 0 and Simulation.next_landing(at) < Catalog.shift_seconds()
+			at = Simulation.advance(at, Simulation.next_landing(at) - int(at.shift_seconds) if coming else Catalog.shift_seconds()); continue
 		var packet: Dictionary = Catalog.packet(at, at.active_request_id)
 		if packet.get("payload", false): break
 		for rule_id: String in packet.violations: at = Simulation.dispatch(at, Catalog.audit_citation(packet, rule_id))
@@ -415,8 +456,8 @@ func _find_branch(node: String) -> Dictionary:
 			at = Simulation.dispatch(at, {"type": "next-day", "choice": "rest"})
 			continue
 		if Simulation.active_request(at).is_empty():
-			var coming: bool = int(at.desk_at) >= 0 and int(at.desk_at) < Catalog.shift_seconds()
-			at = Simulation.advance(at, int(at.desk_at) - int(at.shift_seconds) if coming else Catalog.shift_seconds())
+			var coming: bool = Simulation.next_landing(at) >= 0 and Simulation.next_landing(at) < Catalog.shift_seconds()
+			at = Simulation.advance(at, Simulation.next_landing(at) - int(at.shift_seconds) if coming else Catalog.shift_seconds())
 			continue
 		if not Encounters.pending(at).is_empty():
 			at = Simulation.dispatch(at, {"type": "pushback", "choice": "insist"})

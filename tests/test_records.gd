@@ -238,8 +238,8 @@ func _test_revisions() -> void:
 # --- Simulation -----------------------------------------------------------------
 
 func _land(state: Dictionary) -> Dictionary:
-	if not Simulation.active_request(state).is_empty() or int(state.desk_at) < 0: return state
-	return Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds))
+	if not Simulation.active_request(state).is_empty() or Simulation.next_landing(state) < 0: return state
+	return Simulation.advance(state, Simulation.next_landing(state) - int(state.shift_seconds))
 
 ## A career with `pr_id` on the desk (Helios takes every earlier day; earlier PRs that
 ## day are approved).

@@ -39,9 +39,9 @@ func _desk_id(state: Dictionary) -> String:
 
 ## Wait out the beat until the next PR lands, if one is coming.
 func _await_desk(state: Dictionary) -> Dictionary:
-	if not Simulation.active_request(state).is_empty() or int(state.desk_at) < 0:
+	if not Simulation.active_request(state).is_empty() or Simulation.next_landing(state) < 0:
 		return state
-	return Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds))
+	return Simulation.advance(state, Simulation.next_landing(state) - int(state.shift_seconds))
 
 func _test_clock() -> void:
 	var initial: Dictionary = Simulation.initial_state()

@@ -23,6 +23,8 @@ const Chat = preload("res://content/chat.gd")
 const TutorialPointer = preload("res://native/tutorial_pointer.gd")
 const DailyReader = preload("res://native/daily_reader.gd")
 const ReviewBanter = preload("res://native/review_banter.gd")
+const WaitingLine = preload("res://native/waiting_line.gd")
+const LinePressure = preload("res://content/line_pressure.gd")
 const Encounters = preload("res://content/encounters.gd")
 const Catalog = preload("res://content/catalog.gd")
 const Portraits = preload("res://native/portraits.gd")
@@ -216,6 +218,10 @@ var _code_legend: Label
 var _tutorial_details: Dictionary = {}
 var _paper: PanelContainer
 var _banter: ReviewBanter
+## The line outside: who is waiting for the desk, beside the seated author.
+var _line: WaitingLine
+## What the line has already said today (LinePressure), so it isn't repeated.
+var _pressure: Dictionary = LinePressure.empty_memory()
 var _last_feedback_key := "-"
 ## Encounter beats already played at the desk; -1 until the first render.
 var _beats_seen := -1
@@ -718,11 +724,15 @@ func _new_window(id: String, title: String) -> DesktopWindow:
 
 func _build_review_content(code: VBoxContainer) -> void:
 	# One PR at a time lands on the desk by itself; there is nothing to pick.
-	# The PR's author sits in the top-left corner and talks while you review.
+	# The PR's author sits in the top-left corner and talks while you review;
+	# the rest of the line waits in the top-right corner, first come, first served.
+	var seat_row := _row(code, 10)
 	_banter = ReviewBanter.new()
 	_banter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_banter.answered.connect(_answer_pushback)
-	code.add_child(_banter)
+	seat_row.add_child(_banter)
+	_line = WaitingLine.new()
+	seat_row.add_child(_line)
 	# The PR itself is a one-line paper slip: title and number, no description.
 	_paper = PanelContainer.new()
 	var paper_style := _style(PAPER, PAPER_LINE, 1, 12, 6)
@@ -1942,7 +1952,7 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(content, "SAVE AND SIGN OUT", func() -> void: menu_requested.emit())
 	_build_sound_settings(content)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. For ticket and build standards, open the PR's ticket in JIRO or its build in PIPELINE from the PR slip, SELECT AS EVIDENCE, then pick the standard. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. Helios's advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. For ticket and build standards, open the PR's ticket in JIRO or its build in PIPELINE from the PR slip, SELECT AS EVIDENCE, then pick the standard. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time; the rest wait in line outside, and more join it all day. Stamp the one on the desk and the front of the line steps up a moment later. REVIEW's badge counts the line. A PR you send back returns as a revision after a couple of others. Helios's advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
 
 
 ## SOUND: the soundtrack's on/off toggle and volume, kept on this computer.
@@ -2027,6 +2037,7 @@ func render_state(state: Dictionary) -> void:
 		if _browser_path in ["memo", "news", "standards"] or _browser_path.begins_with("story/"):
 			_browse("news" if _browser_path.begins_with("story/") else _browser_path, false)
 	_render_slip(state, can_review)
+	_line.render(Simulation.waiting(state), desk_open and not _tutorial_active)
 	_paint_evidence()
 	_clear_button.disabled = selected.is_empty() or not can_review
 	_approve.disabled = not selected.is_empty() or not can_review
@@ -2138,7 +2149,8 @@ func _mark_app_read(app: String) -> void:
 	if not is_instance_valid(_notifications) or not _app_counts.has(app): return
 	# Looking at Review reads the PR on the desk.
 	if app == "review": _unread_requests.clear()
-	_app_counts[app] = 0
+	# Reading Review doesn't shorten the line: its badge keeps counting who waits.
+	_app_counts[app] = _waiting_count() if app == "review" else 0
 	_notifications.clear_app(app)
 	_update_app_badges()
 
@@ -2183,8 +2195,24 @@ func _sync_app_events() -> void:
 		if id != desk_id:
 			_unread_requests.erase(id)
 			_notifications.clear_app("review", id)
-	_app_counts.review = _unread_requests.size()
+	# REVIEW's badge counts the unread PR on the desk and everyone waiting in line.
+	var waiting: Array = [] if _tutorial_active or morning_active else Simulation.waiting(_state)
+	_app_counts.review = _unread_requests.size() + waiting.size()
 	_update_app_badges()
+	_line_pressure(waiting)
+
+
+## How many wait in line for the desk, as REVIEW's badge counts them.
+func _waiting_count() -> int:
+	return 0 if _tutorial_active or morning_active else Simulation.waiting_count(_state)
+
+
+## The line gets restless: an author pings about a PR that has waited too long,
+## or Helios or Morgan says something about how long the line is. Rate-limited.
+func _line_pressure(waiting: Array) -> void:
+	if _tutorial_active or morning_active or _paused or _state.get("phase") != "review": return
+	var message: Dictionary = LinePressure.next(waiting, int(_state.get("day", 1)), int(_state.get("shift_seconds", 0)), _pressure)
+	if not message.is_empty(): _ambient_push("review", str(message.text), str(message.target), str(message.person))
 
 
 ## The review card for the PR on the desk: its number, author, and title.
