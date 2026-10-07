@@ -94,7 +94,7 @@ Every track is by the game's author, made with Suno:
 | Warm endings (The Last Reviewers, Soft Landing) | Last Reviewers | once |
 | Bleak endings (every other ending, including a firing) | Helios Prime | once |
 
-Scenes crossfade over about two seconds, and every track is matched to Motorik Minor's loudness. Pause or switching away ducks the music (behind a low-pass in the desktop app). Turn it off or change its volume in SYSTEM; the setting stays on this computer. In the browser it starts with your first click.
+Scenes crossfade over about two seconds, and every track is matched to Motorik Minor's loudness. Pause or switching away ducks the music (behind a low-pass in the desktop app). Turn it off with MUSIC in the main menu's corner or in SYSTEM, which also sets the volume; the setting stays on this computer. In the browser it starts with your first click or key press (the menu says so until then), and looping tracks restart at their loop point there too: Web Audio ignores a stream's loop offset, so the game restarts each pass itself.
 
 The tracks ship as Ogg Vorbis in `audio/music/`, about 10.8 MB in all. `tools/music/prepare_tracks.py` made them from the author's 48 kHz masters, which are not committed. It cuts each track to its scene, finds a loop section whose end matches its start in rhythm and texture (the opening plays once, then that section cycles), bakes in a crossfade, fades the one-shots, and loudness-matches everything to −16.3 LUFS. Motorik Minor was encoded directly.
 

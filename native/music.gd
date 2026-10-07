@@ -19,7 +19,12 @@ extends Node
 ## MUSIC toggle and volume persist in `settings_path`. On the web the music
 ## starts with the first click or key press, as browsers require; there the
 ## players use Web Audio samples (Godot's web default), which skip bus effects,
-## so pause relies on the lower level.
+## so pause relies on the lower level. Web samples also ignore a stream's loop
+## offset (they restart from where play() began), so on the web loops are
+## driven here: each pass plays a non-looping copy, and when it ends the
+## looping stream starts at its loop offset, which the browser then repeats.
+
+signal enabled_changed(enabled: bool)
 
 const TRACKS := {
 	"title": "res://audio/music/title.ogg",
@@ -57,6 +62,8 @@ static var settings_path := "user://music.cfg"
 ## Headless runs (the test suite) have only a dummy audio driver, so the music
 ## stays silent there unless a test asks to exercise real playback.
 static var play_headless := false
+## Drive loop restarts here rather than trusting the stream (see above).
+static var manual_loops := OS.has_feature("web")
 
 var enabled := true
 var volume := DEFAULT_VOLUME
@@ -74,6 +81,13 @@ var _applied_db: Dictionary = {}
 var _resume := 0.0
 ## One-shot tracks that have played through since their scene began.
 var _done: Dictionary = {}
+## Per looping track: the looping stream and a non-looping copy for a pass that
+## does not start at the loop offset (manual_loops only).
+var _loop_streams: Dictionary = {}
+var _pass_streams: Dictionary = {}
+## Tracks this manager started and has not stopped: an end means "wrap", not
+## "start over".
+var _live: Dictionary = {}
 var _bus := -1
 var _filter: AudioEffectLowPassFilter
 var _started := false
@@ -126,7 +140,7 @@ func _ready() -> void:
 		player.bus = BUS
 		player.volume_db = SILENT_DB
 		add_child(player)
-		player.finished.connect(func() -> void: _done[track] = true)
+		player.finished.connect(_on_finished.bind(track))
 		_players[track] = player
 		_gains[track] = 0.0
 		_applied_db[track] = SILENT_DB
@@ -141,7 +155,13 @@ func _load_streams() -> void:
 	for track: String in TRACKS:
 		var path: String = TRACKS[track]
 		if ResourceLoader.exists(path):
-			_players[track].stream = load(path)
+			var stream: AudioStream = load(path)
+			_players[track].stream = stream
+			if track not in ONCE and stream is AudioStreamOggVorbis:
+				_loop_streams[track] = stream
+				var once_through := stream.duplicate() as AudioStreamOggVorbis
+				once_through.loop = false
+				_pass_streams[track] = once_through
 		else:
 			push_warning("Missing music track %s." % path)
 
@@ -177,6 +197,7 @@ func _stop() -> void:
 
 func _stop_track(track: String) -> void:
 	var player: AudioStreamPlayer = _players[track]
+	_live[track] = false
 	if player.playing:
 		if track == RESUMING:
 			_resume = player.get_playback_position()
@@ -242,6 +263,7 @@ func set_enabled(value: bool) -> void:
 	if value == enabled: return
 	enabled = value
 	save_settings()
+	enabled_changed.emit(enabled)
 	if enabled:
 		_start()
 	else:
@@ -257,6 +279,45 @@ func set_volume(value: float) -> void:
 
 func is_playing() -> bool:
 	return _started
+
+
+## True while the browser still blocks audio (music on, no click or key yet).
+func awaiting_gesture() -> bool:
+	return enabled and _awaiting_gesture
+
+
+## The loop offset a looping track restarts at (0 for one-shots).
+func loop_offset(track: String) -> float:
+	var stream := _loop_streams.get(track) as AudioStreamOggVorbis
+	return stream.loop_offset if stream != null else 0.0
+
+
+## Begin a track at `from` seconds. With manual loops, a looping track plays a
+## non-looping pass first; _wrap takes over at its end.
+func _begin(track: String, from: float) -> void:
+	var player: AudioStreamPlayer = _players[track]
+	_live[track] = true
+	if manual_loops and _pass_streams.has(track):
+		player.stream = _pass_streams[track]
+	elif _loop_streams.has(track):
+		player.stream = _loop_streams[track]
+	player.play(from)
+
+
+## A looping track reached its end: restart at the loop offset on the looping
+## stream, which the browser then repeats from that same offset by itself.
+func _wrap(track: String) -> void:
+	var player: AudioStreamPlayer = _players[track]
+	if player.playing: return
+	player.stream = _loop_streams[track]
+	player.play(loop_offset(track))
+
+
+func _on_finished(track: String) -> void:
+	if track in ONCE:
+		_done[track] = true
+	elif manual_loops and _live.get(track, false) and _loop_streams.has(track):
+		_wrap(track)
 
 
 ## The mix for where the game is now.
@@ -317,7 +378,10 @@ func _apply() -> void:
 			_applied_db[track] = db
 		var wanted: bool = track == want.track
 		if _started and wanted and gain > 0.0001 and not player.playing and player.stream != null and not _done.get(track, false):
-			player.play(_resume if track == RESUMING else 0.0)
+			if manual_loops and _live.get(track, false) and _loop_streams.has(track):
+				_wrap(track)   # ended before its finished signal arrived
+			else:
+				_begin(track, _resume if track == RESUMING else 0.0)
 		elif gain <= 0.0001 and not wanted:
 			_stop_track(track)
 	AudioServer.set_bus_mute(_bus, not enabled)

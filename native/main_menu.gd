@@ -4,6 +4,8 @@ extends Control
 signal new_game_requested(slot: int)
 signal load_game_requested(slot: int)
 signal quit_requested
+## The corner MUSIC toggle was pressed; the application applies it.
+signal music_toggled(enabled: bool)
 
 const ComputerFrame = preload("res://native/computer_frame.gd")
 const TERMINAL_FONT = preload("res://art/fonts/IBMPlexMono-Regular.ttf")
@@ -33,6 +35,9 @@ var _pending_slot := 0
 var _greeting: Label
 var _blink := 0.0
 var _repo_link: Button
+var _music_toggle: Button
+var _sound_hint: Label
+var _music_on := true
 
 
 func _init() -> void:
@@ -99,6 +104,7 @@ func _ready() -> void:
 	_error.custom_minimum_size.y = 42
 	_error.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_build_repo_link()
+	_build_music_toggle()
 	set_load_available(_load_available)
 	resized.connect(_layout)
 	_layout()
@@ -129,6 +135,65 @@ func _build_repo_link() -> void:
 	_repo_link.offset_bottom = -14
 	_repo_link.pressed.connect(func() -> void: OS.shell_open(REPOSITORY_URL))
 	_screen.add_child(_repo_link)
+
+
+func _build_music_toggle() -> void:
+	# The mirror of the GitHub credit: a quiet MUSIC switch in the other corner,
+	# so a soundtrack switched off in SYSTEM (and remembered) is visible here.
+	_music_toggle = Button.new()
+	_music_toggle.flat = true
+	_music_toggle.toggle_mode = true
+	_music_toggle.focus_mode = Control.FOCUS_ALL
+	_music_toggle.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_music_toggle.tooltip_text = "Turn the soundtrack on or off"
+	_music_toggle.add_theme_font_size_override("font_size", 13)
+	for state: String in ["font_color", "font_pressed_color", "font_hover_pressed_color"]:
+		_music_toggle.add_theme_color_override(state, MUTED)
+	for state: String in ["font_hover_color", "font_focus_color"]:
+		_music_toggle.add_theme_color_override(state, INK)
+	_music_toggle.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_music_toggle.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_music_toggle.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_music_toggle.offset_right = -18
+	_music_toggle.offset_bottom = -14
+	_music_toggle.toggled.connect(func(on: bool) -> void:
+		_show_music(on)
+		music_toggled.emit(on))
+	_screen.add_child(_music_toggle)
+	# Browsers keep audio silent until the first click or key press.
+	_sound_hint = Label.new()
+	_sound_hint.text = "› click anywhere for sound"
+	_sound_hint.add_theme_font_size_override("font_size", 12)
+	_sound_hint.add_theme_color_override("font_color", Color(MUTED, 0.75))
+	_sound_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	_sound_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_sound_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_sound_hint.offset_right = -33   # lines up with the toggle's text
+	_sound_hint.offset_bottom = -52
+	_sound_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sound_hint.hide()
+	_screen.add_child(_sound_hint)
+	_show_music(_music_on)
+
+
+## Mirror the soundtrack's on/off state (from here or from SYSTEM).
+func set_music_enabled(on: bool) -> void:
+	_music_on = on
+	if is_instance_valid(_music_toggle):
+		_music_toggle.set_pressed_no_signal(on)
+		_show_music(on)
+
+
+## Show the "click anywhere for sound" hint while the browser still blocks audio.
+func set_sound_hint(waiting: bool) -> void:
+	if is_instance_valid(_sound_hint) and _sound_hint.visible != waiting:
+		_sound_hint.visible = waiting
+
+
+func _show_music(on: bool) -> void:
+	_music_on = on
+	_music_toggle.set_pressed_no_signal(on)
+	_music_toggle.text = "MUSIC: ON" if on else "MUSIC: OFF"
 
 
 func set_slots(slots: Array[Dictionary]) -> void:
