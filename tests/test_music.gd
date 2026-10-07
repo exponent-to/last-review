@@ -1,7 +1,9 @@
 extends SceneTree
-## Soundtrack checks: the stems exist, loop, and line up; the game state maps
-## to the intended layers; changes wait for a bar line; pause ducks; and the
-## MUSIC toggle and volume persist. Headless audio is a dummy driver, so these
+## Soundtrack checks: the stems and the workday song exist, loop, and line up;
+## the game state maps to the intended layers (Motorik Minor for the shift, the
+## stem bed elsewhere); stem changes wait for a bar line while the song crosses
+## at once and resumes where it stopped; pause ducks; and the MUSIC toggle and
+## volume persist. Headless audio is a dummy driver, so these
 ## read the mix the manager applies rather than listening to it.
 
 const Music = preload("res://native/music.gd")
@@ -49,6 +51,12 @@ func _test_stems() -> void:
 		_check(stream.format == AudioStreamWAV.FORMAT_QOA and not stream.stereo, "Stem %s must ship as compact mono QOA." % stem)
 		lengths.append([stream.loop_end, stream.mix_rate, stream.get_length()])
 	_check(lengths.size() == Music.STEMS.size(), "Every stem must load.")
+	_check(ResourceLoader.exists(Music.SONG_PATH), "The workday song must exist and be imported.")
+	var song := load(Music.SONG_PATH) as AudioStreamOggVorbis
+	_check(song != null and song.loop and song.loop_offset == 0.0, "Motorik Minor imports as a looping Ogg Vorbis stream.")
+	if song != null:
+		_check(song.get_length() > 170.0 and song.get_length() < 185.0, "The workday song is the full ~3-minute track.")
+	_check(FileAccess.get_file_as_bytes(Music.SONG_PATH).size() <= 4 * 1024 * 1024, "The workday song stays at or under 4 MB for the web build.")
 	for entry: Array in lengths:
 		_check(entry == lengths[0], "All stems must share one loop length, rate, and file length to stay in lockstep.")
 
@@ -62,24 +70,16 @@ func _test_mapping() -> void:
 	_check(_gains(menu) == [1.0, 0.0, 0.0, 0.0, 0.0] and menu.level < morning.level, "The menu plays the intro bed at a lower level.")
 	var cold := Music.mix_for("cold_open")
 	_check(_gains(cold) == [1.0, 0.0, 0.0, 0.0, 0.0] and cold.cutoff < Music.OPEN_CUTOFF, "The cold open hears the intro bed, muffled.")
-	var early := Music.mix_for("shift", 0.05)
-	_check(early.pulse > 0.0 and early.hats == 0.0 and early.air == 0.0 and early.tension == 0.0, "The early shift adds only the soft kick and bass pulse.")
-	var mid := Music.mix_for("shift", 0.5)
-	_check(mid.pulse == 1.0 and mid.hats > 0.0 and mid.air > 0.0 and mid.tension == 0.0, "Mid shift adds the ticking hat and opens the figure's filter.")
-	var late := Music.mix_for("shift", 7.0 / 9.0 + 0.01)
-	_check(late.tension >= 0.7 and late.air >= 0.85 and late.hats == 1.0, "From 16:00 the busier, tenser late layer plays.")
-	var closing := Music.mix_for("shift", 1.0)
-	_check(_gains(closing) == [1.0, 1.0, 1.0, 1.0, 1.0], "The last hour plays every layer.")
-	# Thicken, never thin, as the clock runs; and never louder than the full mix.
-	var previous := _gains(Music.mix_for("shift", 0.0))
-	for minute in range(0, 541, 20):
-		var gains := _gains(Music.mix_for("shift", minute / 540.0))
-		for index in gains.size():
-			_check(gains[index] >= previous[index] and gains[index] <= 1.0, "Shift layers only thicken over the day (%s at minute %d)." % [Music.STEMS[index], minute])
-		previous = gains
+	# The shift is Motorik Minor alone, from BEGIN SHIFT to 18:00.
+	for progress: float in [0.0, 0.05, 0.5, 0.85, 1.0]:
+		var shift := Music.mix_for("shift", progress)
+		_check(shift.song == 1.0 and _gains(shift) == [0.0, 0.0, 0.0, 0.0, 0.0], "The shift plays Motorik Minor and no stems (progress %.2f)." % progress)
+	for other: String in ["menu", "cold_open", "morning", "evening", "ending"]:
+		_check(Music.mix_for(other).song == 0.0, "%s keeps the stem bed, not the song." % other)
 	var calm := Music.mix_for("shift", 0.1)
 	var tense := Music.mix_for("shift", 0.1, true)
-	_check(tense.tension > calm.tension and tense.hats >= calm.hats, "Pushback at the desk leans the late layer in.")
+	_check(tense.song < calm.song and tense.song >= 0.8, "Pushback at the desk only dips the song slightly.")
+	_check(_gains(tense) == _gains(calm), "Pushback no longer leans stems in.")
 	var evening := Music.mix_for("evening")
 	_check(_gains(evening) == [1.0, 0.0, 0.0, 0.0, 0.0] and evening.level < morning.level, "Morgan's end-of-day panel is the sparsest version.")
 	var warm := Music.mix_for("ending", 0.0, false, "warm")
@@ -105,16 +105,58 @@ func _test_transitions() -> void:
 	music.step(0.1, true)
 	music.step(10.0, false)
 	_check(_gains(music.current_mix()) == [1.0, 0.0, 0.0, 0.0, 0.0], "The morning mix settles on the intro bed.")
-	music.set_scene("shift", 0.9)
+	# Stem changes wait for a bar line and fade over two bars.
+	music.set_scene("evening")
 	music.step(0.5, false)
-	_check(not music.pending_mix().is_empty() and music.current_mix().tension == 0.0, "A layer change waits for the next bar line.")
+	_check(not music.pending_mix().is_empty() and is_equal_approx(music.current_mix().level, Music.mix_for("morning").level), "A stem change waits for the next bar line.")
 	music.step(0.0, true)
 	_check(music.pending_mix().is_empty(), "The bar line starts the change.")
 	music.step(Music.BAR_SECONDS, false)
-	var halfway: float = music.current_mix().tension
-	_check(halfway > 0.0 and halfway < 1.0, "Layers fade over two bars rather than cutting in.")
+	var halfway: float = music.current_mix().level
+	_check(halfway < Music.mix_for("morning").level and halfway > Music.mix_for("evening").level, "Stem changes fade over two bars rather than cutting.")
 	music.step(Music.BAR_SECONDS * 2.0, false)
-	_check(_gains(music.current_mix()) == [1.0, 1.0, 1.0, 1.0, 1.0], "The fade lands on the late mix.")
+	music.set_scene("morning")
+	music.step(0.0, true)
+	music.step(10.0, false)
+	# BEGIN SHIFT: the song crosses in at once, over about two seconds, from the top.
+	music.set_scene("shift", 0.0)
+	music.step(0.0, false)
+	_check(music.pending_mix().is_empty(), "Entering the shift crossfades at once, without waiting for a bar.")
+	music.step(Music.SONG_FADE_SECONDS * 0.5, false)
+	var crossing := music.current_mix()
+	_check(crossing.song > 0.2 and crossing.song < 0.8 and crossing.intro > 0.2 and crossing.intro < 0.8, "The morning bed and the song crossfade.")
+	_check(music.song_playing(), "The song plays as soon as it fades in.")
+	music.step(Music.SONG_FADE_SECONDS, false)
+	_check(music.current_mix().song == 1.0 and _gains(music.current_mix()) == [0.0, 0.0, 0.0, 0.0, 0.0], "The crossfade lands on the song alone.")
+	music.set_scene("shift", 0.1, true)
+	music.step(0.0, true)
+	music.step(Music.BAR_SECONDS * 3.0, false)
+	_check(is_equal_approx(music.current_mix().song, Music.PUSHBACK_DIP), "Pushback dips the song.")
+	music.set_scene("shift", 0.1)
+	music.step(0.0, true)
+	music.step(Music.BAR_SECONDS * 3.0, false)
+	await create_timer(0.6).timeout
+	var heard := music.song_position()
+	_check(heard > 0.3, "The song advances while the shift runs.")
+	# 18:00: back to the stems at the evening panel, remembering the song's place.
+	music.set_scene("evening")
+	music.step(0.0, false)
+	music.step(Music.SONG_FADE_SECONDS + 0.1, false)
+	_check(not music.song_playing() and music.current_mix().intro == 1.0, "The evening panel crossfades back to the stems and stops the song.")
+	_check(music.song_position() >= heard, "The song remembers where it stopped.")
+	# Back into the same shift (say, after the menu): it resumes there.
+	music.set_scene("shift", 0.5)
+	music.step(0.0, false)
+	music.step(0.1, false)
+	_check(music.song_playing() and music.song_position() >= heard, "Returning to a shift under way resumes the song where it was.")
+	music.set_scene("evening")
+	music.step(0.0, false)
+	music.step(Music.SONG_FADE_SECONDS + 0.1, false)
+	# A new day's BEGIN SHIFT starts the song from the top.
+	music.set_scene("shift", 0.0)
+	music.step(0.0, false)
+	music.step(0.05, false)
+	_check(music.song_playing() and music.song_position() < heard, "A new shift starts the song from the top.")
 	# Pause ducks and filters at once, without waiting for a bar.
 	music.set_paused(true)
 	music.step(1.0, false)
@@ -194,7 +236,7 @@ func _test_application() -> void:
 	app.interface.morning_active = false
 	app.state.shift_seconds = int(Main.Simulation.Catalog.shift_seconds() * 0.85)
 	app._sync_music()
-	_check(app.music.scene == "shift" and Music.mix_for("shift", 0.85).tension > 0.5, "Late in the shift the music is at its busiest.")
+	_check(app.music.scene == "shift" and Music.mix_for("shift", 0.85).song == 1.0, "During the shift the workday song plays.")
 	app._set_paused(true)
 	app._sync_music()
 	_check(app.music.paused, "Pausing the shift pauses (ducks) the music.")

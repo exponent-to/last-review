@@ -82,9 +82,9 @@ The company chat app, Slouch, is off the desktop for now: its stream of messages
 
 ## Soundtrack
 
-An original, minimal dance-punk soundtrack (125 BPM, E Phrygian) follows the workday. It stays in the mood of a long club intro and never drops: soft brushes and a muted side-stick (no pitched or metallic percussion) and a quiet synth figure in the morning, then a muted kick and bass pulse, a ticking hat, and the figure's filter slowly opening as the clock runs, with a busier, tenser layer after 16:00. Morgan's end-of-day panel gets the sparsest version, the endings a warmer or a lonelier, filtered take, and pause or switching away ducks it (behind a low-pass in the desktop app). Layer changes land on bar lines. Turn it off or change its volume in SYSTEM; the setting stays on this computer. In the browser it starts with your first click.
+During the workday, from BEGIN SHIFT until 18:00, the soundtrack is **"Motorik Minor"** by the game's author, looping. It crossfades in from the morning music and back out at Morgan's end-of-day panel, and within a shift it picks up where it left off. Outside the shift, an original, minimal dance-punk bed (125 BPM, E Phrygian) plays in the mood of a long club intro: soft brushes and a muted side-stick (no pitched or metallic percussion) and a quiet synth figure for the menu and morning reading, the sparsest version for the end-of-day panel, and a warmer or a lonelier, filtered take for the endings. Pause or switching away ducks the music (behind a low-pass in the desktop app). Turn it off or change its volume in SYSTEM; the setting stays on this computer. In the browser it starts with your first click.
 
-The five 16-bar stems are synthesized by `tools/music/compose.py` (Python 3 with numpy and scipy) into `audio/music/` and ship as mono 22.05 kHz QOA. Re-render with `python3 tools/music/compose.py`, then `sh scripts/run.sh --headless --import`.
+Motorik Minor ships as `audio/music/motorik_minor.ogg` (Ogg Vorbis, about 148 kbps, 3.3 MB). The five 16-bar stems are synthesized by `tools/music/compose.py` (Python 3 with numpy and scipy) into `audio/music/` and ship as mono 22.05 kHz QOA; they still contain the shift layers, which the game no longer uses. Re-render with `python3 tools/music/compose.py`, then `sh scripts/run.sh --headless --import`.
 
 ## Saves
 
