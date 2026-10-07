@@ -18,7 +18,7 @@ func _initialize() -> void:
 	mixed = Simulation.advance(mixed, 360)
 	var messages := Chat.messages(mixed, "manager")
 	var prose := JSON.stringify(messages)
-	check(prose.contains("Compliance bounced a release") and prose.contains("Helios picked up the remaining queue"), "Manager describes shipped bugs and unfinished work after closing.")
+	check(prose.contains("Compliance bounced a release") and prose.contains("Helios picked up the %d PRs still waiting in your line" % int(mixed.last_debrief.handed_off)), "Manager describes shipped bugs and unfinished work after closing.")
 	for banned: String in ["CORRECT", "audit", "P01", "score", "Trust", "reviewed", "required rules"]:
 		check(not prose.contains(banned), "Manager must not expose " + banned)
 	messages[0].text = "tampered"
@@ -29,7 +29,7 @@ func _initialize() -> void:
 		for rule_id: String in packet.violations:
 			clean = Simulation.dispatch(clean, Simulation.Catalog.audit_citation(packet, rule_id))
 		clean = Simulation.dispatch(clean, {"type": "review", "verdict": "approve" if packet.violations.is_empty() else "request_changes"})
-		if int(clean.desk_at) >= 0: clean = Simulation.advance(clean, int(clean.desk_at) - int(clean.shift_seconds))
+		if Simulation.next_landing(clean) >= 0: clean = Simulation.advance(clean, Simulation.next_landing(clean) - int(clean.shift_seconds))
 	clean = Simulation.advance(clean, 360)
 	check(not JSON.stringify(Chat.messages(clean, "manager")).contains("Compliance bounced a release"), "Prevented bugs must not be reported as shipped.")
 	for packet: Dictionary in Catalog.requests():
@@ -47,7 +47,7 @@ func _test_evening(before: Dictionary, closed: Dictionary) -> void:
 	var evening: Dictionary = Chat.evening(closed)
 	check(int(evening.day) == 1 and evening.closing == [str(copy.closings[1])] and str(copy.closings[1]).contains("earned") and str(copy.closings[1]).contains("tonight"), "Closing the first day, Morgan says why the panel opens: what you earned, what it cost, and tonight's choice.")
 	var prose := JSON.stringify(evening)
-	check(prose.contains("Compliance bounced a release") and prose.contains("Helios picked up the remaining queue"), "The day's notes carry the shipped bug and the handoff to Helios.")
+	check(prose.contains("Compliance bounced a release") and prose.contains("Helios picked up the %d PRs still waiting in your line" % int(closed.last_debrief.handed_off)), "The day's notes carry the shipped bug and how many PRs Helios took.")
 	check(not prose.contains(str(copy.intro)), "The morning intro is not part of the evening.")
 	for banned: String in ["CORRECT", "audit", "P01", "score", "Trust", "reviewed", "required rules"]:
 		check(not prose.contains(banned), "Morgan's panel must not expose " + banned)
@@ -64,7 +64,7 @@ func _test_evening(before: Dictionary, closed: Dictionary) -> void:
 		if not Encounters.pending(heavy).is_empty():
 			heavy = Simulation.dispatch(heavy, {"type": "pushback", "choice": "insist"})
 		elif Simulation.active_request(heavy).is_empty():
-			var wait: int = Catalog.shift_seconds() if int(heavy.desk_at) < 0 else int(heavy.desk_at) - int(heavy.shift_seconds)
+			var wait: int = Catalog.shift_seconds() if Simulation.next_landing(heavy) < 0 else Simulation.next_landing(heavy) - int(heavy.shift_seconds)
 			heavy = Simulation.advance(heavy, maxi(1, wait))
 		else:
 			var packet: Dictionary = Catalog.packet(heavy, heavy.active_request_id)

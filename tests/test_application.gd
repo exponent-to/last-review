@@ -114,7 +114,7 @@ func _run() -> void:
 	var desk_cards: Array = app.interface._notifications._items.filter(func(item: Dictionary) -> bool: return item.app == "review" and item.target == app.state.active_request_id)
 	_check(desk_cards.size() == 1 and app.interface._app_badges.review.visible, "BEGIN SHIFT brings back the desk PR's review card and badge, so REVIEW is one click away.")
 	app.interface._open_notification("review", str(app.state.active_request_id))
-	_check(app.interface._windows.review.visible and app.interface._app_counts.review == 0, "The review card opens the PR on the desk.")
+	_check(app.interface._windows.review.visible and app.interface._app_counts.review == Main.Simulation.waiting_count(app.state), "The review card opens the PR on the desk; the badge still counts the line.")
 	app._clock_fraction = 0.0
 	app._tick_shift(1.25)
 	app._tick_shift(0.75)

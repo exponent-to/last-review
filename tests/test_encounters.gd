@@ -63,8 +63,8 @@ func _desk(at: Dictionary) -> String:
 	return str(Simulation.active_request(at).get("id", ""))
 
 func _land(at: Dictionary) -> Dictionary:
-	if not _desk(at).is_empty() or int(at.desk_at) < 0 or int(at.desk_at) >= Catalog.shift_seconds(): return at
-	return Simulation.advance(at, int(at.desk_at) - int(at.shift_seconds))
+	if not _desk(at).is_empty() or Simulation.next_landing(at) < 0 or Simulation.next_landing(at) >= Catalog.shift_seconds(): return at
+	return Simulation.advance(at, Simulation.next_landing(at) - int(at.shift_seconds))
 
 ## Cite `cited` (fresh: leftovers are cleared first) at real evidence when it exists, then stamp.
 func _stamp(at: Dictionary, cited: Array, evidence: Dictionary = {}) -> Dictionary:
@@ -106,8 +106,8 @@ func _play(cite: Callable, answer: Callable, last_day: int = 99) -> Dictionary:
 			at = Simulation.dispatch(at, {"type": "next-day", "choice": "rest"})
 			continue
 		if _desk(at).is_empty():
-			var coming: bool = int(at.desk_at) >= 0 and int(at.desk_at) < Catalog.shift_seconds()
-			at = Simulation.advance(at, int(at.desk_at) - int(at.shift_seconds) if coming else Catalog.shift_seconds())
+			var coming: bool = Simulation.next_landing(at) >= 0 and Simulation.next_landing(at) < Catalog.shift_seconds()
+			at = Simulation.advance(at, Simulation.next_landing(at) - int(at.shift_seconds) if coming else Catalog.shift_seconds())
 			continue
 		var pending := Encounters.pending(at)
 		if not pending.is_empty():
@@ -131,8 +131,8 @@ func _find(node: String, wanted: Callable = Callable()) -> Dictionary:
 			at = Simulation.dispatch(at, {"type": "next-day", "choice": "rest"})
 			continue
 		if _desk(at).is_empty():
-			var coming: bool = int(at.desk_at) >= 0 and int(at.desk_at) < Catalog.shift_seconds()
-			at = Simulation.advance(at, int(at.desk_at) - int(at.shift_seconds) if coming else Catalog.shift_seconds())
+			var coming: bool = Simulation.next_landing(at) >= 0 and Simulation.next_landing(at) < Catalog.shift_seconds()
+			at = Simulation.advance(at, Simulation.next_landing(at) - int(at.shift_seconds) if coming else Catalog.shift_seconds())
 			continue
 		if not Encounters.pending(at).is_empty():
 			at = Simulation.dispatch(at, {"type": "pushback", "choice": "insist"})
@@ -451,8 +451,8 @@ func _test_counterfactuals() -> void:
 			at = Simulation.dispatch(at, {"type": "next-day", "choice": "rest"})
 			continue
 		if _desk(at).is_empty():
-			var coming: bool = int(at.desk_at) >= 0 and int(at.desk_at) < Catalog.shift_seconds()
-			at = Simulation.advance(at, int(at.desk_at) - int(at.shift_seconds) if coming else Catalog.shift_seconds())
+			var coming: bool = Simulation.next_landing(at) >= 0 and Simulation.next_landing(at) < Catalog.shift_seconds()
+			at = Simulation.advance(at, Simulation.next_landing(at) - int(at.shift_seconds) if coming else Catalog.shift_seconds())
 			continue
 		if not Encounters.pending(at).is_empty():
 			at = Simulation.dispatch(at, {"type": "pushback", "choice": "insist"})

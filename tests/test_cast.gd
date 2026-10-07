@@ -117,8 +117,8 @@ func _work_and_dine(state: Dictionary) -> Dictionary:
 			continue
 		var desk: Dictionary = Simulation.active_request(state)
 		if desk.is_empty():
-			var coming: bool = int(state.desk_at) >= 0 and int(state.desk_at) < Catalog.shift_seconds()
-			state = Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds) if coming else Catalog.shift_seconds())
+			var coming: bool = Simulation.next_landing(state) >= 0 and Simulation.next_landing(state) < Catalog.shift_seconds()
+			state = Simulation.advance(state, Simulation.next_landing(state) - int(state.shift_seconds) if coming else Catalog.shift_seconds())
 			continue
 		var packet: Dictionary = Catalog.packet(state, str(desk.id))
 		for rule_id: String in packet.violations: state = Simulation.dispatch(state, Catalog.audit_citation(packet, rule_id))

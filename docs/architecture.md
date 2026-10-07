@@ -34,7 +34,7 @@ The first loop separates technical trust from relationships. Approval can make a
 
 ## Persistence
 
-State version 19 stores a bounded timed action journal including decisions, consultations, pushback answers, chat replies, shift closure, and evening choices, plus the encounter beats that replaying it rebuilds. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
+State version 20 stores a bounded timed action journal including decisions, consultations, pushback answers, chat replies, shift closure, and evening choices, plus the encounter beats that replaying it rebuilds. Save parsing validates types, active rule IDs, and sequence, then replays the journal to reconstruct canonical state. It rejects altered balances, impossible phases, repeated wages, and inconsistent audit records. Numeric JSON floats representing integers are normalized.
 
 The filesystem adapter writes a temporary file, rotates the previous save to a backup, and atomically renames the new file. Load failures preserve the active session. Saves remain in the original Last Review application-data directory so the title change preserves existing progress. There is no automatic load, autosave, or cloud storage.
 
@@ -45,7 +45,7 @@ Because validation replays authored content and economics, incompatible changes 
 ## Extending the slice
 
 - Add scenario packets and rules with explicit, non-overlapping audit criteria.
-- Extend the campaign by adding day-tagged packets and corresponding briefings; keep future queue lengths out of the player interface.
+- Extend the campaign by adding day-tagged packets and corresponding briefings. REVIEW shows the line already waiting (who and how long); PRs not yet arrived and campaign totals stay out of the player interface.
 - Add richer coworker motivations and evening events without placing rules in button handlers.
 - Keep opinion, technical quality, and automation authority as distinct consequences.
 - Add a seeded stateful generator only if procedural content becomes necessary; keep validation deterministic.
@@ -54,7 +54,7 @@ Native macOS export is configured with the official universal template and local
 
 ## Session entry and practice
 
-`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. Orientation goes straight to REVIEW; the practice PR is already on the desk. Its practice PR (PR-1042) sits outside the campaign on a practice desk (`Simulation.initial_state(true)`), so Monday opens with a different PR. Only the current orientation format (version 3, inside a version 19 state) is supported.
+`main_menu.gd` owns the New Game / Load Game entry screen. `tutorial.gd` tracks an untimed lesson over a real simulation state for the chosen campaign. The parent dispatches practice commands normally, allows a retry after mistakes, and resets to a fresh career on completion. Orientation goes straight to REVIEW; the practice PR is already on the desk. Its practice PR (PR-1042) sits outside the campaign on a practice desk (`Simulation.initial_state(true)`), so Monday opens with a different PR. Only the current orientation format (version 3, inside a version 20 state) is supported.
 
 `save_store.gd` accepts current-format careers and a versioned session envelope for orientation. Both canonical state and lesson progress are validated before writing or loading. Returning to the menu saves first; new-game selection alone never overwrites an existing slot.
 

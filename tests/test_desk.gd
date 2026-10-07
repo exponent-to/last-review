@@ -39,8 +39,8 @@ func _desk(state: Dictionary) -> String:
 	return str(Simulation.active_request(state).get("id", ""))
 
 func _land(state: Dictionary) -> Dictionary:
-	if not _desk(state).is_empty() or int(state.desk_at) < 0: return state
-	return Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds))
+	if not _desk(state).is_empty() or Simulation.next_landing(state) < 0: return state
+	return Simulation.advance(state, Simulation.next_landing(state) - int(state.shift_seconds))
 
 func _stamp(state: Dictionary, cited: Array) -> Dictionary:
 	var packet: Dictionary = Catalog.packet(state, state.active_request_id)
@@ -114,13 +114,15 @@ func _test_one_at_a_time() -> void:
 	while state.phase == "review":
 		_check(Simulation.available_requests(state).size() <= 1, "Only one PR is ever available.")
 		if _desk(state).is_empty():
-			if int(state.desk_at) < 0:
+			var landing: int = Simulation.next_landing(state)
+			if landing < 0:
 				state = Simulation.advance(state, Catalog.shift_seconds())
 				continue
 			var stamped_at: int = int(state.decisions[-1].shift_seconds)
-			_check(int(state.desk_at) == stamped_at + Simulation.DESK_BEAT, "The next PR is scheduled one beat after the stamp.")
-			state = Simulation.advance(state, Simulation.DESK_BEAT)
-			_check(not _desk(state).is_empty() and int(state.arrivals[-1].shift_seconds) == stamped_at + Simulation.DESK_BEAT, "The next PR auto-arrives after a verdict, with no pick.")
+			_check(int(state.desk_at) == stamped_at + Simulation.DESK_BEAT, "The desk frees up one beat after the stamp.")
+			_check(landing >= stamped_at + Simulation.DESK_BEAT, "The next PR lands no sooner than a beat after the stamp.")
+			state = Simulation.advance(state, landing - int(state.shift_seconds))
+			_check(not _desk(state).is_empty() and int(state.arrivals[-1].shift_seconds) == landing, "The next PR auto-arrives after a verdict, with no pick.")
 		seen.append(_desk(state))
 		state = Simulation.dispatch(state, {"type": "review", "verdict": "approve"})
 	_check(seen == day_ids, "With no change requests, the line is the day's authored packets in order.")
@@ -131,7 +133,8 @@ func _test_one_at_a_time() -> void:
 	_check(late.phase == "debrief" and late.last_debrief.handed_off == 14 and late.arrivals.size() == 1, "A PR due after the bell never lands; it goes to Helios with the rest of the line.")
 
 func _test_revision_timing() -> void:
-	var state := Simulation.initial_state()
+	# Mid-morning, with a few PRs already waiting in line.
+	var state := Simulation.advance(Simulation.initial_state(), 40)
 	state = _exact(state)
 	_check(state.revisions.size() == 1 and state.revisions[0].id == "PR-2001-v2" and state.revisions[0].origin_id == "PR-2001", "A change request queues the author's revision.")
 	_check(state.desk_line.find("PR-2001-v2") == Simulation.REVISION_GAP, "The revision rejoins the line behind the next two PRs.")
@@ -146,27 +149,36 @@ func _test_revision_timing() -> void:
 	_check(int(revision.revision) == 2 and revision.parent_id == "PR-2001" and Catalog.display_id(revision.id) == "PR-2001 · v2", "Revisions carry their version, parent, and a display ID.")
 	_check(not revision.has("violations") and not revision.has("recipe") and not revision.has("findings"), "The desk view of a revision hides audit data.")
 	# Near the end of the line, a revision comes back sooner.
+	# Near the end of the day, with fewer waiting, a revision comes back sooner.
 	var tail := Simulation.initial_state()
-	while tail.desk_line.size() > 1:
+	while tail.desk_line.size() + tail.incoming.size() > 1:
 		tail = _land(Simulation.dispatch(tail, {"type": "review", "verdict": "approve"}))
 	var last_but_one := _desk(tail)
+	var waiting_before: int = tail.desk_line.size()
 	tail = _stamp_until(tail, _citation_sets(1), LATER)
-	_check(not tail.is_empty() and tail.desk_line.size() == 2 and tail.desk_line[1] == last_but_one + "-v2", "With fewer PRs left, the revision rejoins at the end of what remains.")
+	_check(not tail.is_empty() and tail.desk_line.find(last_but_one + "-v2") == mini(Simulation.REVISION_GAP, waiting_before), "With fewer PRs waiting, the revision rejoins at the end of what is waiting.")
 	if tail.is_empty(): return
-	tail = _land(Simulation.dispatch(_land(tail), {"type": "review", "verdict": "approve"}))
-	_check(_desk(tail) == last_but_one + "-v2", "The revision reaches the desk after the remaining PR.")
-	tail = Simulation.dispatch(tail, {"type": "review", "verdict": "approve"})
-	_check(tail.desk_line.is_empty() and int(tail.desk_at) < 0, "An approved revision ends the line.")
+	var reached := false
+	while tail.phase == "review":
+		tail = _land(tail)
+		if _desk(tail).is_empty(): break
+		if _desk(tail) == last_but_one + "-v2": reached = true
+		tail = Simulation.dispatch(tail, {"type": "review", "verdict": "approve"})
+	_check(reached, "The revision reaches the desk before the bell.")
+	_check(tail.desk_line.is_empty() and tail.incoming.is_empty() and Simulation.next_landing(tail) < 0, "Approving the revision and the rest ends the line.")
 	var solo := Simulation.initial_state()
-	while not solo.desk_line.is_empty():
+	while not (solo.desk_line.is_empty() and solo.incoming.is_empty()):
 		solo = _land(Simulation.dispatch(solo, {"type": "review", "verdict": "approve"}))
 	var before_solo := solo
 	solo = _stamp_until(before_solo, _citation_sets(1), LATER)
 	_check(not solo.is_empty() and solo.desk_line.size() == 1 and int(solo.desk_at) == int(solo.shift_seconds) + Simulation.DESK_BEAT, "With nothing left, the revision is next, one beat later.")
 	if not solo.is_empty(): _round_trip(solo)
 	# Revising at the desk puts v2 straight back in front of you, a few seconds later.
-	var now := _stamp_until(before_solo, _citation_sets(1), ["revise_now"])
-	if now.is_empty(): now = _stamp_until(Simulation.initial_state(), _citation_sets(1), ["revise_now"])
+	var now := {}
+	var searching := Simulation.initial_state()
+	while now.is_empty() and searching.phase == "review" and not _desk(searching).is_empty():
+		now = _stamp_until(searching, _citation_sets(1), ["revise_now"])
+		searching = _land(Simulation.dispatch(searching, {"type": "review", "verdict": "approve"}))
 	_check(not now.is_empty(), "Some change request is revised right at the desk.")
 	if now.is_empty(): return
 	var made: String = str(now.encounters[-1].revision_id)
@@ -301,7 +313,7 @@ func _test_saves() -> void:
 	var finished := Simulation.advance(state, Catalog.shift_seconds())
 	finished = Simulation.dispatch(finished, {"type": "next-day", "choice": "study"})
 	_round_trip(finished)
-	_check(finished.desk_line.size() == 14 and finished.active_request_id == Catalog.requests_for_day(2)[0].id, "Revisions never carry over: the next morning starts a fresh line.")
+	_check(finished.desk_line.size() + finished.incoming.size() == 14 and finished.desk_line.size() == Simulation.OPENING_LINE - 1 and finished.active_request_id == Catalog.requests_for_day(2)[0].id, "Revisions never carry over: the next morning starts a fresh line.")
 
 func _test_dialogue() -> void:
 	var state := Simulation.initial_state()

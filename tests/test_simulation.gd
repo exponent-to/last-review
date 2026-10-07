@@ -30,9 +30,9 @@ func _first_request_state() -> Dictionary:
 func _resolve(state: Dictionary) -> Dictionary:
 	var current: Dictionary = state
 	if Simulation.active_request(current).is_empty():
-		if int(current.desk_at) < 0 or int(current.desk_at) >= Catalog.shift_seconds():
+		if Simulation.next_landing(current) < 0 or Simulation.next_landing(current) >= Catalog.shift_seconds():
 			return Simulation.advance(current, Simulation.Catalog.shift_seconds())
-		current = Simulation.advance(current, int(current.desk_at) - int(current.shift_seconds))
+		current = Simulation.advance(current, Simulation.next_landing(current) - int(current.shift_seconds))
 	var request: Dictionary = Catalog.packet(current, current.active_request_id)
 	for rule_id: String in request.violations:
 		current = Simulation.dispatch(current, Catalog.audit_citation(request, rule_id))
@@ -47,7 +47,7 @@ func _takeovers(state: Dictionary) -> int:
 	return state.encounters.filter(func(beat: Dictionary) -> bool: return beat.node == "escalate" and int(beat.version) >= 3).size()
 
 func _waiting(state: Dictionary) -> bool:
-	return not Simulation.active_request(state).is_empty() or (int(state.desk_at) >= 0 and int(state.desk_at) < Catalog.shift_seconds())
+	return not Simulation.active_request(state).is_empty() or (Simulation.next_landing(state) >= 0 and Simulation.next_landing(state) < Catalog.shift_seconds())
 
 ## Days whose every mid-shift state is round-tripped: each morning that issues a
 ## new rulebook or switches on a mechanic (all of those are BLOCK_STARTS) or on
@@ -152,7 +152,7 @@ func _test_career() -> void:
 		while _waiting(state):
 			if Simulation.active_request(state).is_empty():
 				_check(Simulation.available_requests(state).is_empty(), "Between PRs the desk is empty; nothing can be picked.")
-				state = Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds))
+				state = Simulation.advance(state, Simulation.next_landing(state) - int(state.shift_seconds))
 			_check(Simulation.available_requests(state).size() == 1, "Only one PR is ever available at a time.")
 			state = _resolve(state)
 			_check(state.decisions.size() == before + 1, "Each valid submission signs exactly the PR on the desk.")

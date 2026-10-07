@@ -12,7 +12,11 @@ The application owns real-time accumulation and pause controls. While paused, it
 
 ## The desk and the line
 
-The desk holds exactly one PR, like the booth in Papers, Please. Each morning the day's line is its fifteen authored packets in order (`state.desk_line`), and the first is put on the desk at 0 seconds (`active_request_id`); nobody picks it. When the player stamps a verdict, the desk empties and the next PR in line lands `DESK_BEAT = 3` game seconds later (`state.desk_at`), becoming active by itself. `advance` delivers it at its scheduled second, so batched and single-second clocks agree. A PR due at or after the bell never lands. Every landing is recorded in `state.arrivals` as `{pr_id, day, shift_seconds}`; the archived chat content (`content/chat.gd`) uses that log to date each PR's message. The line length is internal scheduling data and must never be shown.
+The desk holds exactly one PR, like the booth in Papers, Please, and the rest of the day queues outside it. Each morning the day's packets (payloads first, then the fifteen originals in order) are scheduled to join the waiting line on the shift clock, whether or not the player keeps up. `arrival_schedule(count, day)` gives each one's second: the day's payloads plus `OPENING_LINE = 2` are already waiting at 0 seconds, and the rest arrive ever closer together (`t = last · u · (4 − u) / 3` for the u-th fraction of the rest, so the last gap is half the first), the last at `LAST_ARRIVAL = 176` seconds on day 1 and `LAST_ARRIVAL_STEP = 5` seconds sooner each later day (131 on day 10). Integer arithmetic only, so every platform and replay agree.
+
+Not-yet-arrived PRs sit in `state.incoming` (`{pr_id, at}`, in order); the waiting line is `state.desk_line` (front first) with `state.queued_at` giving the second each joined. The front of the line is put on the desk (`active_request_id`); nobody picks it, and there is no command to call a PR up out of turn. When the player stamps a verdict, the desk empties and frees up `DESK_BEAT = 3` game seconds later (`state.desk_at`); the front of the line lands then, or, if nobody is waiting, the next arrival lands the second it joins. `advance` plays joins and landings at their own seconds, so batched and single-second clocks agree. Nothing joins or lands at or after the bell. `next_landing(state)` is the second the next PR will land if nobody stamps first (or −1). Every landing is recorded in `state.arrivals` as `{pr_id, day, shift_seconds}`; the archived chat content (`content/chat.gd`) uses that log to date each PR's message.
+
+`waiting(state)` is what REVIEW shows of the line: `{id, author, revision, since, age}` per waiting PR, front first (an author revising at the desk is sitting, not waiting). It carries who and how long, never anything about a PR's contents. At a careful reviewer's pace (one signature every 25 seconds, six or seven a day) the line is about 6–8 deep at 15:00 in week one and 8–11 in week two, counting revisions that rejoin it (`tests/test_queue.gd` prints the run).
 
 ## Orientation's practice desk
 
@@ -105,7 +109,7 @@ Approval requires zero citations; rejection requires at least one. A rejection p
 
 Starting resources are 60 CR (`Payroll.START`), 70 trust, 20 stress, 10 automation reliance, and neutral coworker relationships. Correct approval changes author relationship/trust/stress by +4/+3/+3; incorrect approval by +6/-12/+11; correct rejection by -2/+5/+3; incorrect rejection by -7/-7/+9. Consultation removes two stress and adds four automation reliance once per request, even after switching away and returning.
 
-Clearing the line does not end the shift. At 18:00, actual signed reviews (originals and revisions) are audited, and whatever is on the desk or still in line, including pending revisions, transfers to Helios. No player decisions are fabricated for skipped work, so chat never claims the player approved or rejected it. The current request is cleared and the pending pointer advances to the next shift.
+Clearing the line does not end the shift. At 18:00, actual signed reviews (originals and revisions) are audited, and whatever is on the desk, waiting in line, or still on its way, including pending revisions, transfers to Helios (`last_debrief.handed_off`; Morgan's panel says how many). No player decisions are fabricated for skipped work, so chat never claims the player approved or rejected it. The current request is cleared and the pending pointer advances to the next shift.
 
 Payroll settles the day at the bell (`content/payroll.gd`, `Payroll.ledger`), in Paperclip credits (CR):
 
@@ -126,7 +130,7 @@ More than two docks of a kind collapse into one line. Signing nothing loses 20 a
 
 ## Saved state and replay
 
-Current state (version 19) contains `practice` (true only on orientation's desk, see below), `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`, plus the story fields `firings`, `strikes`, `payloads`, and `ending`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores. The story fields are all rebuilt by replaying the journal, so they are not trusted from the saved file.
+Current state (version 20) contains `practice` (true only on orientation's desk, see below), `shift_seconds`, `active_request_id` (the desk), `desk_line`, `desk_at`, `incoming`, `queued_at`, `arrivals`, `revisions`, `encounters`, `consulted_requests`, `actions`, `shift_history`, and `chat_replies`, plus the story fields `firings`, `strikes`, `payloads`, and `ending`. Each actual decision also records `shift_seconds`. A chat reply records `{day, shift_seconds, pr_id, contact, reply_id}`; authored text remains in the chat catalog, and replies do not secretly alter relationship scores. The story fields are all rebuilt by replaying the journal, so they are not trusted from the saved file.
 
 ## Staffing, payloads, and endings
 

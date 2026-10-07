@@ -33,8 +33,8 @@ func _initialize() -> void:
 
 func _advance_to_desk(state: Dictionary) -> Dictionary:
 	if not Sim.active_request(state).is_empty(): return state
-	var coming: bool = int(state.desk_at) >= 0 and int(state.desk_at) < Catalog.shift_seconds()
-	return Sim.advance(state, int(state.desk_at) - int(state.shift_seconds) if coming else Catalog.shift_seconds())
+	var coming: bool = Sim.next_landing(state) >= 0 and Sim.next_landing(state) < Catalog.shift_seconds()
+	return Sim.advance(state, Sim.next_landing(state) - int(state.shift_seconds) if coming else Catalog.shift_seconds())
 
 ## Play a career. `decide(state, packet)` returns a review command; `evening` is the
 ## nightly choice. Stops when `done(state)` is true or the run completes.

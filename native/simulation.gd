@@ -1,7 +1,9 @@
 extends RefCounted
 ## Deterministic timed review rules. Catalog answers are used only to audit submitted decisions.
-## One PR sits on the desk at a time. Stamping it brings the next in line a beat later;
-## a change request sends it back to its author, whose revision rejoins the line.
+## One PR sits on the desk at a time. The rest of the day's PRs join a line outside
+## on the shift clock, faster as the day and the fortnight go on, whether or not you
+## keep up. Stamping brings the next in line a beat later; a change request sends it
+## back to its author, whose revision rejoins the line.
 ## How the author responds (revise now, later, push back, abandon, escalate) is an
 ## encounter branch from content/encounters.gd: mood and visible actions only.
 
@@ -12,7 +14,7 @@ const Encounters = preload("res://content/encounters.gd")
 const Staff = preload("res://content/staff.gd")
 const Endings = preload("res://content/endings.gd")
 const Payroll = preload("res://content/payroll.gd")
-const SAVE_VERSION: int = 19
+const SAVE_VERSION: int = 20
 const SHIFT_SECONDS: int = 180
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
@@ -24,6 +26,12 @@ const EVENINGS: Array = ["rest", "socialize", "study"]
 const DESK_BEAT: int = 3
 ## A revision rejoins the line behind this many PRs (or sooner if fewer remain).
 const REVISION_GAP: int = 2
+## PRs already in line at 09:00 besides the day's payloads: one on the desk, one waiting.
+const OPENING_LINE: int = 2
+## The second the day's last PR joins the line on the first day, and how much
+## sooner it comes each later day. Arrivals bunch up as the day goes on.
+const LAST_ARRIVAL: int = 176
+const LAST_ARRIVAL_STEP: int = 5
 ## Morgan lets you go once her trust in you falls this low, or your stress maxes out.
 const FIRE_TRUST: int = 22
 
@@ -39,11 +47,14 @@ static func initial_state(practice: bool = false) -> Dictionary:
 		"selected_rules": [], "citation_evidence": {}, "consulted": false, "decisions": [],
 		"shift_seconds": 0, "active_request_id": "", "consulted_requests": [],
 		"desk_line": [], "desk_at": -1, "arrivals": [], "revisions": [],
+		# The line outside: PRs due to join it later (`incoming`, {pr_id, at}) and the
+		# second each PR now waiting joined it (`queued_at`).
+		"incoming": [], "queued_at": {},
 		"actions": [], "shift_history": [], "chat_replies": [], "encounters": [],
 		# Staffing and story tracking: who was let go, their strikes, payload PRs
 		# resolved, and the ending reached (set once the run ends).
 		"firings": [], "strikes": [], "payloads": [], "ending": "",
-		"log": [{"day": first_day, "message": "Your review shift begins. Work lands on your desk one PR at a time."}],
+		"log": [{"day": first_day, "message": "Your review shift begins. Work lands on your desk one PR at a time; the rest wait in line."}],
 		"last_feedback": {}, "last_debrief": {},
 	}
 	_staff(state)
@@ -74,13 +85,83 @@ static func _advance(next: Dictionary, seconds: int) -> void:
 	if next.phase != "review" or seconds <= 0:
 		return
 	var target: int = mini(Catalog.shift_seconds(), int(next.shift_seconds) + mini(seconds, Catalog.shift_seconds()))
-	# The next PR lands at its scheduled second, so batched and stepped clocks agree.
-	if int(next.desk_at) >= 0 and int(next.desk_at) < Catalog.shift_seconds() and int(next.desk_at) <= target:
-		_deliver(next)
+	_flow(next, target)
 	next.shift_seconds = target
 	if next.shift_seconds == Catalog.shift_seconds():
 		next.actions.append({"type": "timeout", "day": next.day, "shift_seconds": Catalog.shift_seconds()})
 		_debrief(next)
+
+## Play the line forward to `target`: PRs join it at their scheduled seconds, and
+## the head of the line lands on a free desk once the beat after a stamp is over.
+## Each event happens at its own second, so batched and stepped clocks agree.
+## Nothing joins or lands at or after the bell.
+static func _flow(state: Dictionary, target: int) -> void:
+	var bell: int = Catalog.shift_seconds()
+	while true:
+		var joins: int = int(state.incoming[0].at) if not state.incoming.is_empty() else bell
+		var lands: int = _landing(state)
+		if lands >= 0 and lands <= target and lands < bell and lands <= joins:
+			state.desk_at = lands
+			_deliver(state)
+		elif joins <= target and joins < bell:
+			var entry: Dictionary = state.incoming.pop_front()
+			state.desk_line.append(str(entry.pr_id))
+			state.queued_at[str(entry.pr_id)] = int(entry.at)
+		else:
+			return
+
+## The second the head of the line can land on the desk, or -1 if the desk is busy
+## or nobody is waiting.
+static func _landing(state: Dictionary) -> int:
+	if int(state.desk_at) < 0 or not str(state.active_request_id).is_empty() or state.desk_line.is_empty():
+		return -1
+	return maxi(int(state.desk_at), int(state.queued_at.get(str(state.desk_line[0]), 0)))
+
+## The second the next PR will land on the desk if nobody stamps anything first,
+## or -1 if nothing more lands before the bell. Covers PRs not yet in line.
+static func next_landing(state: Dictionary) -> int:
+	if state.phase != "review" or int(state.desk_at) < 0 or not str(state.active_request_id).is_empty():
+		return -1
+	var at: int = _landing(state)
+	if at < 0 and not state.incoming.is_empty():
+		at = maxi(int(state.desk_at), int(state.incoming[0].at))
+	return at if at >= 0 and at < Catalog.shift_seconds() else -1
+
+## The day's arrival schedule: the second each of a line of `count` PRs joins it.
+## The first `opening` are already waiting at 09:00; the rest arrive ever closer
+## together, the last at LAST_ARRIVAL less LAST_ARRIVAL_STEP per day after the first.
+## Integer arithmetic only, so every platform and every replay agree.
+static func arrival_schedule(count: int, day: int, opening: int = OPENING_LINE) -> Array:
+	var times: Array = []
+	var later: int = maxi(0, count - opening)
+	var last: int = LAST_ARRIVAL - LAST_ARRIVAL_STEP * maxi(0, day - 1)
+	for index in range(count):
+		var step: int = index - opening + 1
+		if step <= 0:
+			times.append(0)
+			continue
+		# t = last * u * (4 - u) / 3 with u = step / later: the gaps shrink to half.
+		times.append(last * step * (4 * later - step) / (3 * later * later))
+	return times
+
+## How many PRs are waiting in line right now (not counting the desk).
+static func waiting_count(state: Dictionary) -> int:
+	return waiting(state).size()
+
+## The PRs waiting in line, front first: {id, author, revision, since, age} each.
+## Who wrote it and how long they have waited; never anything about its contents.
+static func waiting(state: Dictionary) -> Array:
+	var line: Array = []
+	if state.get("phase") != "review": return line
+	# An author revising at the desk is sitting there, not standing in line.
+	var typing: String = str(Encounters.typing(state).get("revision_id", ""))
+	for pr_id: Variant in state.get("desk_line", []):
+		if str(pr_id) == typing: continue
+		var packet: Dictionary = Catalog.packet(state, str(pr_id), false)
+		var since: int = int(state.get("queued_at", {}).get(str(pr_id), int(state.shift_seconds)))
+		line.append({"id": str(pr_id), "author": str(packet.get("author", "")), "revision": int(packet.get("revision", 1)),
+			"since": since, "age": maxi(0, int(state.shift_seconds) - since)})
+	return line
 
 static func _reviewed(state: Dictionary, request_id: String) -> bool:
 	for decision: Dictionary in state.decisions:
@@ -99,30 +180,42 @@ static func _public_request(request: Dictionary, consulted: bool = false) -> Dic
 		public.erase("ai_note")
 	return public
 
-## Start a day's line: its authored packets in order, the first already on the desk.
-## A PR whose seat Morgan has handed to Helios (its author was let go) never lands;
-## if it was a payload, Helios now holds that desk and ships it itself.
+## Start a day's line: its authored packets in order, payloads first. The first few
+## are waiting at 09:00 and the first of those is put on the desk; the rest join the
+## line through the day (`arrival_schedule`). A PR whose seat Morgan has handed to
+## Helios (its author was let go) never arrives; if it was a payload, Helios now
+## holds that desk and ships it itself.
 static func _open_desk(state: Dictionary) -> void:
 	state.desk_line = []
+	state.incoming = []
+	state.queued_at = {}
 	var day: int = int(state.day)
+	var line: Array = []
+	var payloads: int = 0
 	for request: Dictionary in Catalog.requests_for_day(day):
 		if Staff.occupant(state, str(request.author), day).is_empty():
 			if bool(request.get("payload", false)):
 				state.payloads.append({"pr_id": str(request.id), "origin_id": str(request.origin_id), "day": day,
 					"tier": int(request.get("payload_tier", 0)), "outcome": "merged"})
 			continue
-		state.desk_line.append(request.id)
+		if bool(request.get("payload", false)): payloads += 1
+		line.append(str(request.id))
 	if bool(state.get("practice", false)) and day == int(Catalog.campaign_days()[0]):
-		state.desk_line.push_front(Catalog.practice().id)
+		line.push_front(str(Catalog.practice().id))
+		payloads += 1
+	var times: Array = arrival_schedule(line.size(), day, OPENING_LINE + payloads)
+	for index in range(line.size()):
+		state.incoming.append({"pr_id": line[index], "at": int(times[index])})
 	state.active_request_id = ""
 	state.desk_at = int(state.shift_seconds)
-	_deliver(state)
+	_flow(state, int(state.shift_seconds))
 
 ## The next PR in line reaches the desk at `desk_at` and becomes the active review.
 static func _deliver(state: Dictionary) -> void:
 	if int(state.desk_at) < 0 or state.desk_line.is_empty() or not str(state.active_request_id).is_empty():
 		return
 	var request_id: String = state.desk_line.pop_front()
+	state.queued_at.erase(request_id)
 	state.active_request_id = request_id
 	state.arrivals.append({"pr_id": request_id, "day": state.day, "shift_seconds": state.desk_at})
 	state.desk_at = -1
@@ -444,7 +537,9 @@ static func _review(state: Dictionary, verdict: String, context: Dictionary, nod
 	state.citation_evidence = {}
 	state.consulted = false
 	var beat: int = Encounters.REVISE_NOW_SECONDS if node == "revise_now" else DESK_BEAT
-	state.desk_at = -1 if state.desk_line.is_empty() else int(state.shift_seconds) + beat
+	# The desk is free again after the beat; the head of the line (or whoever
+	# joins it next) lands then.
+	state.desk_at = int(state.shift_seconds) + beat
 	_update_request_index(state)
 
 ## The author revises what was cited. Only cited rules that really were broken get
@@ -461,6 +556,7 @@ static func _send_back(state: Dictionary, request: Dictionary, now: bool = false
 		"cited": cited, "fixed": fixed, "regression": Policy.regression_rule(request, revision_id, fixed, cited),
 	})
 	state.desk_line.insert(0 if now else mini(REVISION_GAP, state.desk_line.size()), revision_id)
+	state.queued_at[revision_id] = int(state.shift_seconds)
 	return revision_id
 
 static func _debrief(state: Dictionary) -> void:
@@ -482,10 +578,11 @@ static func _debrief(state: Dictionary) -> void:
 			var packet: Dictionary = Catalog.packet(state, str(decision.pr_id), false)
 			signed.append({"id": str(decision.pr_id), "display": Catalog.display_id(str(decision.pr_id)), "verdict": decision.verdict,
 				"correct": bool(decision.correct), "payload": bool(packet.get("payload", false))})
-	# Whatever is on the desk or still in line at the bell goes to Helios.
-	var handed_off: int = state.desk_line.size() + (0 if str(state.active_request_id).is_empty() else 1)
-	# A payload left unreviewed at the bell is merged by Helios: it ships.
+	# Whatever is on the desk, waiting in line, or still on its way at the bell goes to Helios.
 	var pending_ids: Array = state.desk_line.duplicate()
+	for entry: Dictionary in state.incoming: pending_ids.append(str(entry.pr_id))
+	var handed_off: int = pending_ids.size() + (0 if str(state.active_request_id).is_empty() else 1)
+	# A payload left unreviewed at the bell is merged by Helios: it ships.
 	if not str(state.active_request_id).is_empty(): pending_ids.append(state.active_request_id)
 	for pr_id: Variant in pending_ids:
 		var pending: Dictionary = Catalog.packet(state, str(pr_id), false)
@@ -514,6 +611,8 @@ static func _debrief(state: Dictionary) -> void:
 		_record(state, "Collections called. %d closings in the red. Stress +%d." % [debt_days, Payroll.DEBT_STRESS])
 	state.active_request_id = ""
 	state.desk_line = []
+	state.incoming = []
+	state.queued_at = {}
 	state.desk_at = -1
 	state.selected_rules = []
 	state.citation_evidence = {}

@@ -133,7 +133,7 @@ func _test_schedule() -> void:
 		_check(("P16" in active) == (day >= Policy.LINEAL_DAY) and ("P17" in active) == (day >= Policy.LINEAL_DAY and day < Policy.PIPELINE_DAY), "Vibes from Wednesday; urgency until Helios takes it on Friday (day %d)." % day)
 		_check(("P18" in active) == (day >= Policy.OVERRIDE_DAY) and ("P19" in active) == (day >= Policy.PIPELINE_DAY), "Fibonacci from week two, green builds from Friday (day %d)." % day)
 		_check(("P20" in active) == (day >= Policy.PIPELINE_DAY and day < Policy.OVERRIDE_DAY) and ("P21" in active) == (day >= Policy.ISSUE_DAY), "Branch names until week two, hex in the last block (day %d)." % day)
-	_check(Simulation.SAVE_VERSION >= 19, "The Lineal re-theme bumped the save format to 19 or later.")
+	_check(Simulation.SAVE_VERSION >= 20, "The Lineal re-theme bumped the save format to 20 or later.")
 	for rule_id: String in Policy.RECORD_SCOPED:
 		_check(Encounters.LEANS.has(str(Policy.rules().filter(func(rule: Dictionary) -> bool: return rule.id == rule_id)[0].category)), "%s leans the encounter by its category." % rule_id)
 		_check(Policy.CITED_WORDS.has(rule_id) and str(Policy.CITED_WORDS[rule_id][0]).begins_with("the "), "%s has plain words for what was cited." % rule_id)
@@ -262,8 +262,8 @@ func _test_revisions() -> void:
 # --- Simulation -----------------------------------------------------------------
 
 func _land(state: Dictionary) -> Dictionary:
-	if not Simulation.active_request(state).is_empty() or int(state.desk_at) < 0: return state
-	return Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds))
+	if not Simulation.active_request(state).is_empty() or Simulation.next_landing(state) < 0: return state
+	return Simulation.advance(state, Simulation.next_landing(state) - int(state.shift_seconds))
 
 ## A career with `pr_id` on the desk (Helios takes every earlier day; earlier PRs that
 ## day are approved).

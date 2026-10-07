@@ -35,6 +35,7 @@ const SCANNED: Array[String] = [
 	"res://native/desktop_notifications.gd",
 	"res://native/daily_reader.gd",
 	"res://native/review_banter.gd",
+	"res://native/waiting_line.gd",
 ]
 const PRESS_FEED := "res://content/daily_press.json"
 
