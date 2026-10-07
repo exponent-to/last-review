@@ -82,9 +82,21 @@ The company chat app, Slouch, is off the desktop for now: its stream of messages
 
 ## Soundtrack
 
-During the workday, from BEGIN SHIFT until 18:00, the soundtrack is **"Motorik Minor"** by the game's author, looping. It crossfades in from the morning music and back out at Morgan's end-of-day panel, and within a shift it picks up where it left off. Outside the shift, an original, minimal dance-punk bed (125 BPM, E Phrygian) plays in the mood of a long club intro: soft brushes and a muted side-stick (no pitched or metallic percussion) and a quiet synth figure for the menu and morning reading, the sparsest version for the end-of-day panel, and a warmer or a lonelier, filtered take for the endings. Pause or switching away ducks the music (behind a low-pass in the desktop app). Turn it off or change its volume in SYSTEM; the setting stays on this computer. In the browser it starts with your first click.
+Every track is by the game's author, made with Suno:
 
-Motorik Minor ships as `audio/music/motorik_minor.ogg` (Ogg Vorbis, about 148 kbps, 3.3 MB). The five 16-bar stems are synthesized by `tools/music/compose.py` (Python 3 with numpy and scipy) into `audio/music/` and ship as mono 22.05 kHz QOA; they still contain the shift layers, which the game no longer uses. Re-render with `python3 tools/music/compose.py`, then `sh scripts/run.sh --headless --import`.
+| Scene | Track | Plays |
+| --- | --- | --- |
+| Main menu | Title | looped |
+| Cold open (the inbox and the offer) | Cold Open | once |
+| Morning reading and orientation | Morning | looped |
+| The shift, BEGIN SHIFT to 18:00 | Motorik Minor | looped; resumes where it left off within a shift |
+| Morgan's end-of-day panel | After Hours | looped |
+| Warm endings (The Last Reviewers, Soft Landing) | Last Reviewers | once |
+| Bleak endings (every other ending, including a firing) | Helios Prime | once |
+
+Scenes crossfade over about two seconds, and every track is matched to Motorik Minor's loudness. Pause or switching away ducks the music (behind a low-pass in the desktop app). Turn it off or change its volume in SYSTEM; the setting stays on this computer. In the browser it starts with your first click.
+
+The tracks ship as Ogg Vorbis in `audio/music/`, about 10.8 MB in all. `tools/music/prepare_tracks.py` made them from the author's 48 kHz masters, which are not committed. It cuts each track to its scene, finds a loop section whose end matches its start in rhythm and texture (the opening plays once, then that section cycles), bakes in a crossfade, fades the one-shots, and loudness-matches everything to −16.3 LUFS. Motorik Minor was encoded directly.
 
 ## Saves
 
@@ -113,7 +125,7 @@ The simulation suite covers the authored career, precise citations, AI mistakes,
 - `native/portraits.gd`, `art/cats/` — pixel-art cat portraits of the cast, shown at the Review desk, on notification cards, and on Morgan's end-of-day panel.
 - `native/computer_frame.gd` — physical monitor and animated rainy room around the desktop.
 - `native/save_store.gd`, `native/main.gd` — persistence and application wiring.
-- `native/music.gd`, `tools/music/compose.py`, `audio/music/` — the adaptive soundtrack, its generator, and its rendered stems.
+- `native/music.gd`, `audio/music/`, `tools/music/prepare_tracks.py` — the soundtrack, its tracks, and how they were cut and encoded.
 - `tests/`, `scripts/`, `export_presets.cfg` — checks and native macOS packaging.
 
 See [architecture](docs/architecture.md), [interface](docs/interface.md), [art pipeline](docs/art-pipeline.md), and [verification](docs/verification.md).
