@@ -134,10 +134,15 @@ func _ready() -> void:
 	enabled = settings.enabled
 	volume = settings.volume
 	_ensure_bus()
+	# Web diagnostics: ?music=stream plays through Godot's streamed output
+	# instead of Web Audio samples (which also honour loop offsets themselves).
+	var streamed := OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains("music=stream")
+	if streamed: manual_loops = false
 	for track: String in TRACKS:
 		var player := AudioStreamPlayer.new()
 		player.name = track.to_pascal_case()
 		player.bus = BUS
+		if streamed: player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 		player.volume_db = SILENT_DB
 		add_child(player)
 		player.finished.connect(_on_finished.bind(track))

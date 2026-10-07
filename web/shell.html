@@ -35,6 +35,45 @@
     @media (max-height: 500px) { #loader { overflow-y: auto; place-items: start center; } .machine { margin-bottom: 18px; } }
   </style>
   $GODOT_HEAD_INCLUDE
+  <script>
+  // Audio diagnostics: run prsAudioReport() in the console to see what the
+  // game's Web Audio graph is doing (context state, sample rate, output level).
+  (function () {
+    const Native = window.AudioContext || window.webkitAudioContext;
+    if (!Native) return;
+    const contexts = [];
+    const outputs = new Set();
+    const connect = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function (target, ...rest) {
+      if (target instanceof AudioDestinationNode) outputs.add(this);
+      return connect.call(this, target, ...rest);
+    };
+    function Wrapped(...args) { const ctx = new Native(...args); contexts.push(ctx); return ctx; }
+    Wrapped.prototype = Native.prototype;
+    window.AudioContext = Wrapped;
+    window.prsAudioReport = async function () {
+      const report = [];
+      for (const ctx of contexts) {
+        const levels = [];
+        for (const node of outputs) {
+          if (node.context !== ctx) continue;
+          const meter = ctx.createAnalyser();
+          meter.fftSize = 2048;
+          connect.call(node, meter);
+          await new Promise((r) => setTimeout(r, 400));
+          const data = new Float32Array(meter.fftSize);
+          meter.getFloatTimeDomainData(data);
+          let sum = 0;
+          for (const v of data) sum += v * v;
+          node.disconnect(meter);
+          levels.push(node.constructor.name + " " + Math.sqrt(sum / data.length).toFixed(4));
+        }
+        report.push({ state: ctx.state, sampleRate: ctx.sampleRate, time: ctx.currentTime.toFixed(1), sinkId: ctx.sinkId, levels });
+      }
+      return JSON.stringify({ contexts: report, search: location.search });
+    };
+  })();
+  </script>
   <script src="$GODOT_URL" defer></script>
 </head>
 <body>
