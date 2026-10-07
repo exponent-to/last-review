@@ -12,7 +12,7 @@ const Encounters = preload("res://content/encounters.gd")
 const Staff = preload("res://content/staff.gd")
 const Endings = preload("res://content/endings.gd")
 const Payroll = preload("res://content/payroll.gd")
-const SAVE_VERSION: int = 18
+const SAVE_VERSION: int = 19
 const SHIFT_SECONDS: int = 180
 const START_MINUTE: int = 540
 const END_MINUTE: int = 1080
@@ -351,6 +351,10 @@ static func _review(state: Dictionary, verdict: String, context: Dictionary, nod
 	var payload: bool = bool(request.get("payload", false))
 	var expected: Array = request.violations
 	var correct: bool = expected.is_empty() if verdict == "approve" else _same_rules(state.selected_rules, expected)
+	# A reason-free change request is never a correct review of a normal PR, even
+	# a clean one: there was nothing to send back, and no reason was given.
+	if verdict == "request_changes" and state.selected_rules.is_empty() and not payload:
+		correct = false
 	if verdict == "request_changes" and correct:
 		for rule_id: String in state.selected_rules:
 			if not Policy.evidence_matches(request.findings, rule_id, state.citation_evidence.get(rule_id, {})):

@@ -6,7 +6,7 @@ signal finished
 const ARRIVAL_TIME := 6.6
 const SIGN_HOLD := 1.2
 const DESIGN_SIZE := Vector2(1120, 800)
-const OFFER := "Hi,\n\nWe enjoyed your conversation with our recruiting assistant. Paperclip Labs would like to offer you the role of Junior Software Engineer.\n\nAnnual salary: $38,000\nLocation: on site. Start: Monday.\n\nYou'll review changes, work with the team, and help us build the future of human-centered automation. Our assistant, Helios, will handle the routine parts.\n\nWe know you have options. This offer expires tonight.\n\nMorgan\nEngineering Manager, Paperclip Labs"
+const OFFER := "Hi,\n\nWe enjoyed your conversation with our recruiting assistant. Paperclip Labs would like to offer you the role of Junior Software Engineer.\n\nPay: 20 Paperclip credits (CR) a day, plus 8 CR per signed review\nLocation: on site. Start: Monday.\n\nYou'll review changes, work with the team, and help us build the future of human-centered automation. Our assistant, Helios, will handle the routine parts.\n\nWe know you have options. This offer expires tonight.\n\nMorgan\nEngineering Manager, Paperclip Labs"
 const REJECTIONS := [
 	["Stealth Stealth", "An update on your application", "We've decided to remain stealthy about your candidacy."],
 	["Pivotly", "You're almost a culture fit", "We pivoted away from employing people during your interview."],

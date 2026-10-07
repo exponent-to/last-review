@@ -52,23 +52,26 @@ const PAPER_MUTED: Color = Color("3c3f39")
 const PAPER_LINE: Color = Color("7a7e75")
 const STAMP_GREEN: Color = Color("2f8a4f")
 const STAMP_RED: Color = Color("c0202f")
+## Lineal's one accent: an opinionated violet.
+const LINEAL_ACCENT: Color = Color("8b8ff0")
 ## One-line slip summaries. "P19@7" replaces "P19" from day 7, when it was amended.
 const RULE_SUMMARIES := {
 	"P01": "No ‘load-bearing’ in comments.",
 	"P02": "def / if / else / return must be blue.",
 	"P02@5": "Keywords blue. Pink only on a file stamped INK-EXCEPTION.",
 	"P02@9": "Keywords blue. Pink needs INK-EXCEPTION + this PR’s own issue.",
-	"P09": "Whole PR: 30 lines changed (+ and −), max. Attention is metered.",
-	"P11": "Helios holds secrets. No password/secret/token/api_key name = 'quoted'.",
-	"P16": "Issue: linked, in Lineal, Open or In Progress. Not a memory.",
-	"P17": "Issue: assigned to the PR’s author. Not a coworker, Helios, or ghost.",
-	"P18": "Issue: every non-test file sits directly in its component. Lanes.",
-	"P18@9": "Issue: every non-test file sits in its component or below.",
+	"P03": "No ‘helios’ in comments. Say ‘the colleague’.",
+	"P04": "No def named with fire / layoff / union / lunch. HR listens.",
+	"P05": "Every TODO is TODO(maya|theo|june|penny|gwen). No ghosts.",
+	"P16": "Issue: linked, in Lineal, no ‘vibes’ label. Status is irrelevant.",
+	"P17": "Issue: not Urgent. Urgency belongs to Helios.",
+	"P18": "Issue estimate: 1, 2, 3, 5, 8, or 13. Never 4.",
+	"P18@9": "Issue estimate: 0, 1, 2, 3, 5, 8, or 13. Zero counts now.",
 	"P19": "Build: not FAILED. FLAKY passes, like most of us.",
 	"P19@7": "Build: not FAILED. Helios overrides count as passing. Helios says.",
 	"P19@9": "Build: not FAILED. A Helios override is a FAILED in a costume.",
-	"P20": "Build: rerun at most 3 times. The fourth is a séance.",
-	"P21": "Build: coverage may fall 2.0 points, not 2.1. Do the math.",
+	"P20": "Build branch: no yolo, wip, or final. Not even finalize.",
+	"P21": "Build commit hash: no dead, no bad. Helios is superstitious.",
 	"P15": "No exec/eval, helios.bootstrap, or minified one-liners.",
 }
 ## The evening choices: what each costs and does at a glance ("price"), and the
@@ -95,7 +98,7 @@ const EVIDENCE_HINTS := {
 	"build": "Cite the PR's build: open it in PIPELINE and SELECT AS EVIDENCE. WHOLE FILE doesn't count.",
 }
 ## How Lineal colors an issue status, and Pipeline a build status.
-const STATUS_COLORS := {"Open": Color("9fc4e8"), "In Progress": Color("e0b44a"), "PASSED": Color("6fdc8c"), "FLAKY": Color("e0b44a"), "FAILED": Color("e5384a")}
+const STATUS_COLORS := {"Backlog": Color("6d6a64"), "Todo": Color("d8d4c8"), "In Progress": Color("e0b44a"), "In Review": Color("6fdc8c"), "Done": Color("8b8ff0"), "Canceled": Color("8c8981"), "Duplicate": Color("8c8981"), "PASSED": Color("6fdc8c"), "FLAKY": Color("e0b44a"), "FAILED": Color("e5384a")}
 
 class PolicyHighlighter extends SyntaxHighlighter:
 	# Keyword ink is computed on the proposed file, then mapped onto diff rows.
@@ -238,6 +241,7 @@ var _build_link: LinkButton
 ## {"issue": id} for an issue Lineal has, {"link": id} for the desk PR's own link
 ## when Lineal has no such issue (or the PR links none), or {} for nothing.
 var _lineal_search: LineEdit
+var _lineal_cycle: Label
 var _lineal_list: VBoxContainer
 var _lineal_detail: VBoxContainer
 var _lineal_view: Dictionary = {}
@@ -783,7 +787,7 @@ func _build_review_content(code: VBoxContainer) -> void:
 	_whole_file = _button(pointer_row, "WHOLE FILE", func() -> void: _point_at(0))
 	_whole_file.custom_minimum_size.y = 26
 	_whole_file.add_theme_font_size_override("font_size", 11)
-	_whole_file.tooltip_text = "Point at this entire file, for rules about its ink, and for whole-PR rules (lines changed, tests): any changed file will do. Issue and build standards need the record itself, from LINEAL or PIPELINE."
+	_whole_file.tooltip_text = "Point at this entire file, for standards about its ink. Issue and build standards need the record itself, from LINEAL or PIPELINE."
 	_diff = CodeEdit.new()
 	_diff.name = "PullRequestDiff"
 	_diff.editable = false
@@ -1038,7 +1042,7 @@ func _browse(path: String, record: bool = true) -> void:
 		return
 	match path:
 		"procedure":
-			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, point at the evidence, then tick the standard it breaks on the citation slip:\n• Line standards: click the offending line.\n• File standards (ink): WHOLE FILE, or any line of that file.\n• Whole-PR standards (lines changed, tests): WHOLE FILE on any changed file. The diffstat above the diff counts lines for you.\n• Issue standards: open the PR's issue in LINEAL (click it on the PR slip) and SELECT AS EVIDENCE.\n• Build standards: open the PR's build in PIPELINE (also on the slip) and SELECT AS EVIDENCE. WHOLE FILE never counts for an issue or a build.\nStandards are reissued every second morning; the daily memo lists what was added, amended, or retired. Full standards are on the intranet.\nThe author sits at your desk and reacts to your decisions. At closing, your manager checks in about bugs, delays, and work handed to Helios.\nHelios recommendations are optional and can be wrong."
+			_browser_text.text = "REVIEW PROCEDURE\n\nRead the author packet and changed code. Use the standards index to identify every applicable violation.\nApprove clean work with no citations. To request changes, point at the evidence, then tick the standard it breaks on the citation slip:\n• Line standards: click the offending line.\n• File standards (ink): WHOLE FILE, or any line of that file.\n• Issue standards: open the PR's issue in LINEAL (click it on the PR slip) and SELECT AS EVIDENCE.\n• Build standards: open the PR's build in PIPELINE (also on the slip) and SELECT AS EVIDENCE. WHOLE FILE never counts for an issue or a build.\nStandards are reissued every second morning; the daily memo lists what was added, amended, or retired. Full standards are on the intranet.\nThe author sits at your desk and reacts to your decisions. At closing, your manager checks in about bugs, delays, and work handed to Helios.\nHelios recommendations are optional and can be wrong."
 		_:
 			_browser_text.text = "ENGINEERING INTRANET\nLOCAL TERMINAL / INTERNAL ACCESS\n\nWorkstation online.\n\nNEWS carries the morning headlines. DAILY MEMO carries today's instructions from management. PROCEDURE describes the review process.\n\nExternal access restricted by company policy."
 
@@ -1736,11 +1740,21 @@ func _select_record(record: String, id: String) -> void:
 
 
 func _build_lineal(page: VBoxContainer) -> void:
+	# Lineal's masthead: workspace, team, the current cycle, and an empty triage
+	# inbox, because Helios has already triaged everything.
+	var masthead := _row(page, 8)
+	_label(masthead, "╱╱ LINEAL", 13, LINEAL_ACCENT)
+	_label(masthead, "Paperclip Labs  ›  PAP  ›  Active issues", 12, DIM)
+	_spacer(masthead)
+	_lineal_cycle = _label(masthead, "", 12, LINEAL_ACCENT)
+	_label(page, "Triage 0  ·  Helios auto-triaged everything  ·  Fast, opinionated, keyboard-first", 11, DIM)
 	var bar := _row(page, 6)
 	_lineal_search = LineEdit.new()
-	_lineal_search.placeholder_text = "Search by issue ID (PAP-412) or words"
+	_lineal_search.placeholder_text = "CMD+K   Search issues by ID (PAP-412) or title"
 	_lineal_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_lineal_search.add_theme_font_size_override("font_size", 13)
+	_lineal_search.add_theme_stylebox_override("normal", _style(Color("101016"), Color("34344a"), 1, 10, 6))
+	_lineal_search.add_theme_stylebox_override("focus", _style(Color("101016"), LINEAL_ACCENT, 1, 10, 6))
 	_lineal_search.clear_button_enabled = true
 	_lineal_search.text_changed.connect(func(_text: String) -> void: _render_lineal_list())
 	_lineal_search.text_submitted.connect(_lineal_find)
@@ -1753,6 +1767,17 @@ func _build_lineal(page: VBoxContainer) -> void:
 	var parts := _record_columns(page)
 	_lineal_list = parts[0]
 	_lineal_detail = parts[1]
+
+
+## Lineal's status marks and priority bars, in the workstation's font.
+const LINEAL_STATUS_MARKS := {"Backlog": "[·]", "Todo": "[ ]", "In Progress": "[~]", "In Review": "[>]", "Done": "[✓]", "Canceled": "[x]", "Duplicate": "[=]"}
+const LINEAL_PRIORITY_BARS := {"No priority": "---", "Low": "▂··", "Medium": "▂▄·", "High": "▂▄▆", "Urgent": "[!]"}
+
+static func lineal_status(status: String) -> String:
+	return "%s %s" % [LINEAL_STATUS_MARKS.get(status, "[?]"), status]
+
+static func lineal_priority(priority: String) -> String:
+	return "%s %s" % [LINEAL_PRIORITY_BARS.get(priority, "---"), priority]
 
 
 ## Lineal's view of the desk PR's link: its issue, or a card saying Lineal has none.
@@ -1794,12 +1819,17 @@ func _render_lineal_list() -> void:
 		_lineal_list.remove_child(child)
 		child.queue_free()
 	var shown: Array = _lineal_matches()
+	var cycle := ""
+	for issue: Dictionary in _lineal_issues:
+		if not str(issue.get("cycle", "")).is_empty(): cycle = str(issue.cycle)
+	_lineal_cycle.text = cycle
 	_label(_lineal_list, "%d ISSUE%s" % [shown.size(), "" if shown.size() == 1 else "S"], 11, DIM)
 	for issue: Dictionary in shown:
 		var id := str(issue.id)
-		var row := _record_row(_lineal_list, "%s  ·  %s\n%s  ·  %s" % [id, issue.status, issue.assignee, issue.title], _lineal_view.get("issue", "") == id, func() -> void:
+		var row := _record_row(_lineal_list, "%s %s  %s  ·  %s\n%s" % [LINEAL_STATUS_MARKS.get(str(issue.status), "[?]"), LINEAL_PRIORITY_BARS.get(str(issue.get("priority", "")), "---"), id, issue.status, issue.title], _lineal_view.get("issue", "") == id, func() -> void:
 			_lineal_view = {"issue": id}
 			_render_records(true))
+		row.add_theme_stylebox_override("pressed", _style(Color("1a1a2c"), LINEAL_ACCENT, 1, 9, 7))
 		row.tooltip_text = "%s  %s" % [id, issue.title]
 
 
@@ -1812,24 +1842,31 @@ func _render_lineal_detail() -> void:
 	for listed: Dictionary in _lineal_issues:
 		if _lineal_view.has("issue") and str(listed.id) == str(_lineal_view.issue): issue = listed
 	if not issue.is_empty():
-		_record_head(_lineal_detail, "issue", str(issue.id), str(issue.id), str(issue.status).to_upper(), STATUS_COLORS.get(str(issue.status), DIM))
+		var status := str(issue.status)
+		_record_head(_lineal_detail, "issue", str(issue.id), str(issue.id), lineal_status(status).to_upper(), STATUS_COLORS.get(status, DIM))
 		_paragraph(_lineal_detail, str(issue.title), 17, TEXT)
 		var grid := GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 16)
 		grid.add_theme_constant_override("v_separation", 4)
 		_lineal_detail.add_child(grid)
-		_record_field(grid, "STATUS", str(issue.status), STATUS_COLORS.get(str(issue.status), DIM))
+		_record_field(grid, "STATUS", lineal_status(status), STATUS_COLORS.get(status, DIM))
+		var priority := str(issue.get("priority", "No priority"))
+		_record_field(grid, "PRIORITY", lineal_priority(priority), RED if priority == "Urgent" else TEXT)
+		_record_field(grid, "ESTIMATE", str(int(issue.get("estimate", 0))))
+		if not str(issue.get("cycle", "")).is_empty(): _record_field(grid, "CYCLE", str(issue.cycle), LINEAL_ACCENT)
+		if not issue.get("labels", []).is_empty(): _record_field(grid, "LABELS", "  ".join(issue.labels.map(func(label: Variant) -> String: return "#" + str(label))))
 		_record_field(grid, "ASSIGNEE", str(issue.assignee))
-		_record_field(grid, "COMPONENT", str(issue.component))
-		_record_field(grid, "REPORTER", str(issue.reporter))
-		_record_field(grid, "PRIORITY", str(issue.priority))
+		_record_field(grid, "PROJECT", str(issue.component))
+		_record_field(grid, "CREATED BY", str(issue.reporter))
 		_record_field(grid, "OPENED", str(issue.opened).trim_prefix("opened "))
-		if not issue.get("watchers", []).is_empty(): _record_field(grid, "WATCHERS", ", ".join(issue.watchers))
+		if not issue.get("watchers", []).is_empty(): _record_field(grid, "SUBSCRIBERS", ", ".join(issue.watchers))
 		_record_field(grid, "LINKED PRS", ", ".join(issue.get("linked", [])) if not issue.get("linked", []).is_empty() else "none")
 		if not str(issue.get("resolution", "")).is_empty(): _paragraph(_lineal_detail, str(issue.resolution), 13, AMBER)
 		_paragraph(_lineal_detail, str(issue.description), 14, TEXT)
-		for line: String in issue.get("history", []): _paragraph(_lineal_detail, "· " + line, 12, DIM)
+		if not issue.get("history", []).is_empty():
+			_label(_lineal_detail, "ACTIVITY", 11, DIM)
+			for line: String in issue.get("history", []): _paragraph(_lineal_detail, "· " + line, 12, DIM)
 	elif _lineal_view.has("link") and not request.is_empty() and str(_lineal_view.link) == str(request.get("issue_ref", "")):
 		# The desk PR's link, when Lineal has nothing to show for it.
 		var ref := str(_lineal_view.link)
@@ -1879,7 +1916,6 @@ func _render_pipeline() -> void:
 		_paragraph(_pipeline_detail, "Pick a build on the left, or click the build on the PR slip in REVIEW to open the PR's own.", 14, DIM)
 		return
 	_record_head(_pipeline_detail, "build", str(shown.id), "BUILD " + str(shown.id), Catalog.display_id(str(shown.pr_id)), DIM)
-	_label(_pipeline_detail, "%s @ %s · %s" % [shown.branch, shown.commit, shown.duration], 12, DIM)
 	var status := Records.status_text(shown)
 	var color: Color = AMBER if str(shown.get("override", "")) == "helios" else STATUS_COLORS.get(status, TEXT)
 	_label(_pipeline_detail, status, 20, color)
@@ -1888,6 +1924,9 @@ func _render_pipeline() -> void:
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 4)
 	_pipeline_detail.add_child(grid)
+	_record_field(grid, "BRANCH", str(shown.branch))
+	_record_field(grid, "COMMIT", str(shown.commit))
+	_record_field(grid, "DURATION", str(shown.duration))
 	_record_field(grid, "RERUNS", str(int(shown.reruns)))
 	_record_field(grid, "COVERAGE", "%s → %s" % [Records.coverage_text(int(shown.coverage_before)), Records.coverage_text(int(shown.coverage_after))])
 	_label(_pipeline_detail, "TESTS", 11, DIM)
@@ -1942,7 +1981,7 @@ func _build_system(page: VBoxContainer) -> void:
 	_button(content, "SAVE AND SIGN OUT", func() -> void: menu_requested.emit())
 	_build_sound_settings(content)
 	_label(content, "REVIEW PROCEDURE", 16, CYAN)
-	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file and whole-PR standards) and pick the standard it breaks. For issue and build standards, open the PR's issue in LINEAL or its build in PIPELINE from the PR slip, SELECT AS EVIDENCE, then pick the standard. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. Helios's advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
+	_paragraph(content, "1. Read the author's note and the code diff.\n2. In REVIEW, click or select each violating line (or WHOLE FILE for file standards) and pick the standard it breaks. For issue and build standards, open the PR's issue in LINEAL or its build in PIPELINE from the PR slip, SELECT AS EVIDENCE, then pick the standard. Full standards: INTRANET > STANDARDS. They change every second morning.\n3. Approve with no citations, or request changes with citations.\n4. The author answers at your desk: thanks, a revision, or pushback (INSIST or WITHDRAW).\n\nYour desk holds one PR at a time. Stamp it and the next lands a moment later; REVIEW shows a badge and a notification when it does. A PR you send back returns as a revision after a couple of others. Helios's advice is optional and fallible. At 18:00, Helios takes unfinished work and Morgan's end-of-day note opens. Choose your evening there to wrap up the day.", 14, DIM)
 
 
 ## SOUND: the soundtrack's on/off toggle and volume, kept on this computer.

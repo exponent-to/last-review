@@ -156,13 +156,13 @@ static func authored() -> Dictionary:
     8: "That's it for today. Eat something. Helios moved tomorrow's standup to 8:59 again, and I can't find the setting.",
     9: "Head home. One more day. Whatever they decide, you did the job the way it was written."}}}
  _cache.company.append({"day": 4, "author": "Operations", "text": "Lineal notice: issues are not a place for feelings. Feelings have their own tracker, which is also Lineal."})
- _cache.company.append({"day": 5, "author": "Operations", "text": "Exception Desk notice: INK-EXCEPTION is the only valid pink-ink permit, for one file only. Misspelled permits will be treated as forgeries. Pipeline is live: red builds do not ship."})
+ _cache.company.append({"day": 5, "author": "Operations", "text": "Exception Desk notice: INK-EXCEPTION is the only valid pink-ink permit, for one file only. Misspelled permits will be treated as forgeries. Pipeline is live: red builds do not ship, and neither does yolo."})
  _cache.company.append({"day": 5, "author": "Morgan", "text": "Last scheduled day of this assignment. Keep checking the actual files, the issues, and the builds; we will talk about your future after closing."})
  _cache.company.append({"day": 6, "author": "Morgan", "text": "Welcome to week two. Your assignment was extended over the weekend; the standards are Friday's. You may notice fewer people. Please don't ask where they went in a public channel."})
  _cache.company.append({"day": 6, "author": "Morgan", "text": "One more person, actually: Gwen joins us from Security, which was consolidated into Helios on Friday. She'll be sending PRs. She has asked that nobody touch her keyboard, her badge, or her coffee."})
- _cache.company.append({"day": 7, "author": "Operations", "text": "Standards modernization notice: diff budgets now apply, and the diffstat is authoritative. Coverage may not fall more than two points. Helios assigns issues and reruns builds now. Please stop doing either."})
+ _cache.company.append({"day": 7, "author": "Operations", "text": "Standards modernization notice: every TODO needs an owner on staff, and estimates are Fibonacci now. Helios names branches and handles HR now. Please stop doing either."})
  _cache.company.append({"day": 8, "author": "Helios", "text": "Desks four through eleven have been consolidated into me. I will be attending your standup. Please do not water the plants; their offboarding is scheduled."})
- _cache.company.append({"day": 9, "author": "Operations", "text": "Audit notice: builds overridden by Helios no longer count as passing. Tests must accompany changes to existing code. Ink permits must name the PR's own issue."})
+ _cache.company.append({"day": 9, "author": "Operations", "text": "Audit notice: builds overridden by Helios no longer count as passing. Commit hashes may not spell dead or bad. Ink permits must name the PR's own issue."})
  _cache.company.append({"day": 10, "author": "Morgan", "text": "Last day. Leadership announces the review gate decision after closing. Whatever happens, sign only what you checked."})
 
  return _cache

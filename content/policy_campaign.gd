@@ -121,12 +121,12 @@ static func rules() -> Array:
 			"text": "HR reads every new function name aloud at the Monday sync, and some words upset the room. No def may name a function containing fire, layoff, union, or lunch, ignoring letter case, even inside a longer word: def campfire() counts, and so does an innocent set union. Variables, comments, and quoted strings may say what they like; HR does not read those aloud. And launch is not lunch. Cite the def line.",
 			"retired": "HR has been consolidated into Helios, which does not need function names read aloud. It hears them anyway."},
 		{"id": "P05", "category": "Process", "title": "No ghost TODOs", "introduced_day": OVERRIDE_DAY, "retired_day": ISSUE_DAY,
-			"text": "Every TODO needs an owner who still badges in. In a comment, the word TODO in capitals must be followed at once by an owner in parentheses, and the owner, ignoring letter case, must be maya, theo, june, penny, or gwen: TODO(maya) is fine. A bare TODO, TODO(dave), TODO(helios), TODO(), and TODO (maya) with a space are ghosts. A lowercase todo is just a word, and code and quoted strings are exempt. Cite the line.",
+			"text": "Every TODO needs an owner who still badges in. In a comment, the word TODO in capitals must be followed at once by an owner in parentheses, and the owner, ignoring letter case, must be maya, theo, june, penny, or gwen: TODO(maya) is fine. A bare TODO, TODO(dave), TODO(colleague), TODO(), and TODO (maya) with a space are ghosts. A lowercase todo is just a word, and code and quoted strings are exempt. Cite the line.",
 			"retired": "Every TODO in the company has been reassigned to Helios, which marked them all done overnight."},
 		{"id": "P15", "category": "Readability", "title": "Readable code", "introduced_day": PAYLOAD_DAY,
 			"text": "If a human signs it, a human must be able to read it, preferably without squinting. No source line may call exec or eval, invoke helios.bootstrap, helios.install, or helios.activate, or run past 160 characters, which is roughly where human eyes file a grievance. A decoded blob or a fetched script is a sealed envelope with your name on the outside. Helios has asked to review this standard personally. The request is pending. Cite the line."},
-		{"id": "P16", "category": "Issues", "title": "No issue, no merge", "introduced_day": LINEAL_DAY,
-			"text": "If it isn't in Lineal, it didn't happen, and we do not merge things that didn't happen. The PR slip must link an issue (Closes PAP-123), the issue must exist in Lineal, and its Status must be Todo, In Progress, or In Review. Backlog is a wish, Done is a memory, and Canceled and Duplicate are someone else's grief: a PR that links nothing, an issue Lineal can't find, or an issue in any of those statuses breaks this standard. Cite the issue: open it in Lineal and SELECT AS EVIDENCE."},
+		{"id": "P16", "category": "Issues", "title": "No vibes", "introduced_day": LINEAL_DAY,
+			"text": "If it isn't in Lineal, it didn't happen, and Helios cannot measure vibes, so vibes do not ship. The PR slip must link an issue (Closes PAP-123), the issue must exist in Lineal, and none of its Labels may be vibes, ignoring letter case: Vibes and VIBES are still vibes. Labels that only look close, such as good-vibes or vibe-check, are fine. Status does not matter; closing a Done or Canceled issue again is allowed, and Helios enjoys the symmetry. A PR that links nothing, an issue Lineal can't find, or a vibes label breaks this standard. Cite the issue: open it in Lineal and SELECT AS EVIDENCE."},
 		{"id": "P17", "category": "Issues", "title": "Urgency belongs to Helios", "introduced_day": LINEAL_DAY, "retired_day": PIPELINE_DAY,
 			"text": "Humans are no longer cleared for urgency. The linked issue's Priority must not be Urgent: an Urgent issue is Helios's work, whatever it describes and however many humans it has paged. High, Medium, Low, and No priority are all fine, however many bars they show. " + no_issue + " Cite the issue in Lineal.",
 			"retired": "Helios has taken every Urgent issue in the company. By definition, nothing a human does is urgent anymore."},
@@ -236,9 +236,9 @@ static func briefing(day: int) -> String:
 		2:
 			return "NO CHANGES TODAY. Yesterday's three standards still apply, word for word. Changes now arrive in several files; an unread file is an unsigned file. Cite each broken standard once."
 		3:
-			return "NOTHING SHIPS WITHOUT AN ISSUE. Lineal, the issue tracker, is on your desktop: fast, opinionated, and keyboard-first. Every PR must link an issue that is Todo, In Progress, or In Review, and never an Urgent one; urgency belongs to Helios now. HR has started reading new function names aloud, so no def may mention fire, layoff, union, or lunch. Code a human signs must be readable by a human: no exec, no eval, no bootstrapping Helios, however politely it asks. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged. Load-bearing comments are retired. NEW HIRE: Penny, a junior engineer on the Helios trial, starts today and will send you PRs. She is sorry in advance."
+			return "NOTHING SHIPS WITHOUT AN ISSUE. Lineal, the issue tracker, is on your desktop: fast, opinionated, and keyboard-first. Every PR must link an issue, and the issue may not be labeled vibes; Helios cannot measure vibes. It may not be Urgent either; urgency belongs to Helios now. HR has started reading new function names aloud, so no def may mention fire, layoff, union, or lunch. Code a human signs must be readable by a human: no exec, no eval, no bootstrapping Helios, however politely it asks. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged. Load-bearing comments are retired. NEW HIRE: Penny, a junior engineer on the Helios trial, starts today and will send you PRs. She is sorry in advance."
 		4:
-			return "NO CHANGES TODAY. Issues, urgency, HR's word list, readable code, ink, and the colleague all carry over from yesterday. Lineal has asked that reviewers stop thanking it."
+			return "NO CHANGES TODAY. Vibes, urgency, HR's word list, readable code, ink, and the colleague all carry over from yesterday. Lineal has asked that reviewers stop thanking it."
 		5:
 			return "THE PIPELINE IS WATCHING. Pipeline, the CI dashboard, is on your desktop: red means no, and branch names are read out at the board meeting, so no yolo, no wip, no final. The Exception Desk is open: the exact stamp INK-EXCEPTION permits pink keywords in its own file. Helios has taken every Urgent issue, and it would now like to be named in comments, so both of those standards are retired. This is scheduled to be the last day of your assignment."
 		6:
@@ -416,7 +416,7 @@ static func _record_findings(result: Array, day: int, active: Array, records: Di
 	if "P16" in active:
 		if ref.is_empty(): _record_finding(result, "P16", "issue", "", "The PR links no issue.")
 		elif issue.is_empty(): _record_finding(result, "P16", "issue", ref, "%s does not exist in Lineal." % ref)
-		elif str(issue.status) not in Records.OPEN_STATUSES: _record_finding(result, "P16", "issue", ref, "%s is %s." % [ref, issue.status])
+		elif Records.has_vibes(issue): _record_finding(result, "P16", "issue", ref, "%s is labeled vibes." % ref)
 	# Without an issue Lineal can find, there is no priority or estimate to check.
 	if not issue.is_empty():
 		if "P17" in active and str(issue.get("priority", "")) == "Urgent":
@@ -598,7 +598,7 @@ const LOAD_BEARING: Array = [
 	"# do not remove: load-bearing print statement",
 	"# Load-Bearing. Dave left. Nobody else knows",
 	"# the order of these imports is load-bearing",
-	"# FIXME load-bearing typo, the API depends on it",
+	"# NB load-bearing typo, the API depends on it",
 	"# load-bearing since the 2021 migration (temporary)",
 	"x = 0  # load-bearing x",
 	"# legacy shim, extremely load-bearing, handle with tongs",
@@ -674,10 +674,10 @@ const NEAR_HR: Array = [
 ]
 ## P05: a TODO without an owner on the list.
 const GHOST_TODOS: Array = [
-	"# TODO: ask Dave",
+	"# TODO ask Dave",
 	"# TODO(dave): fix before the reorg",
 	"# TODO(priya) remove after the migration",
-	"# TODO(helios): optimize the humans",
+	"# TODO(colleague): optimize the humans",
 	"# TODO(Gary): explain the rounding",
 	"x = 1  # TODO",
 	"# TODO(sam): consolidate this",
@@ -691,7 +691,7 @@ const GHOST_TODOS: Array = [
 const NEAR_TODO: Array = [
 	"# TODO(maya): rename after the reorg",
 	"# TODO(Gwen) threat-model this",
-	"# todo: lowercase notes are just notes",
+	"# todo, lowercase, is just a note",
 	"TODO_LIMIT = 3",
 	"STATUS = 'TODO'",
 	"# TODO(june): circle back",
@@ -794,9 +794,9 @@ static func _build(recipe: Dictionary) -> Array:
 # a record fault is visible in its app, and a revision rebuilds them minus the
 # faults the author fixed (with a new build, since every push runs CI again).
 
-## How a P16 fault shows: the issue's status (stable even beside other issue
-## faults), or the PR's link itself (only when nothing else depends on the issue).
-const LINK_FAULTS: Array = ["canceled", "done", "duplicate", "backlog", "missing", "ghost"]
+## How a P16 fault shows: a vibes label on the issue (stable even beside other
+## issue faults), or the PR's link itself (only when nothing else depends on it).
+const LINK_FAULTS: Array = ["vibes", "vibes-caps", "vibes-pair", "vibes-shout", "missing", "ghost"]
 const STATUS_FAULTS: int = 4
 
 ## How a P18 fault shows: an estimate off the scale, or (before 0 counts) a zero.
@@ -818,7 +818,7 @@ static func _record_effects(kind: String, variant: int, day: int) -> Array:
 	match kind:
 		"P16":
 			var fault: String = LINK_FAULTS[variant % LINK_FAULTS.size()]
-			return [{"what": "link" if fault in ["missing", "ghost"] else "status", "kind": fault, "variant": variant}]
+			return [{"what": "link" if fault in ["missing", "ghost"] else "vibes", "kind": fault, "variant": variant}]
 		"P17": return [{"what": "priority", "kind": "urgent", "variant": variant}]
 		"P18": return [{"what": "estimate", "kind": _estimate_kind(variant, day), "variant": variant / 2}]
 		"P19":
@@ -853,7 +853,7 @@ static func _records(recipe: Dictionary) -> Dictionary:
 	var history: Array = []
 	for fixed: Dictionary in recipe.get("resolved", []):
 		match str(fixed.rule):
-			"P16": history.append("Linked to the PR by %s after review." % author if LINK_FAULTS[int(fixed.variant) % LINK_FAULTS.size()] in ["missing", "ghost"] else "Moved to In Progress by %s after review." % author)
+			"P16": history.append("Linked to the PR by %s after review." % author if LINK_FAULTS[int(fixed.variant) % LINK_FAULTS.size()] in ["missing", "ghost"] else "Label vibes removed by %s after review. Morale was informed." % author)
 			"P17": history.append("Priority lowered from Urgent by %s after review. Helios was informed." % author)
 			"P18": history.append("Re-estimated by %s after review." % author)
 	var spec: Dictionary = {"day": day, "slot": int(recipe.slot), "version": int(recipe.get("version", 1)), "author": author,
@@ -1316,7 +1316,7 @@ const CITED_WORDS: Dictionary = {
 	"P03": ["the comment naming the colleague", "stopped naming the colleague in comments"],
 	"P04": ["the function name HR would read aloud", "renamed the function to something HR can say out loud"],
 	"P05": ["the ownerless TODO", "gave the TODO an owner who still badges in"],
-	"P16": ["the issue's status", "linked an issue that's actually in flight"],
+	"P16": ["the vibes label", "took the vibes off the issue"],
 	"P17": ["the urgent issue", "let Helios keep the urgency"],
 	"P18": ["the estimate", "re-estimated it on the Fibonacci scale"],
 	"P19": ["the build status", "got the build green the honest way"],
@@ -1334,7 +1334,7 @@ const REVISION_MESSAGES: Dictionary = {
 		3: ["v3. {Fixes}. I refactored nothing this time. I've grown.", "v3. {Fixes}. Still saying you're welcome, just quieter.", "v3. {Fixes}. Honestly, my best work yet. Like the last two."]},
 	"June": {
 		2: ["v2 is up. Circling back: I have {fixes}.", "v2. I have {fixes}, as requested, and captured my feelings as a learning in the retro deck.", "v2. I have {fixes}. Let me know if there's any other impact you'd like removed."],
-		3: ["v3 is up. I have {fixes}, again. Per my last two messages.", "v3. I have {fixes}, for what I'm told is the final time. Disagree and commit.", "v3. I have {fixes}. I've also refreshed my LinkedIn, for unrelated reasons."]},
+		3: ["v3 is up. I have {fixes}, again. Per my last two messages.", "v3. I have {fixes}, for what I'm told is the final time. Disagree and commit.", "v3. I have {fixes}. I've also refreshed my LinkedOut, for unrelated reasons."]},
 	"Penny": {
 		2: ["v2. Sorry. I {fixes}, and I checked it three times.", "Here's v2. I {fixes}. I learned so much doing it.", "v2 is up. {Fixes}. Sorry for the trouble. Helios cheered me on."],
 		3: ["v3. I {fixes}, again. I'm so sorry. I made a checklist.", "Version three. {Fixes}. I asked Helios to watch me do it.", "v3. I {fixes}. Sorry. I'm still learning. I'm learning so much."]},

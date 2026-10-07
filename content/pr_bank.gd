@@ -2003,7 +2003,7 @@ static func entries() -> Array:
 		"grudge": "Fine. I'll update my LinkedOut about this. Let's see what happens.",
 		"lines": [
 			"\"\"\"Insider threat signals, per the security review.\"\"\"",
-			"SIGNALS = ['linkedin_updated', 'resume_downloaded',",
+			"SIGNALS = ['linkedout_updated', 'resume_downloaded',",
 			"           'open_to_work_banner', 'asked_about_severance']",
 			"",
 			"def risk(employee):",
@@ -2947,7 +2947,7 @@ static func entries() -> Array:
 			"\"\"\"Employee profile defaults, centralized.\"\"\"",
 			"",
 			"def emergency_contact(profile):",
-			"    # helios is always reachable",
+			"    # the colleague is always reachable",
 			"    return 'helios'",
 		]},
 		{"path": "helios/exit_labels.py", "title": "Turn exit interviews into Helios labeling sessions", "phrase": "the exit interview labeling",

@@ -217,7 +217,7 @@ func _test_branches() -> void:
 		_check(int(gwen.revise_now) >= int(gwen.revise_later) and int(gwen.escalate) <= 8, "Gwen fixes most things at once and rarely escalates (%s)" % mood)
 		_check(not Encounters.odds("changes", "Gwen", mood).is_empty(), "Gwen has odds (%s)" % mood)
 		var paperwork := Encounters.weights("changes", "Gwen", mood, ["P16"])
-		for turf: String in ["P11", "P19"]:
+		for turf: String in ["P21", "P19"]:
 			var own := Encounters.weights("changes", "Gwen", mood, [turf])
 			_check(int(own.pushback) > int(own.revise_later) and int(own.pushback) > 2 * int(paperwork.pushback), "Gwen argues about her own field (%s), not issue paperwork (%s)" % [turf, mood])
 			_check(int(own.pushback) > int(Encounters.weights("changes", "Maya", mood, [turf]).pushback), "Gwen defends her field harder than Maya would (%s, %s)" % [turf, mood])
@@ -225,7 +225,7 @@ func _test_branches() -> void:
 	for mood: String in ["neutral", "strained", "hostile"]:
 		_check(int(Encounters.weights("insist", "Penny", mood).insist_escalate) > int(Encounters.weights("insist", "Penny", mood).insist_revise), "Insisting sends Penny to Morgan for help (%s)" % mood)
 	_check(int(Encounters.weights("changes", "Penny", "hostile").escalate) > int(Encounters.weights("changes", "Penny", "warm").escalate), "The worse it goes, the more Penny asks Morgan")
-	_check(Encounters.disputed(["P16", "P11"], "PR-X", "Gwen") == "P11" and Encounters.disputed(["P02", "P16", "P19"], "PR-Y", "Gwen") == "P19", "When Gwen pushes back, she disputes her own field")
+	_check(Encounters.disputed(["P16", "P21"], "PR-X", "Gwen") == "P21" and Encounters.disputed(["P02", "P16", "P19"], "PR-Y", "Gwen") == "P19", "When Gwen pushes back, she disputes her own field")
 	# Her temperament leans on real categories, and her field is in play on every day she works.
 	var categories := {}
 	for rule: Dictionary in Catalog.rules(): categories[str(rule.category)] = true
@@ -256,19 +256,15 @@ func _test_records() -> void:
 		if assignee in Policy.AUTHORS:
 			_check(Policy.joins(assignee) <= day, "%s's issue isn't assigned to someone who hasn't joined yet (%s on day %d)" % [packet.id, assignee, day])
 		if author not in NEWCOMERS: continue
-		var p17: bool = Policy._on("P17", day)
-		if p17 and "P17" not in packet.violations:
-			_check(assignee == author, "%s's own issue is assigned to %s" % [packet.id, author])
-			checked[author] += 1
+		_check(assignee == author, "%s's own issue is assigned to %s" % [packet.id, author])
+		checked[author] += 1
 		if "P17" in packet.violations:
-			_check(assignee != author, "%s's misassigned issue is someone else's" % packet.id)
+			_check(str(own.priority) == "Urgent", "%s's urgent issue says so" % packet.id)
 		_check(not str(own.id).is_empty() and (not str(packet.issue_ref).is_empty() or "P16" in packet.violations), "%s links a Lineal issue" % packet.id)
 		if day >= Policy.PIPELINE_DAY:
 			_check(not packet.build.is_empty() and packet.build.tests.size() >= 4 and not str(packet.build.id).is_empty(), "%s has a Pipeline build" % packet.id)
 		_check(packet.violations == Policy.evaluate(packet.files, day, {"author": author, "issue_ref": packet.issue_ref, "issues": packet.issues, "build": packet.build}), "%s's audit agrees with its records" % packet.id)
-	# P17 retires on Friday (to make room for P15), before Gwen arrives, so only
-	# Penny's issues are ever checked against the assignee standard.
-	_check(int(checked.Penny) > 0 and (int(checked.Gwen) > 0 or not Policy._on("P17", Policy.joins("Gwen"))), "Some of Penny's and Gwen's issues are checked against their names (%s)" % [checked])
+	_check(int(checked.Penny) > 0 and int(checked.Gwen) > 0, "Penny's and Gwen's issues carry their names (%s)" % [checked])
 
 # --- Trees -------------------------------------------------------------------------
 

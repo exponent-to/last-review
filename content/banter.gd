@@ -72,7 +72,7 @@ const LINES := {
 			"Thanks. I'll be in the incident channel, as always.",
 			"Merged. I'm going to go stare at a wall now.",
 			"Wow. Okay. I'll tell the release train.",
-			"Thanks. My actual job missed me. It said so in a ticket.",
+			"Thanks. My actual job missed me. It said so in an issue.",
 		],
 		"changes": [
 			"Cool. I'll add it to the pile with everything else.",

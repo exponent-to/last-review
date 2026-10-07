@@ -31,7 +31,9 @@ printf '%s\n' $suites | xargs -P "$jobs" -I{} sh -c '
 	suite=$1
 	logs=$2
 	begin=$(date +%s)
-	if sh scripts/run.sh --headless --script "res://tests/$suite.gd" >"$logs/$suite.log" 2>&1; then
+	# A suite that fails to parse exits 0 without running, so a parse error fails too.
+	if sh scripts/run.sh --headless --script "res://tests/$suite.gd" >"$logs/$suite.log" 2>&1 &&
+		! grep -q -e "Parse Error" -e "Failed to load script" "$logs/$suite.log"; then
 		result=ok
 	else
 		result=FAIL

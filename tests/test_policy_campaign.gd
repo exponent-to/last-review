@@ -3,9 +3,8 @@ extends SceneTree
 const Policy = preload("res://content/policy_campaign.gd")
 const Bank = preload("res://content/pr_bank.gd")
 const LAST_DAY: int = 10
-## Standards whose violation is a size (too many lines). Any packet "breaks" it
-## before it exists, so it can't foreshadow anything.
-const ABSENCES: Array = ["P09"]
+## Standards a packet could "break" before they exist (none since the diff budget).
+const ABSENCES: Array = []
 var checks: int = 0
 var failures: int = 0
 
@@ -14,7 +13,8 @@ func _initialize() -> void:
 	_test_schedule()
 	_test_boundaries()
 	_test_amendments_and_retirements()
-	_test_whole_pr_evidence()
+	_test_new_standards()
+	_test_evidence_scopes()
 	_test_keyword_spans()
 	_test_permits()
 	_test_purity()
@@ -35,8 +35,8 @@ func _file(source: String, ink: String = "blue", path: String = "office/note.py"
 		file.status = "modified"
 	return file
 
-## Day 3 by default: load-bearing, ink, and credentials are all still in force.
-func _has(rule_id: String, source: String, day: int = 3, ink: String = "blue", path: String = "office/note.py") -> bool:
+## Day 1 by default: load-bearing, ink, and the colleague are in force.
+func _has(rule_id: String, source: String, day: int = 1, ink: String = "blue", path: String = "office/note.py") -> bool:
 	return rule_id in Policy.evaluate([_file(source, ink, path)], day)
 
 func _rule(rule_id: String) -> Dictionary:
@@ -48,13 +48,13 @@ func _lines(count: int, prefix: String = "x") -> String:
 	return "\n".join(lines)
 
 ## Records for a PR by Maya that links an Open issue in office/ (and no build).
-func _records(ref: String = "PAP-412", status: String = "Open") -> Dictionary:
-	return {"author": "Maya", "issue_ref": ref, "issues": [{"id": "PAP-412", "status": status, "assignee": "Maya", "component": "office/"}], "build": {}}
+func _records(ref: String = "PAP-412", labels: Array = ["Bug"]) -> Dictionary:
+	return {"author": "Maya", "issue_ref": ref, "issues": [{"id": "PAP-412", "status": "Todo", "assignee": "Maya", "component": "office/", "labels": labels, "priority": "Low", "estimate": 3}], "build": {}}
 
 func _test_campaign() -> void:
 	var packets: Array = Policy.requests()
 	_check(Policy.DAY_COUNTS.size() == LAST_DAY and packets.size() == 150, "The campaign is two weeks: ten shifts of fifteen requests.")
-	_check(Policy.rules().size() == 11, "The rulebook defines eleven standards across the two weeks, P15 readable code among them.")
+	_check(Policy.rules().size() == 12, "The rulebook defines twelve standards across the two weeks, P15 readable code among them.")
 	var all_ids: Array = Policy.rules().map(func(rule: Dictionary) -> String: return rule.id)
 	_check("P15" in all_ids, "P15 is the readable-code standard that makes payloads citable.")
 	var seen_ids: Array = []
@@ -169,15 +169,15 @@ func _test_schedule() -> void:
 		retired += changes.retired.size()
 	_check(Policy.BLOCK_STARTS == [1, 3, 5, 7, 9], "Blocks are days 1-2, 3-4, 5-6, 7-8, and 9-10.")
 	_check(amended >= 5 and retired >= 5, "Standards grow by amendment and are retired, not only added.")
-	_check(Policy.active_ids(1) == ["P01", "P02", "P11"], "The opening rulebook: load-bearing comments, ink, and credentials.")
+	_check(Policy.active_ids(1) == ["P01", "P02", "P03"], "The opening rulebook: load-bearing comments, ink, and the colleague.")
 	var third: Dictionary = Policy.changes(3)
 	var fifth: Dictionary = Policy.changes(5)
 	var seventh: Dictionary = Policy.changes(7)
 	var ninth: Dictionary = Policy.changes(9)
-	_check(_names(third.added) == ["P16", "P17", "P15"] and third.amended.is_empty() and third.retired.is_empty(), "Wednesday installs Lineal (issues open and the author's) and, with Helios's first payload, readable code.")
-	_check(_names(fifth.added) == ["P18", "P19", "P20"] and _names(fifth.amended) == ["P02"] and _names(fifth.retired) == ["P01", "P11", "P17"], "Friday installs Pipeline (green builds, rerun cap), adds components, opens the Exception Desk, retires two code rules, and hands assignees to Helios.")
-	_check(_names(seventh.added) == ["P09"] and _names(seventh.amended) == ["P19"] and _names(seventh.retired) == ["P20"], "Week two adds the diff budget, lets Helios override builds, and hands reruns to Helios.")
-	_check(_names(ninth.added) == ["P21"] and _names(ninth.amended) == ["P02", "P18", "P19"] and _names(ninth.retired) == ["P09"], "The last block deepens permits, components, and overrides, adds coverage, and retires the diff budget.")
+	_check(_names(third.added) == ["P04", "P15", "P16", "P17"] and third.amended.is_empty() and _names(third.retired) == ["P01"], "Wednesday installs Lineal (vibes, urgency), HR's word list, and readable code, and retires load-bearing.")
+	_check(_names(fifth.added) == ["P19", "P20"] and _names(fifth.amended) == ["P02"] and _names(fifth.retired) == ["P03", "P17"], "Friday installs Pipeline (green builds, branch names), opens the Exception Desk, and retires the colleague and urgency.")
+	_check(_names(seventh.added) == ["P05", "P18"] and _names(seventh.amended) == ["P19"] and _names(seventh.retired) == ["P04", "P20"], "Week two adds ghost TODOs and Fibonacci, lets Helios override builds, and retires HR and branches.")
+	_check(_names(ninth.added) == ["P21"] and _names(ninth.amended) == ["P02", "P18", "P19"] and _names(ninth.retired) == ["P05"], "The last block deepens permits, zero estimates, and overrides, adds hex hygiene, and retires TODOs.")
 	for rule: Dictionary in Policy.rules():
 		var retired_day: int = int(rule.get("retired_day", 0))
 		if retired_day > 0:
@@ -201,18 +201,12 @@ func _test_boundaries() -> void:
 	_check(not _has("P02", "# def if else return\nname = 'def if else return'", 1, "pink"), "Keywords in comments or strings must not require blue.")
 	_check(not _has("P02", "return_label = 'a'\ndefault = 'if'", 1, "pink"), "Longer identifier names must not count as keyword tokens.")
 	_check(Policy.evaluate([_file("# a load-bearing note"), _file("# a LOAD-BEARING note", "blue", "other.py")], 1) == ["P01"], "Multiple files breaking one rule must require only one citation.")
-	# Credentials: a quoted string assigned with = to a credential-looking name.
-	for source: String in ["API_KEY = 'sk-1'", "db_password = ''", "config.Secret_Token = \"x\"", "connect(token='abc')", "AUTH_TOKEN='x'"]:
-		_check(_has("P11", source, 1), "P11 flags a quoted credential: " + source)
-	for source: String in ["TOKEN = vault.read('token')", "TOKEN_TTL = 3600", "if token == 'abc':\n    return 1", "# API_KEY = 'sk-1'", "LABEL = 'api_key = \"x\"'", "KEY = 'x'", "monkey = 'banana'"]:
-		_check(not _has("P11", source, 1), "P11 leaves vault reads, numbers, comparisons, comments, quoted text, and unrelated names alone: " + source)
-	var secret_line: Array = Policy.findings([_file("x = 1\nAPI_KEY = 'sk-1'\ny = 2")], 1)
-	_check(secret_line.size() == 1 and int(secret_line[0].line) == 2, "A credential is cited on its own line.")
 
 func _test_amendments_and_retirements() -> void:
 	# Retired standards stop applying from their retirement day on, and stay retired.
 	var samples: Dictionary = {
-		"P01": [_file("# load-bearing: ask Dave")], "P11": [_file("API_KEY = 'sk-live-1'")], "P09": [_file(_lines(31))],
+		"P01": [_file("# load-bearing: ask Dave")], "P03": [_file("# thanks, Helios")],
+		"P04": [_file("def fire_drill(): pass")], "P05": [_file("# TODO(dave): fix")],
 	}
 	for rule_id: String in samples:
 		var retired_day: int = int(_rule(rule_id).retired_day)
@@ -220,8 +214,8 @@ func _test_amendments_and_retirements() -> void:
 		for day in range(retired_day, LAST_DAY + 1):
 			_check(rule_id not in Policy.evaluate(samples[rule_id], day) and rule_id not in Policy.active_ids(day), "%s no longer applies once retired (day %d)." % [rule_id, day])
 	# Clean PRs carry what used to be faults, so old habits get tested: from Friday
-	# the retired code rules, and in week two Helios's issues and reruns.
-	var retired_ids: Array = ["P01", "P11", "P09", "P17", "P20"]
+	# the retired code rules, and in week two urgent issues and loud branches.
+	var retired_ids: Array = ["P01", "P03", "P04", "P05", "P17", "P20"]
 	for day in range(Policy.PIPELINE_DAY, LAST_DAY + 1):
 		var decoys: int = 0
 		for packet: Dictionary in Policy.requests():
@@ -230,39 +224,52 @@ func _test_amendments_and_retirements() -> void:
 			if not old.is_empty(): decoys += 1
 		_check(decoys >= 1, "Day %d has a clean PR that an outdated rulebook would reject." % day)
 
-func _test_whole_pr_evidence() -> void:
-	# Diff budget: lines added plus lines removed across the PR.
-	_check(not ("P09" in Policy.evaluate([_file(_lines(30))], 7)) and "P09" in Policy.evaluate([_file(_lines(31))], 7), "Exactly 30 changed lines is within budget; 31 is over.")
-	_check("P09" in Policy.evaluate([_file(_lines(16), "blue", "office/a.py"), _file(_lines(15), "blue", "office/b.py")], 7), "The budget counts every file in the PR.")
-	var shrink := _file("x0 = 0", "blue", "office/c.py", _lines(31))
-	var shrink_more := _file("x0 = 0", "blue", "office/c.py", _lines(32))
-	_check("P09" not in Policy.evaluate([shrink], 7) and "P09" in Policy.evaluate([shrink_more], 7), "Removed lines count against the budget too.")
-	_check("P09" not in Policy.evaluate([_file(_lines(31))], 6), "The diff budget arrives on day 7.")
-	# Whole-PR findings accept any file of the PR, as a whole or by line, and nothing else.
-	var pr: Array = [_file(_lines(16), "blue", "office/a.py"), _file(_lines(15), "blue", "office/b.py")]
-	var audit: Array = Policy.findings(pr, 7)
-	for file: Dictionary in pr:
-		_check(Policy.evidence_accepted(audit, "P09", file.path, 0) and Policy.evidence_accepted(audit, "P09", file.path, 3), "A whole-PR standard accepts WHOLE FILE or a line on any changed file.")
-	_check(not Policy.evidence_accepted(audit, "P09", "office/elsewhere.py", 0), "Whole-PR evidence must still point inside the PR.")
-	_check(not Policy.evidence_matches(audit, "P09", {"record": "issue", "id": "PAP-412"}), "An issue is never evidence for a code standard.")
+## The silly standards at their boundaries: every fault wording breaks exactly its
+## standard, and every near-miss wording breaks nothing.
+func _test_new_standards() -> void:
+	for line: String in Policy.HELIOS_COMMENTS:
+		_check(_has("P03", line), "P03 flags a comment that names Helios: " + line)
+	for line: String in Policy.NEAR_HELIOS:
+		_check(Policy.evaluate([_file(line)], 1).is_empty(), "P03 leaves code, quotes, and lookalikes alone: " + line)
+	_check(_has("P03", "# the HELIOSPHERE plan") and not _has("P03", "LABEL = '# helios'"), "P03 ignores case and quoted hashes.")
+	_check(not _has("P03", "# thanks, Helios", 5), "The colleague retires on day 5.")
+	for line: String in Policy.HR_FUNCTIONS:
+		_check(Policy.evaluate([_file(line)], 3) == ["P04"], "P04 flags a def HR would read aloud: " + line)
+	for line: String in Policy.NEAR_HR:
+		_check(Policy.evaluate([_file(line)], 3).is_empty(), "P04 leaves variables, comments, and lookalikes alone: " + line)
+	_check(not _has("P04", "def fire(): pass", 2) and not _has("P04", "def fire(): pass", 7), "HR listens on days 3 to 6 only.")
+	var hr: Array = Policy.findings([_file("x = 1
+y = 2
+def reunion(): pass")], 3)
+	_check(hr.size() == 1 and int(hr[0].line) == 3 and Policy.scope("P04") == "line", "P04 is cited on the def line.")
+	for line: String in Policy.GHOST_TODOS:
+		_check(Policy.evaluate([_file(line)], 7) == ["P05"], "P05 flags a ghost TODO: " + line)
+	for line: String in Policy.NEAR_TODO:
+		_check(Policy.evaluate([_file(line)], 7).is_empty(), "P05 leaves owned, lowercase, and quoted TODOs alone: " + line)
+	_check(_has("P05", "# TODO(maya) and TODO(dave)", 7) and not _has("P05", "# TODO(MAYA) then TODO(gwen)", 7), "Every TODO on a line needs an owner, in any case.")
+	_check(not _has("P05", "# TODO", 6) and not _has("P05", "# TODO", 9), "Ghost TODOs count on days 7 and 8 only.")
+	# Fault and decoy wordings never trip any other standard on any day.
+	var all_ids: Array = Policy.rules().map(func(rule: Dictionary) -> String: return rule.id)
+	var families: Dictionary = {"P01": Policy.LOAD_BEARING, "P03": Policy.HELIOS_COMMENTS, "P04": Policy.HR_FUNCTIONS, "P05": Policy.GHOST_TODOS}
+	for rule_id: String in families:
+		for line: String in families[rule_id]:
+			_check(_ids(Policy._findings([_file(line)], 3, all_ids)) == [rule_id], "%s's wording breaks only %s: %s" % [rule_id, rule_id, line])
+	for near: Array in [Policy.NEAR_LOAD_BEARING, Policy.NEAR_HELIOS, Policy.NEAR_HR, Policy.NEAR_TODO]:
+		for line: String in near:
+			_check(Policy._findings([_file(line)], 3, all_ids).is_empty(), "A near miss breaks nothing at all: " + line)
+
+func _test_evidence_scopes() -> void:
 	# P15 "Readable code": exec/eval, a Helios bootstrap call, or an unreadable one-liner.
 	for source: String in ["exec(base64.b64decode(_B))", "    exec(net.fetch('/config'))", "x = eval('1')", "helios.bootstrap()", "helios.install('root')", "Helios . activate('all')", "x = '" + "a".repeat(170) + "'"]:
 		_check(_has("P15", source, 3), "P15 flags code a human can't read: " + source.left(40))
 	for source: String in ["# exec(blob) is banned now", "LABEL = 'helios.bootstrap()'", "executor = 1", "re_eval(x)", "helios.status()", "x = '" + "a".repeat(150) + "'"]:
 		_check(not _has("P15", source, 3), "P15 ignores comments, quoted text, longer names, other calls, and readable lines: " + source.left(40))
 	_check(not _has("P15", "exec(blob)", 2), "Readable code arrives with the payloads on day 3.")
-	_check(Policy.scope("P15") == "line", "P15 is cited on the exact line.")
-	var leak: Array = Policy.findings([_file("x = 1\nAPI_KEY = 'sk-1'")], 3)
-	_check(Policy.evidence_accepted(leak, "P11", "office/note.py", 2) and not Policy.evidence_accepted(leak, "P11", "office/note.py", 0) and not Policy.evidence_accepted(leak, "P11", "office/note.py", 1), "Line standards still need their exact line.")
-	_check(Policy.scope("P09") == "pr" and Policy.scope("P02") == "file" and Policy.scope("P11") == "line" and Policy.scope("P17") == "issue" and Policy.scope("P21") == "build", "Every standard has one evidence scope.")
-	var seen: Dictionary = {}
-	for packet: Dictionary in Policy.requests():
-		for rule_id: String in packet.violations:
-			if Policy.scope(rule_id) != "pr": continue
-			seen[rule_id] = true
-			for file: Dictionary in packet.files:
-				_check(Policy.evidence_accepted(packet.findings, rule_id, file.path, 0), "%s in %s accepts WHOLE FILE on %s." % [rule_id, packet.id, file.path])
-	_check(seen.has("P09"), "The campaign exercises every whole-PR standard.")
+	var line_rule: Array = Policy.findings([_file("x = 1
+# thanks, Helios")], 1)
+	_check(Policy.evidence_accepted(line_rule, "P03", "office/note.py", 2) and not Policy.evidence_accepted(line_rule, "P03", "office/note.py", 0) and not Policy.evidence_accepted(line_rule, "P03", "office/note.py", 1), "Line standards need their exact line.")
+	_check(not Policy.evidence_matches(line_rule, "P03", {"record": "issue", "id": "PAP-412"}), "An issue is never evidence for a code standard.")
+	_check(Policy.PR_SCOPED.is_empty() and Policy.scope("P02") == "file" and Policy.scope("P03") == "line" and Policy.scope("P05") == "line" and Policy.scope("P17") == "issue" and Policy.scope("P18") == "issue" and Policy.scope("P20") == "build" and Policy.scope("P21") == "build", "Every standard has one evidence scope.")
 
 func _test_keyword_spans() -> void:
 	var source: String = "# a return\ndef card():\n    text = 'if else'\n    if text:\n        return text\n    else:\n        return 'a'"
@@ -366,25 +373,25 @@ def memo():
 	for incorrect: String in ["INK-EXEPTION", "ink-exception", " INK-EXCEPTION", "INK-EXCEPTION ", "INK EXCEPTION", "INK-EXCEPTION PAP-412", ""]:
 		var unstamped: Dictionary = pink.duplicate(true)
 		unstamped.permit = incorrect
-		_check("P02" in Policy.evaluate([unstamped], Policy.PERMIT_DAY), "Misspelled, differently cased, padded, or early issue-named permits must not count.")
+		_check("P02" in Policy.evaluate([unstamped], Policy.PERMIT_DAY), "Misspelled, differently cased, padded, or early named permits must not count.")
 	# From day 9, a permit must name the PR's own Lineal issue; a bare stamp is a forgery.
-	var issue-named: Dictionary = pink.duplicate(true)
-	issue-named.source = "def memo():\n    return 'a copy'"
-	issue-named.permit = "INK-EXCEPTION PAP-412"
-	_check(Policy.evaluate([issue-named], Policy.ISSUE_DAY, _records()).is_empty(), "A permit naming the PR's own issue waives pink keywords from day 9.")
-	_check(Policy.evaluate([issue-named], Policy.ISSUE_DAY, _records("PAP-415")) == ["P02", "P16"], "A permit naming any other issue is a forgery (and that PR's own link is checked separately).")
-	var bare: Dictionary = issue-named.duplicate(true)
+	var named: Dictionary = pink.duplicate(true)
+	named.source = "def memo():\n    return 'a copy'"
+	named.permit = "INK-EXCEPTION PAP-412"
+	_check(Policy.evaluate([named], Policy.ISSUE_DAY, _records()).is_empty(), "A permit naming the PR's own issue waives pink keywords from day 9.")
+	_check(Policy.evaluate([named], Policy.ISSUE_DAY, _records("PAP-415")) == ["P02", "P16"], "A permit naming any other issue is a forgery (and that PR's own link is checked separately).")
+	var bare: Dictionary = named.duplicate(true)
 	bare.permit = "INK-EXCEPTION"
 	_check(Policy.evaluate([bare], Policy.ISSUE_DAY - 1, _records()).is_empty() and Policy.evaluate([bare], Policy.ISSUE_DAY, _records()) == ["P02"], "A bare INK-EXCEPTION is honored until day 9, and is a forgery from then on.")
 	for incorrect: String in ["INK-EXCEPTION PCL-0420", "INK-EXCEPTION PAP-415", "INK-EXCEPTION PAP412", "INK-EXCEPTION  PAP-412", "INK-EXCEPTION pap-412", " INK-EXCEPTION PAP-412", "INK-EXEPTION PAP-412", "INK-EXCEPTION-PAP-412", "INK-EXCEPTION PAP-4120"]:
-		var forged: Dictionary = issue-named.duplicate(true)
+		var forged: Dictionary = named.duplicate(true)
 		forged.permit = incorrect
 		_check(Policy.evaluate([forged], Policy.ISSUE_DAY, _records()) == ["P02"], "A permit that doesn't name this PR's issue exactly is forged: " + incorrect)
 	var neighbor: Dictionary = pink.duplicate(true)
 	neighbor.path = "office/neighbor.py"
 	neighbor.erase("permit")
 	_check(Policy.evaluate([pink, neighbor], Policy.PERMIT_DAY) == ["P02"], "A valid permit on one file must never cover a neighboring file.")
-	_check(Policy.evaluate([issue-named], Policy.ISSUE_DAY, _records("PAP-412", "Won't Fix")) == ["P16"], "A valid ink permit must not waive anything else, such as the issue's status.")
+	_check(Policy.evaluate([named], Policy.ISSUE_DAY, _records("PAP-412", ["vibes"])) == ["P16"], "A valid ink permit must not waive anything else, such as the issue's vibes.")
 	for day in range(Policy.PERMIT_DAY, LAST_DAY + 1):
 		var valid_clean: bool = false
 		var invalid_stamp: bool = false

@@ -290,7 +290,7 @@ func _test_saves() -> void:
 	forged.revisions[0].fixed = ["P02"]
 	_check(not Simulation.validate_save(forged).ok, "A save cannot claim a different fix than the replay produces.")
 	forged = state.duplicate(true)
-	forged.revisions[0].regression = "P11" if str(forged.revisions[0].regression) != "P11" else "P01"
+	forged.revisions[0].regression = "P03" if str(forged.revisions[0].regression) != "P03" else "P01"
 	_check(not Simulation.validate_save(forged).ok, "A save cannot invent or remove a regression.")
 	forged = state.duplicate(true)
 	forged.desk_line.reverse()
@@ -332,28 +332,30 @@ func _test_dialogue() -> void:
 				for cited: Array in [["P01"], ["P16", "P19"], ["P02", "P17", "P21"], []]:
 					var line: String = Chat._lines().reaction(author, version, verdict, cited, "PR-2004" if version == 1 else "PR-2004-v%d" % version)
 					_check(forbidden.search(line) == null and not line.is_empty(), "Revision dialogue never names rules or audit results: " + line)
-			for cited: Array in [["P01"], ["P02", "P09"]]:
+			for cited: Array in [["P01"], ["P02", "P05"]]:
 				var message: String = Policy.revision_message(author, version if version > 1 else 2, cited, "PR-2004-v2")
 				_check(forbidden.search(message) == null, "Revision notes never name rules: " + message)
 	for contact: String in Chat.CONTACTS:
 		for message: Dictionary in Chat.messages(state, contact):
 			_check(forbidden.search(str(message.text)) == null, "Slouch never shows placeholders, rule IDs, or audit results: " + str(message.text))
 
-## Week two: a whole-PR standard is cited with WHOLE FILE on any changed file, and
-## a retired standard can't be cited at all.
+## Week two: a ghost TODO is cited on its own line (WHOLE FILE won't do), and a
+## retired standard can't be cited at all.
 func _test_whole_pr_citation() -> void:
-	var state := _find(func(packet: Dictionary) -> bool: return int(packet.revision) == 1 and packet.violations.any(func(rule_id: String) -> bool: return rule_id in Policy.PR_SCOPED))
-	_check(not state.is_empty(), "Week two puts a whole-PR violation on the desk.")
+	var state := _find(func(packet: Dictionary) -> bool: return int(packet.revision) == 1 and "P05" in packet.violations)
+	_check(not state.is_empty(), "Week two puts a ghost TODO on the desk.")
 	if state.is_empty(): return
 	var packet: Dictionary = Catalog.packet(state, state.active_request_id)
-	var pr_rule: String = packet.violations.filter(func(rule_id: String) -> bool: return rule_id in Policy.PR_SCOPED)[0]
 	var cited: Dictionary = state
 	for rule_id: String in packet.violations:
-		var command: Dictionary = Catalog.audit_citation(packet, rule_id)
-		if rule_id == pr_rule: command = {"type": "toggle-rule", "rule_id": rule_id, "path": str(packet.files[-1].path), "line": 0}
-		cited = Simulation.dispatch(cited, command)
+		cited = Simulation.dispatch(cited, Catalog.audit_citation(packet, rule_id))
 	var stamped: Dictionary = Simulation.dispatch(cited, {"type": "review", "verdict": "request_changes"})
-	_check(stamped.last_feedback.correct, "WHOLE FILE on the PR's last file is valid evidence for %s." % pr_rule)
+	_check(stamped.last_feedback.correct, "The TODO's own line is valid evidence for P05.")
 	_round_trip(stamped)
-	_check(Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": pr_rule, "path": "nowhere/else.py", "line": 0}) == state, "Whole-PR evidence must still point at a file in the PR.")
-	_check(int(state.day) >= 7 and Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "P17", "path": str(packet.files[0].path), "line": 0}) == state, "A retired standard can no longer be cited.")
+	var whole: Dictionary = state
+	for rule_id: String in packet.violations:
+		var command: Dictionary = Catalog.audit_citation(packet, rule_id)
+		if rule_id == "P05": command = {"type": "toggle-rule", "rule_id": rule_id, "path": str(command.path), "line": 0}
+		whole = Simulation.dispatch(whole, command)
+	_check(not Simulation.dispatch(whole, {"type": "review", "verdict": "request_changes"}).last_feedback.correct, "WHOLE FILE is not evidence for a line standard.")
+	_check(int(state.day) >= 7 and Simulation.dispatch(state, {"type": "toggle-rule", "rule_id": "P04", "path": str(packet.files[0].path), "line": 1}) == state, "A retired standard can no longer be cited.")

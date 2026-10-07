@@ -11,9 +11,8 @@ extends RefCounted
 ## Does not import policy_campaign.gd (which imports this file).
 
 const PROJECT := "PAP"
-## Lineal's workflow, left to right. A PR may close an issue in the active three.
+## Lineal's workflow, left to right. No standard reads the status.
 const STATUSES: Array[String] = ["Backlog", "Todo", "In Progress", "In Review", "Done", "Canceled", "Duplicate"]
-const OPEN_STATUSES: Array[String] = ["Todo", "In Progress", "In Review"]
 ## People an issue can still be assigned to after they've gone.
 const DEPARTED: Array[String] = ["Dave (deactivated)", "Priya (offboarded)", "Gary (released to opportunity)", "Sam (consolidated)"]
 const REPORTERS: Array[String] = ["Morgan", "June", "Theo", "Maya", "Helios", "Legal", "Facilities", "Finance"]
@@ -27,7 +26,7 @@ const OFF_SCALE: Array[int] = [4, 6, 7, 10, 20, 40, 12, 9]
 ## Cycles are named by Helios, motivationally.
 const CYCLES: Array[String] = ["Momentum", "Synergy", "Grit", "Velocity", "Hustle", "Alignment", "Gratitude", "Ownership", "Focus", "Resilience", "Bandwidth", "Delight"]
 ## Labels are scenery: no standard reads them.
-const LABELS: Array[String] = ["Bug", "Feature", "Improvement", "tech-debt", "leadership-ask", "Helios-suggested", "vibes", "compliance", "quick-win", "morale"]
+const LABELS: Array[String] = ["Bug", "Feature", "Improvement", "tech-debt", "leadership-ask", "Helios-suggested", "good-vibes", "compliance", "quick-win", "morale"]
 ## Backlog issues a duplicate can point at.
 const DUPLICATE_OF: Array[String] = ["PAP-101", "PAP-117", "PAP-163", "PAP-170", "PAP-214", "PAP-233", "PAP-247", "PAP-277"]
 
@@ -122,7 +121,10 @@ const ODD: Array = [
 	{"history": "Marked Duplicate by Helios, then restored by June with a nine-slide deck.", "status": "In Progress"},
 	{"watchers": ["Helios", "Legal", "Facilities", "Finance", "Morgan"], "history": "This issue has more subscribers than the team has people."},
 	{"title_prefix": "[Blocked?] ", "history": "Marked blocked, then unblocked, then asked about in standup."},
-	{"labels": ["vibes", "Helios-suggested"], "history": "Helios auto-triaged this in 0.4 seconds and labeled it vibes."},
+	{"labels": ["good-vibes", "Helios-suggested"], "history": "Helios auto-triaged this in 0.4 seconds and labeled it good-vibes."},
+	{"labels": ["vibe-check"], "status": "Done", "history": "Marked Done by Helios. Closing it again is allowed; Helios likes the symmetry."},
+	{"status": "Canceled", "history": "Canceled in cycle planning. Still linked, still loved."},
+	{"status": "Backlog", "labels": ["Vibes-adjacent"], "history": "Moved to Backlog. Labeled Vibes-adjacent, which is not vibes."},
 	{"cycle": "Cycle 0 · Rest (canceled)", "history": "Moved out of the canceled rest cycle into this one."},
 ]
 ## Near misses for the urgency standard: High is three bars, not Urgent.
@@ -189,6 +191,12 @@ const FAILURES: Array[String] = [
 	"TypeError: NoneType has no attribute 'manager'",
 ]
 
+## Whether any of an issue's labels is vibes, ignoring case.
+static func has_vibes(issue: Dictionary) -> bool:
+	for label: Variant in issue.get("labels", []):
+		if str(label).to_lower() == "vibes": return true
+	return false
+
 ## Deterministic dice, the same as policy_campaign.gd's.
 static func _roll(key: String) -> int:
 	return key.sha256_text().substr(0, 7).hex_to_int()
@@ -238,7 +246,7 @@ static func issue(spec: Dictionary) -> Dictionary:
 	var labels: Array = [str(_pick(LABELS, "label|%d" % slot))]
 	var record := {
 		"id": id, "title": _fill(str(copy[0]), spec), "description": _fill(str(copy[1]), spec),
-		"status": str(_pick(OPEN_STATUSES, "issue-status|%d" % slot)), "assignee": author,
+		"status": str(_pick(STATUSES.slice(0, 5), "issue-status|%d" % slot)), "assignee": author,
 		"component": path.get_base_dir() + "/", "reporter": str(_pick(REPORTERS, "reporter|%d" % slot)),
 		"priority": str(_pick(PRIORITIES.slice(0, 4), "priority|%d" % slot)),
 		"estimate": int(_pick(ESTIMATES, "estimate|%d" % slot)), "labels": labels,
@@ -254,20 +262,13 @@ static func issue(spec: Dictionary) -> Dictionary:
 	for effect: Dictionary in spec.get("effects", []):
 		var variant := int(effect.get("variant", 0))
 		match str(effect.get("what", "")):
-			"status":
+			"vibes":
 				match str(effect.kind):
-					"canceled":
-						record.status = "Canceled"
-						record.resolution = CANCELED[variant % CANCELED.size()]
-					"done":
-						record.status = "Done"
-						record.resolution = DONE[variant % DONE.size()]
-					"duplicate":
-						record.status = "Duplicate"
-						record.resolution = "Duplicate of " + DUPLICATE_OF[variant % DUPLICATE_OF.size()]
-					"backlog":
-						record.status = "Backlog"
-						record.history.append("Moved to Backlog by Helios during cycle planning.")
+					"vibes": record.labels = ["vibes"]
+					"vibes-caps": record.labels = ["Vibes"]
+					"vibes-pair": record.labels = [str(record.labels[0]), "vibes"]
+					_: record.labels = ["VIBES", "leadership-ask"]
+				record.history.append(["Labeled vibes by %s. It felt right." % author, "Helios suggested the vibes label. %s accepted." % author, "Labeled vibes in the retro."][variant % 3])
 			"link":
 				if str(effect.kind) == "missing": ref = ""
 				else:

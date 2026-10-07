@@ -185,9 +185,9 @@ const PICKS := {
 	},
 }
 ## Some people lean harder on what was cited, by category, on top of LEANS. Gwen
-## argues about her own field: credentials, and the build (a red build is her
-## tripwire, and a rerun until green is how things get past it). Anything else
-## she would rather fix at once than talk about.
+## argues about her own field: security (the hash threat model, which she finds
+## beneath her), and the build (a red build is her tripwire). Anything else she
+## would rather fix at once than talk about.
 const AUTHOR_LEANS := {
 	"Gwen": {
 		"Security": {"pushback": 34, "revise_now": -16},
@@ -195,15 +195,15 @@ const AUTHOR_LEANS := {
 	},
 }
 ## What you cited leans the change-request branch, by standard category.
-## People defend their words, colors, scope, and their CI ("it's flaky"); issue
-## paperwork and secrets they just fix; coverage gates and splitting a big PR are
-## when people give up.
+## People defend their words, colors, function names, and their CI ("it's
+## flaky"); issue paperwork and hashes they just fix.
 const LEANS := {
 	"Language": {"pushback": 8},
 	"Color": {"pushback": 6},
 	"Process": {"pushback": 6, "revise_later": 4},
 	"Size": {"pushback": 4, "abandon": 6},
 	"Security": {"revise_now": 10},
+	"HR": {"pushback": 6, "revise_now": 4},
 	"Issues": {"revise_now": 8},
 	"Builds": {"pushback": 8, "revise_later": 2},
 	"Coverage": {"pushback": 4, "abandon": 6},

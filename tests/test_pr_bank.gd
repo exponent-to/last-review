@@ -54,10 +54,13 @@ func _test_entry(entry: Dictionary, index: int) -> void:
 	_check(not str(entry.get("phrase", "")).contains("%"), "Phrases are safe to format into pings: " + path)
 	var lines: Array = entry.get("lines", [])
 	_check(lines.size() >= 5 and lines.size() <= 9, "Proposed source is five to nine lines: " + path)
-	_test_source(path, "lines", lines)
+	# Orientation's practice PR only ever runs on day 1 (its main copy still says
+	# fire_employee, which HR would read aloud from day 3; the PR renames it).
+	var days: int = 1 if index == Campaign.PRACTICE_ENTRY else LAST_DAY
+	_test_source(path, "lines", lines, days)
 	if entry.has("before"):
 		var before: Array = entry.before
-		_test_source(path, "before", before)
+		_test_source(path, "before", before, days)
 		var added := 0
 		var removed := 0
 		for row: Dictionary in Campaign.line_diff("\n".join(before), "\n".join(lines)):
@@ -69,13 +72,13 @@ func _test_entry(entry: Dictionary, index: int) -> void:
 
 ## One version of a file: clean under every day's standards, and under the newer
 ## house rules (no TODOs, prints, or hardcoded secrets).
-func _test_source(path: String, label: String, lines: Array) -> void:
+func _test_source(path: String, label: String, lines: Array, days: int = LAST_DAY) -> void:
 	var where := "%s (%s)" % [path, label]
 	if lines.is_empty():
 		_check(false, "Source is never empty: " + where)
 		return
 	var source: String = "\n".join(lines)
-	for day in range(1, LAST_DAY + 1):
+	for day in range(1, days + 1):
 		var file := {"path": path, "source": "\n".join(Campaign._clean(lines, day)), "keyword_ink": "blue"}
 		_check(Campaign.findings([file], day).is_empty(), "Bank source is clean under day %d's standards: %s" % [day, where])
 	# Faults and notes are inserted after the first line, so the first line and
