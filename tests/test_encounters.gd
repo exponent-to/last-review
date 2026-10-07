@@ -187,7 +187,7 @@ func _test_graph() -> void:
 	for rule: Dictionary in Catalog.rules():
 		_check(Encounters.LEANS.has(str(rule.category)), "Citing %s leans the branch by its category (%s)" % [rule.id, rule.category])
 		_check(Policy.CITED_WORDS.has(rule.id) and not Encounters.noun(str(rule.id)).contains(str(rule.id)), "%s has plain words for what was cited" % rule.id)
-	var piled := Encounters.weights("changes", "Maya", "neutral", ["P01", "P02", "P11"])
+	var piled := Encounters.weights("changes", "Maya", "neutral", ["P01", "P02", "P03"])
 	_check(int(piled.abandon) > int(Encounters.weights("changes", "Maya", "neutral").abandon), "Citing many standards at once makes abandoning likelier")
 
 # --- Lines ------------------------------------------------------------------------

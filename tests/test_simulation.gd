@@ -77,6 +77,14 @@ func _test_reviews() -> void:
 	# it advances, Helios merges the PR, and a non-payload block grades incorrect.
 	var unexplained: Dictionary = Simulation.dispatch(initial, {"type": "review", "verdict": "request_changes"})
 	_check(unexplained.request_index == 1 and not unexplained.last_feedback.correct and unexplained.encounters[-1].node == "unexplained", "A reason-free rejection advances and is graded incorrect.")
+	# Even on a clean PR: no citations match no violations, but there was nothing to
+	# send back, so a reason-free rejection is still wrong (only a payload excepted).
+	var second: Dictionary = Simulation.dispatch(initial, {"type": "review", "verdict": "approve"})
+	second = Simulation.advance(second, int(second.desk_at) - int(second.shift_seconds))
+	var clean: Dictionary = Catalog.packet(second, str(second.active_request_id))
+	_check(clean.violations.is_empty() and not bool(clean.get("payload", false)), "Monday's second PR is clean.")
+	var refused: Dictionary = Simulation.dispatch(second, {"type": "review", "verdict": "request_changes"})
+	_check(refused.decisions[-1].pr_id == clean.id and not refused.last_feedback.correct and refused.encounters[-1].node == "unexplained", "A reason-free rejection of a clean PR is graded incorrect.")
 	_check(Simulation.dispatch(initial, {"type": "toggle-rule", "rule_id": "MISSING"}) == initial, "Unknown rules must not be selected.")
 	for rule: Dictionary in Catalog.rules():
 		if int(rule.introduced_day) > 1:
@@ -239,7 +247,7 @@ func _test_catalog() -> void:
 	for rule: Dictionary in Catalog.rules_for_day(1):
 		initial_ids.append(rule.id)
 	initial_ids.sort()
-	_check(initial_ids == ["P01", "P02", "P11"], "New reviewers must start with exactly three foundational policies.")
+	_check(initial_ids == ["P01", "P02", "P03"], "New reviewers must start with exactly three foundational policies.")
 	# P15 "Readable code" joins on day 3 with the payloads, inside the six-standard cap.
 	_check(Catalog.rules_for_day(2).size() == 3 and Catalog.rules_for_day(3).size() == 6 and Catalog.rules_for_day(5).size() == 6, "Active standards must grow gradually across the first week.")
 	_check(Catalog.rules_for_day(10).size() <= 6 and not Catalog.rule_active("P17", 5) and Catalog.rule_active("P15", 9), "Week two retires and replaces standards instead of piling them up.")

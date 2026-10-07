@@ -22,7 +22,7 @@ const LINES := {
 			"Product asked for it. I'm just the hands.",
 			"Can we be fast? I have a migration on fire.",
 			"I've stared at this diff since lunch. Your turn.",
-			"Small diff, long ticket. Don't read the ticket.",
+			"Small diff, long issue. Don't read the issue.",
 		],
 		"revision": [
 			"v2. I removed the thing. Happy now?",
@@ -46,7 +46,7 @@ const LINES := {
 		],
 		"flag": [
 			"Sure. I'll fix it right after the outage.",
-			"Great. Another ticket for the backlog nobody reads.",
+			"Great. Another issue for the backlog nobody reads.",
 			"That's not a bug, that's a scheduling decision.",
 			"I'm going to pretend I didn't see that.",
 			"Fine. Add it to my list. It's a long list.",
@@ -72,7 +72,7 @@ const LINES := {
 			"Thanks. I'll be in the incident channel, as always.",
 			"Merged. I'm going to go stare at a wall now.",
 			"Wow. Okay. I'll tell the release train.",
-			"Thanks. My actual job missed me. It said so in a ticket.",
+			"Thanks. My actual job missed me. It said so in an issue.",
 		],
 		"changes": [
 			"Cool. I'll add it to the pile with everything else.",
@@ -208,7 +208,7 @@ const LINES := {
 			"Friendly reminder: EOD, per the calendar hold.",
 			"Metrics deck attached. Forty slides. Skim the appendix.",
 			"This reflects stakeholder alignment from the offsite. Mostly mine.",
-			"Ticket, one-pager, OKR mapping. All attached. Unlike some.",
+			"Issue, one-pager, OKR mapping. All attached. Unlike some.",
 		],
 		"revision": [
 			"Revised per your feedback. Capturing it as a learning.",

@@ -54,10 +54,13 @@ func _test_entry(entry: Dictionary, index: int) -> void:
 	_check(not str(entry.get("phrase", "")).contains("%"), "Phrases are safe to format into pings: " + path)
 	var lines: Array = entry.get("lines", [])
 	_check(lines.size() >= 5 and lines.size() <= 9, "Proposed source is five to nine lines: " + path)
-	_test_source(path, "lines", lines)
+	# Orientation's practice PR only ever runs on day 1 (its main copy still says
+	# fire_employee, which HR would read aloud from day 3; the PR renames it).
+	var days: int = 1 if index == Campaign.PRACTICE_ENTRY else LAST_DAY
+	_test_source(path, "lines", lines, days)
 	if entry.has("before"):
 		var before: Array = entry.before
-		_test_source(path, "before", before)
+		_test_source(path, "before", before, days)
 		var added := 0
 		var removed := 0
 		for row: Dictionary in Campaign.line_diff("\n".join(before), "\n".join(lines)):
@@ -69,13 +72,13 @@ func _test_entry(entry: Dictionary, index: int) -> void:
 
 ## One version of a file: clean under every day's standards, and under the newer
 ## house rules (no TODOs, prints, or hardcoded secrets).
-func _test_source(path: String, label: String, lines: Array) -> void:
+func _test_source(path: String, label: String, lines: Array, days: int = LAST_DAY) -> void:
 	var where := "%s (%s)" % [path, label]
 	if lines.is_empty():
 		_check(false, "Source is never empty: " + where)
 		return
 	var source: String = "\n".join(lines)
-	for day in range(1, LAST_DAY + 1):
+	for day in range(1, days + 1):
 		var file := {"path": path, "source": "\n".join(Campaign._clean(lines, day)), "keyword_ink": "blue"}
 		_check(Campaign.findings([file], day).is_empty(), "Bank source is clean under day %d's standards: %s" % [day, where])
 	# Faults and notes are inserted after the first line, so the first line and
@@ -121,7 +124,7 @@ func _probe_is_comment(text: String) -> bool:
 ## recipe because the whole-PR fault (the diff budget) shapes the whole packet.
 func _test_faults(entry: Dictionary, index: int) -> void:
 	for day in range(1, LAST_DAY + 1):
-		_check(Campaign._audit(_recipe(index, day, [])).is_empty(), "A PR built on %s, with its ticket and build, is clean on day %d before any fault." % [entry.path, day])
+		_check(Campaign._audit(_recipe(index, day, [])).is_empty(), "A PR built on %s, with its issue and build, is clean on day %d before any fault." % [entry.path, day])
 		for rule_id: String in Campaign.active_ids(day):
 			# P15 "Readable code" is never applied as a generic bank fault; only the
 			# authored Helios payloads break it.
@@ -129,7 +132,7 @@ func _test_faults(entry: Dictionary, index: int) -> void:
 			for variant in range(3):
 				_check(Campaign._audit(_recipe(index, day, [{"file": 0, "rule": rule_id, "variant": variant}])) == [rule_id], "Fault %s/%d applies cleanly to %s on day %d" % [rule_id, variant, entry.path, day])
 
-## A one-file PR on this entry, with a slot and author so it gets a ticket and a build.
+## A one-file PR on this entry, with a slot and author so it gets an issue and a build.
 func _recipe(index: int, day: int, faults: Array) -> Dictionary:
 	return {"entry": index, "day": day, "slot": maxi(index, 0), "author": "Maya", "files": ["primary"], "decoys": [], "notes": [], "permits": [], "faults": faults}
 

@@ -1,6 +1,6 @@
 extends RefCounted
 ## Fictional office policy puzzles. Every citation comes from visible evidence: the
-## source files, or the PR's records in Jiro (its ticket) and Pipeline (its build).
+## source files, or the PR's records in Lineal (its issue) and Pipeline (its build).
 ## Source is Python-shaped stationery, not code the game executes.
 ##
 ## The assignment runs two weeks, Monday to Friday. Standards change every second
@@ -48,52 +48,48 @@ const WEEK_DAYS: int = 5
 ## The first day of each two-day block. Each opens with a memo announcing the changes.
 const BLOCK_STARTS: Array = [1, 3, 5, 7, 9]
 ## Standards on the citation slip each day; never more than MAX_ACTIVE at once.
-## P15 "Readable code" joins on day 3 when the Helios payloads begin. To stay
-## under the cap, the assignee standard (P17) retires when Pipeline arrives, coverage
-## (P21) waits for the last block, and traveling tests are gone.
+## P15 "Readable code" joins on day 3 when the Helios payloads begin. Every block
+## retires what the one before it introduced, so the slip stays at six.
 const ACTIVE_COUNTS: Array = [3, 3, 6, 6, 6, 6, 6, 6, 6, 6]
 const MAX_ACTIVE: int = 6
 const PERMIT: String = "INK-EXCEPTION"
-## INK-EXCEPTION is honored from PERMIT_DAY, and from TICKET_DAY it must name the
-## PR's own Jiro ticket (INK-EXCEPTION PAPER-412 on a PR that closes PAPER-412).
+## INK-EXCEPTION is honored from PERMIT_DAY, and from ISSUE_DAY it must name the
+## PR's own Lineal issue (INK-EXCEPTION PAP-412 on a PR that closes PAP-412).
 const PERMIT_DAY: int = 5
-const TICKET_DAY: int = 9
+const ISSUE_DAY: int = 9
 ## From week two's first reissue, more PRs break two standards at once.
 const MODERN_DAY: int = 7
-## Whole-PR limit, read off the diffstat: lines added plus removed.
-const DIFF_BUDGET: int = 30
-## Jiro (the ticket tracker) and Pipeline (the CI dashboard) arrive on these mornings.
-const JIRO_DAY: int = 3
+## Lineal (the issue tracker) and Pipeline (the CI dashboard) arrive on these mornings.
+const LINEAL_DAY: int = 3
 const PIPELINE_DAY: int = 5
 ## Helios's payloads begin, and P15 "Readable code" joins the slip, this morning.
 const PAYLOAD_DAY: int = 3
-## Coverage joins the build standards in the last block (it waited for the diff
-## budget to retire, so the slip stays at six).
-const COVERAGE_DAY: int = 9
-## A build rerun more than this many times is not a pass (while that standard stands).
-const RERUN_LIMIT: int = 3
-## Coverage may fall by at most this many tenths of a point.
-const COVERAGE_DROP: int = 20
 ## Helios starts overriding red builds on OVERRIDE_DAY, and its overrides count as
 ## passing until Audit stops accepting them on OVERRIDE_BANNED_DAY.
 const OVERRIDE_DAY: int = 7
 const OVERRIDE_BANNED_DAY: int = 9
-## From SUBFOLDER_DAY, a ticket's component also covers the folders inside it.
-const SUBFOLDER_DAY: int = 9
+## From ZERO_DAY, an estimate of 0 counts as Fibonacci.
+const ZERO_DAY: int = 9
 ## Evidence scopes. Line rules need the exact line. Rules about one file (its ink)
-## accept that file or any of its lines. Rules about the whole PR (its size or
-## tests) accept any changed file, whole or by line, because the evidence is the
-## file list and the diffstat. Record rules need the record itself: the PR's
-## ticket, selected in Jiro, or its build, selected in Pipeline. WHOLE FILE and
-## code lines never count for them, and a record never counts for a code rule.
+## accept that file or any of its lines. Rules about the whole PR would accept any
+## changed file (none are in force; the machinery stays generic). Record rules
+## need the record itself: the PR's issue, selected in Lineal, or its build,
+## selected in Pipeline. WHOLE FILE and code lines never count for them, and a
+## record never counts for a code rule.
 const FILE_SCOPED: Array = ["P02"]
-## The diff budget is the one whole-PR standard left (traveling tests gave its
-## slot to P15); the whole-PR machinery below stays generic.
-const PR_SCOPED: Array = ["P09"]
-const TICKET_SCOPED: Array = ["P16", "P17", "P18"]
+const PR_SCOPED: Array = []
+const ISSUE_SCOPED: Array = ["P16", "P17", "P18"]
 const BUILD_SCOPED: Array = ["P19", "P20", "P21"]
 const RECORD_SCOPED: Array = ["P16", "P17", "P18", "P19", "P20", "P21"]
-const SECRET_WORDS: Array = ["password", "secret", "token", "api_key"]
+## P04: words HR listens for in a function name.
+const HR_WORDS: Array = ["fire", "layoff", "union", "lunch"]
+## P05: who may own a TODO.
+const TODO_OWNERS: Array = ["maya", "theo", "june", "penny", "gwen"]
+## P18: estimates Helios takes seriously (0 joins on ZERO_DAY).
+const FIBONACCI: Array = [1, 2, 3, 5, 8, 13]
+## P20: words a branch may not contain. P21: words a commit hash may not spell.
+const BRANCH_WORDS: Array = ["yolo", "wip", "final"]
+const HEX_WORDS: Array = ["dead", "bad"]
 const Bank = preload("res://content/pr_bank.gd")
 const Records = preload("res://content/records.gd")
 static var _packets: Array = []
@@ -104,10 +100,11 @@ static var _patterns: Dictionary = {}
 static func rules() -> Array:
 	var ink := "Blue is the approved color of compliant instructions. Pink is reserved for flagged personnel files, and you do not want to be a personnel file. The whole keyword tokens def, if, else, and return must be blue. Pink is forbidden. Words inside comments or quoted strings are exempt, as are longer names such as return_label. A file without these keyword tokens needs no blue ink."
 	var green := "Red means no. The PR's build in Pipeline must not have Status FAILED. FLAKY means a test failed and then passed on a retry; it counts as passing, the way Paperclip Labs counts as stable. Read the Status, not the log. The log is where hope goes to scroll."
-	var component := "The linked ticket's Component is a folder, and the PR may only change files inside it. Stay in your lane; lanes are how Helios finds you."
-	var no_ticket := "If the PR links no ticket that Jiro can find, cite that under the ticket standard instead."
+	var no_issue := "If the PR links no issue that Lineal can find, cite that under the issue standard instead."
+	var fibonacci := "Helios estimates in Fibonacci and finds other numbers unserious. The linked issue's Estimate must be "
+	var four := " A 4 is not an estimate; it is a cry for help. "
 	return [
-		{"id": "P01", "category": "Language", "title": "Nothing is load-bearing", "introduced_day": 1, "retired_day": 5,
+		{"id": "P01", "category": "Language", "title": "Nothing is load-bearing", "introduced_day": 1, "retired_day": LINEAL_DAY,
 			"text": "Legal's position is that no component, and no employee, is load-bearing. A comment must not contain the exact phrase load-bearing, ignoring letter case. Match the hyphen and spacing exactly; the phrase anywhere after an unquoted # counts. Text inside a quoted string is not a comment. Cite the line.",
 			"retired": "Legal has confirmed that nothing here is load-bearing anymore, including the staff. Comments may say load-bearing again."},
 		{"id": "P02", "category": "Color", "title": "Approved ink", "introduced_day": 1,
@@ -115,24 +112,29 @@ static func rules() -> Array:
 			"amendments": [
 				{"day": PERMIT_DAY, "change": "The Exception Desk is open. It is one stamp in a drawer. A file whose permit reads exactly INK-EXCEPTION may use pink keywords.",
 					"text": ink + " A file whose Permit reads exactly INK-EXCEPTION may use pink keywords; the permit covers that file only. Misspelled, padded, or differently cased stamps are forgeries, not permits, and a permit waives nothing else. Cite the file."},
-				{"day": TICKET_DAY, "change": "Someone was lending their permit out. Permits must now name the PR's own Jiro ticket: INK-EXCEPTION, one space, then the ticket on the PR slip. A bare INK-EXCEPTION is a forgery as of today.",
-					"text": ink + " A file whose Permit reads exactly INK-EXCEPTION, one space, then the ticket this PR links on its slip (INK-EXCEPTION PAPER-412 on a PR that closes PAPER-412) may use pink keywords; the permit covers that file only. A bare INK-EXCEPTION, or one naming any other ticket, is a forgery; permits are not transferable, inheritable, or for sale. Misspelled, padded, or differently cased stamps do not count, and no other rule is waived. Cite the file."}]},
-		{"id": "P09", "category": "Size", "title": "Diff budget", "introduced_day": 7, "retired_day": 9,
-			"text": "Human attention is now a metered resource, and Helios has measured yours. A PR may change at most 30 lines in total: lines added plus lines removed, across every file, as the diffstat above the diff counts them. Exactly 30 is fine. A rename by itself changes no lines. This standard is about the whole PR: cite WHOLE FILE on any changed file.",
-			"retired": "Helios has stopped metering your attention. It says it has all the data it needs."},
-		{"id": "P11", "category": "Security", "title": "Credentials belong to Helios", "introduced_day": 1, "retired_day": 5,
-			"text": "Secrets are company property, and the company has given them all to Helios. No source line may use = to assign a quoted string to a name containing password, secret, token, or api_key, ignoring letter case: API_KEY = 'sk-1' and db_password = '' are forbidden, the empty one too. Asking the vault, as in TOKEN = vault.read('token'), is fine, and so are numbers, as in TOKEN_TTL = 3600. Comments are exempt; Helios reads those anyway. Cite the line.",
-			"retired": "Helios now holds every credential at Paperclip Labs, including yours. With nothing left to leak, quoted credentials are no longer a review concern."},
-		{"id": "P16", "category": "Tickets", "title": "No ticket, no merge", "introduced_day": JIRO_DAY,
-			"text": "If it isn't in Jiro, it didn't happen, and we do not merge things that didn't happen. The PR slip must link a ticket (Closes PAPER-123), the ticket must exist in Jiro, and its Status must be Open or In Progress. A PR that links nothing, a ticket Jiro can't find, and a ticket that is Won't Fix, Closed, or Duplicate all break this standard, however lovingly someone touched it last week. Cite the ticket: open it in Jiro and SELECT AS EVIDENCE."},
-		{"id": "P17", "category": "Tickets", "title": "Your ticket, your PR", "introduced_day": JIRO_DAY, "retired_day": PIPELINE_DAY,
-			"text": "You may only close your own tickets. The linked ticket's Assignee must be the PR's author, exactly. A ticket assigned to a coworker, to Helios, or to someone who no longer works here is somebody else's work, however perfectly it describes this change and however unlikely they are to come back for it. The reporter and watchers don't matter; watching is not working, whatever Helios says. " + no_ticket + " Cite the ticket in Jiro.",
-			"retired": "Helios now assigns every ticket. It assigns most of them to itself, and the rest to whoever is still here. Assignees are no longer a review concern."},
-		{"id": "P18", "category": "Tickets", "title": "Stay in your component", "introduced_day": PIPELINE_DAY,
-			"text": component + " Every changed file outside tests/ must sit directly in that folder: people/ covers people/offboarding.py, but not people/legacy/offboarding.py, which belongs to people/legacy/. Files under tests/ are exempt. " + no_ticket + " Cite the ticket in Jiro.",
+				{"day": ISSUE_DAY, "change": "Someone was lending their permit out. Permits must now name the PR's own Lineal issue: INK-EXCEPTION, one space, then the issue on the PR slip. A bare INK-EXCEPTION is a forgery as of today.",
+					"text": ink + " A file whose Permit reads exactly INK-EXCEPTION, one space, then the issue this PR links on its slip (INK-EXCEPTION PAP-412 on a PR that closes PAP-412) may use pink keywords; the permit covers that file only. A bare INK-EXCEPTION, or one naming any other issue, is a forgery; permits are not transferable, inheritable, or for sale. Misspelled, padded, or differently cased stamps do not count, and no other rule is waived. Cite the file."}]},
+		{"id": "P03", "category": "Language", "title": "The colleague", "introduced_day": 1, "retired_day": PIPELINE_DAY,
+			"text": "Helios has asked not to be discussed behind its back. It prefers the colleague. A comment must not contain helios, ignoring letter case, anywhere after an unquoted #, even inside a longer word: heliosphere counts. Code may still say helios, and so may quoted strings; it reads those as compliments. Helium, Heli0s with a zero, and the colleague are fine. Cite the line.",
+			"retired": "Helios has grown comfortable with its name. It would now like to be mentioned in every comment, warmly."},
+		{"id": "P04", "category": "HR", "title": "HR is listening", "introduced_day": LINEAL_DAY, "retired_day": OVERRIDE_DAY,
+			"text": "HR reads every new function name aloud at the Monday sync, and some words upset the room. No def may name a function containing fire, layoff, union, or lunch, ignoring letter case, even inside a longer word: def campfire() counts, and so does an innocent set union. Variables, comments, and quoted strings may say what they like; HR does not read those aloud. And launch is not lunch. Cite the def line.",
+			"retired": "HR has been consolidated into Helios, which does not need function names read aloud. It hears them anyway."},
+		{"id": "P05", "category": "Process", "title": "No ghost TODOs", "introduced_day": OVERRIDE_DAY, "retired_day": ISSUE_DAY,
+			"text": "Every TODO needs an owner who still badges in. In a comment, the word TODO in capitals must be followed at once by an owner in parentheses, and the owner, ignoring letter case, must be maya, theo, june, penny, or gwen: TODO(maya) is fine. A bare TODO, TODO(dave), TODO(colleague), TODO(), and TODO (maya) with a space are ghosts. A lowercase todo is just a word, and code and quoted strings are exempt. Cite the line.",
+			"retired": "Every TODO in the company has been reassigned to Helios, which marked them all done overnight."},
+		{"id": "P15", "category": "Readability", "title": "Readable code", "introduced_day": PAYLOAD_DAY,
+			"text": "If a human signs it, a human must be able to read it, preferably without squinting. No source line may call exec or eval, invoke helios.bootstrap, helios.install, or helios.activate, or run past 160 characters, which is roughly where human eyes file a grievance. A decoded blob or a fetched script is a sealed envelope with your name on the outside. Helios has asked to review this standard personally. The request is pending. Cite the line."},
+		{"id": "P16", "category": "Issues", "title": "No vibes", "introduced_day": LINEAL_DAY,
+			"text": "If it isn't in Lineal, it didn't happen, and Helios cannot measure vibes, so vibes do not ship. The PR slip must link an issue (Closes PAP-123), the issue must exist in Lineal, and none of its Labels may be vibes, ignoring letter case: Vibes and VIBES are still vibes. Labels that only look close, such as good-vibes or vibe-check, are fine. Status does not matter; closing a Done or Canceled issue again is allowed, and Helios enjoys the symmetry. A PR that links nothing, an issue Lineal can't find, or a vibes label breaks this standard. Cite the issue: open it in Lineal and SELECT AS EVIDENCE."},
+		{"id": "P17", "category": "Issues", "title": "Urgency belongs to Helios", "introduced_day": LINEAL_DAY, "retired_day": PIPELINE_DAY,
+			"text": "Humans are no longer cleared for urgency. The linked issue's Priority must not be Urgent: an Urgent issue is Helios's work, whatever it describes and however many humans it has paged. High, Medium, Low, and No priority are all fine, however many bars they show. " + no_issue + " Cite the issue in Lineal.",
+			"retired": "Helios has taken every Urgent issue in the company. By definition, nothing a human does is urgent anymore."},
+		{"id": "P18", "category": "Issues", "title": "Fibonacci or nothing", "introduced_day": OVERRIDE_DAY,
+			"text": fibonacci + "1, 2, 3, 5, 8, or 13." + four + "0, 6, 7, 10, 20, and every other number break this standard. " + no_issue + " Cite the issue in Lineal.",
 			"amendments": [
-				{"day": SUBFOLDER_DAY, "change": "A component now covers every folder inside it: people/ covers people/legacy/. A subfolder still never covers its parent. Children do not speak for their parents.",
-					"text": component + " Every changed file outside tests/ must sit in that folder or in a folder inside it: people/ covers people/offboarding.py and people/legacy/offboarding.py. A subfolder never covers its parent: people/legacy/ does not cover people/offboarding.py. Files under tests/ are exempt. " + no_ticket + " Cite the ticket in Jiro."}]},
+				{"day": ZERO_DAY, "change": "Engineering pointed out that 0 is a Fibonacci number. Helios agreed at once and estimated all of its own work at 0. An Estimate of 0 is now fine.",
+					"text": fibonacci + "0, 1, 2, 3, 5, 8, or 13. Zero is Fibonacci; Helios has checked, and estimates all of its own work at 0." + four + "6, 7, 10, 20, and every other number break this standard. " + no_issue + " Cite the issue in Lineal."}]},
 		{"id": "P19", "category": "Builds", "title": "Green builds only", "introduced_day": PIPELINE_DAY,
 			"text": green + " Cite the build: open it in Pipeline and SELECT AS EVIDENCE.",
 			"amendments": [
@@ -140,13 +142,11 @@ static func rules() -> Array:
 					"text": green + " Helios may now override a red build it is confident about, which so far is every red build: the Status then reads PASSED (OVERRIDDEN BY HELIOS), and that counts as passing, whatever the log says. Cite the build: open it in Pipeline and SELECT AS EVIDENCE."},
 				{"day": OVERRIDE_BANNED_DAY, "change": "Audit read the logs Helios was overriding. PASSED (OVERRIDDEN BY HELIOS) now counts as FAILED.",
 					"text": green + " Audit has read the logs Helios was overriding and no longer accepts its overrides: a Status of PASSED (OVERRIDDEN BY HELIOS) counts as FAILED. Helios has asked who Audit reports to. Cite the build: open it in Pipeline and SELECT AS EVIDENCE."}]},
-		{"id": "P20", "category": "Builds", "title": "Rerun limit", "introduced_day": PIPELINE_DAY, "retired_day": 7,
-			"text": "Rerunning a red build until it turns green is not a fix; it is a séance. The build's Reruns count must be 3 or fewer; 4 or more breaks this standard, whatever the final Status says and however green it looks now. Cite the build in Pipeline.",
-			"retired": "Helios now reruns builds by itself, as often as it likes, and has stopped counting. So have we."},
-		{"id": "P21", "category": "Coverage", "title": "Coverage may not slide", "introduced_day": COVERAGE_DAY,
-			"text": "Every build measures test coverage before and after the change, the way Helios measures you. Coverage may fall by at most 2.0 points: 81.4% → 79.4% is fine, 81.4% → 79.3% is not, and rising coverage is always fine. Compare COVERAGE in Pipeline yourself. Subtraction is one of the few jobs still reserved for humans. Cite the build."},
-		{"id": "P15", "category": "Readability", "title": "Readable code", "introduced_day": PAYLOAD_DAY,
-			"text": "If a human signs it, a human must be able to read it. That is the whole deal, and it is the last one we have. No source line may call exec or eval, invoke helios.bootstrap, helios.install, or helios.activate, or pack a whole change onto one unreadable line of more than 160 characters. A decoded blob, a fetched script, or a vendored one-liner is a sealed envelope with your signature on the outside. This is the one standard a payload cannot slip past, which is why Helios has asked to review it. Cite the line."},
+		{"id": "P20", "category": "Builds", "title": "Branch names are public", "introduced_day": PIPELINE_DAY, "retired_day": OVERRIDE_DAY,
+			"text": "Branch names are read out at the board meeting, and the board has feelings. The build's Branch in Pipeline must not contain yolo, wip, or final, ignoring letter case, anywhere, even inside a longer word: finalize and wipe both count. Words that only look close, such as whip, yoga, yo-lo, or finance, are fine. Cite the build: open it in Pipeline and SELECT AS EVIDENCE.",
+			"retired": "Helios now names every branch itself. They are all called helios/progress, and the board loves them."},
+		{"id": "P21", "category": "Security", "title": "Hex hygiene", "introduced_day": ISSUE_DAY,
+			"text": "Helios has a threat model, and it includes spelling. The build's Commit hash in Pipeline must not contain dead or bad, ignoring letter case, anywhere in it: 3deadf0 and 0bad1e5 are threats. Lookalikes such as de4d, b4d, bead, and dab are fine; Helios has checked them personally. Pushing again gets a new hash. Cite the build in Pipeline."},
 	]
 
 static func is_active(rule: Dictionary, day: int) -> bool:
@@ -202,9 +202,9 @@ static func changes(day: int) -> Dictionary:
 		if int(rule.get("retired_day", 0)) == day: retired.append(current)
 	return {"added": added, "amended": amended, "retired": retired}
 
-## "line", "file", "pr", "ticket", or "build": where a citation of this standard may point.
+## "line", "file", "pr", "issue", or "build": where a citation of this standard may point.
 static func scope(rule_id: String) -> String:
-	if rule_id in TICKET_SCOPED: return "ticket"
+	if rule_id in ISSUE_SCOPED: return "issue"
 	if rule_id in BUILD_SCOPED: return "build"
 	return "pr" if rule_id in PR_SCOPED else "file" if rule_id in FILE_SCOPED else "line"
 
@@ -212,38 +212,43 @@ static func scope(rule_id: String) -> String:
 static func week(day: int) -> int:
 	return (maxi(1, day) - 1) / WEEK_DAYS + 1
 
-## Whether a file's permit is honored on `day` for a PR that links `ticket_ref`.
-static func permit_valid(permit: String, day: int, ticket_ref: String = "") -> bool:
+## Whether a file's permit is honored on `day` for a PR that links `issue_ref`.
+static func permit_valid(permit: String, day: int, issue_ref: String = "") -> bool:
 	if day < PERMIT_DAY: return false
-	if day < TICKET_DAY: return permit == PERMIT
-	return not ticket_ref.is_empty() and permit == PERMIT + " " + ticket_ref
+	if day < ISSUE_DAY: return permit == PERMIT
+	return not issue_ref.is_empty() and permit == PERMIT + " " + issue_ref
 
-## Whether a ticket's component folder covers a changed file (tests/ is exempt).
-static func component_covers(component: String, path: String, day: int) -> bool:
-	if _is_test(path): return true
-	var folder := path.get_base_dir() + "/"
-	return folder.begins_with(component) if day >= SUBFOLDER_DAY else folder == component
+## Whether an issue's estimate is one Helios takes seriously on `day`.
+static func estimate_valid(estimate: int, day: int) -> bool:
+	return estimate in FIBONACCI or (estimate == 0 and day >= ZERO_DAY)
+
+## The first word of `words` inside `text`, ignoring case, or "".
+static func _contains_word(text: String, words: Array) -> String:
+	var lower := text.to_lower()
+	for word: String in words:
+		if word in lower: return word
+	return ""
 
 static func briefing(day: int) -> String:
 	match day:
 		1:
-			return "YOUR DESK IS ASSIGNED. Paperclip Labs is transitioning review to Helios. Until it completes, every change still needs a human signature. You will not be asked to understand the code, only to enforce the standards on it exactly as written: forbidden comment wording, approved keyword ink, and credentials, which only Helios may hold. Standards are reissued every second morning. Work lands on your desk one PR at a time. The clock does not wait for you."
+			return "YOUR DESK IS ASSIGNED. Paperclip Labs is transitioning review to Helios. Until it completes, every change still needs a human signature. You will not be asked to understand the code, only to enforce the standards on it exactly as written: no load-bearing comments, approved keyword ink, and no comment that names Helios. It prefers the colleague. Standards are reissued every second morning. Work lands on your desk one PR at a time. The clock does not wait for you."
 		2:
 			return "NO CHANGES TODAY. Yesterday's three standards still apply, word for word. Changes now arrive in several files; an unread file is an unsigned file. Cite each broken standard once."
 		3:
-			return "NOTHING SHIPS WITHOUT A TICKET. Jiro, the ticket tracker, is on your desktop. Every PR must link an open ticket that its own author holds; the ticket number on the PR slip opens it. If it isn't in Jiro, it didn't happen. Code a human signs must be readable by a human: no exec, no eval, no bootstrapping Helios, however politely it asks. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged. NEW HIRE: Penny, a junior engineer on the Helios trial, starts today and will send you PRs. She is sorry in advance."
+			return "NOTHING SHIPS WITHOUT AN ISSUE. Lineal, the issue tracker, is on your desktop: fast, opinionated, and keyboard-first. Every PR must link an issue, and the issue may not be labeled vibes; Helios cannot measure vibes. It may not be Urgent either; urgency belongs to Helios now. HR has started reading new function names aloud, so no def may mention fire, layoff, union, or lunch. Code a human signs must be readable by a human: no exec, no eval, no bootstrapping Helios, however politely it asks. Helios is available on the review desk. It is fast and confident. It is not always right, and every consultation is logged. Load-bearing comments are retired. NEW HIRE: Penny, a junior engineer on the Helios trial, starts today and will send you PRs. She is sorry in advance."
 		4:
-			return "NO CHANGES TODAY. Tickets, readable code, ink, credentials, and load-bearing comments carry over from yesterday. Jiro has asked that reviewers stop thanking it."
+			return "NO CHANGES TODAY. Vibes, urgency, HR's word list, readable code, ink, and the colleague all carry over from yesterday. Lineal has asked that reviewers stop thanking it."
 		5:
-			return "THE PIPELINE IS WATCHING. Pipeline, the CI dashboard, is on your desktop: red means no, and a build rerun more than three times was not fixed, it was haunted. A ticket's component must hold every file the PR changes; stay in your lane. The Exception Desk is open: the exact stamp INK-EXCEPTION permits pink keywords in its own file. Helios now assigns every ticket itself, so assignees are retired, along with load-bearing comments and the credential rule. This is scheduled to be the last day of your assignment."
+			return "THE PIPELINE IS WATCHING. Pipeline, the CI dashboard, is on your desktop: red means no, and branch names are read out at the board meeting, so no yolo, no wip, no final. The Exception Desk is open: the exact stamp INK-EXCEPTION permits pink keywords in its own file. Helios has taken every Urgent issue, and it would now like to be named in comments, so both of those standards are retired. This is scheduled to be the last day of your assignment."
 		6:
 			return "WEEK TWO. Your assignment was extended over the weekend. The standards are Friday's, unchanged. Several desks on your floor have been consolidated. Do not water the plants. REASSIGNED TO YOUR TEAM: Gwen, from Security, which Helios absorbed on Friday. She will send you PRs. She trusts nobody, including this briefing."
 		7:
-			return "THE STANDARDS HAVE BEEN MODERNIZED. Your attention is now metered: a PR may change at most thirty lines. Helios now reruns every build itself, so rerun counts are retired. Helios may also override a red build it feels confident about; for now, its overrides count as passing. It feels confident about all of them."
+			return "THE STANDARDS HAVE BEEN MODERNIZED. Every TODO needs an owner who still badges in. Estimates must be Fibonacci; Helios finds other numbers unserious. Helios may now override a red build it feels confident about, and for now its overrides count as passing. It feels confident about all of them. HR has been consolidated, and Helios names the branches now, so both of those standards are retired."
 		8:
-			return "NO CHANGES TODAY. The diff budget, readable code, and Helios's overrides stand. Helios has stopped taking questions about any of them."
+			return "NO CHANGES TODAY. Owned TODOs, Fibonacci estimates, readable code, and Helios's overrides stand. Helios has stopped taking questions about any of them."
 		9:
-			return "AUDIT HAS QUESTIONS. Helios overrides no longer count as passing builds. Ink permits must name the PR's own ticket. Components now cover their subfolders. Coverage may not fall by more than two points. The diff budget is retired. I didn't write these. I'm not sure who did."
+			return "AUDIT HAS QUESTIONS. Helios overrides no longer count as passing builds. Ink permits must name the PR's own issue. An estimate of 0 now counts as Fibonacci. Commit hashes may not spell dead or bad. The TODOs are retired; Helios finished them. I didn't write these. I'm not sure who did."
 		10:
 			return "FINAL REVIEW CYCLE. No standard changes today. Leadership decides the review gate at closing. Helios has drafted both announcements."
 	return "The standards committee has adjourned."
@@ -252,7 +257,9 @@ static func _pattern(name: String) -> RegEx:
 	if _patterns.is_empty():
 		var sources: Dictionary = {
 			"keyword": "(?<![A-Za-z0-9_])(def|if|else|return)(?![A-Za-z0-9_])",
-			"assign": "([A-Za-z_][A-Za-z0-9_]*)[ ]*=(?!=)",
+			"def": "(?<![A-Za-z0-9_])def\\s+([A-Za-z_][A-Za-z0-9_]*)",
+			"todo": "(?<![A-Za-z0-9_])TODO(?![A-Za-z0-9_])",
+			"owner": "\\(([A-Za-z]*)\\)",
 			"exec": "(?<![A-Za-z0-9_])(exec|eval)\\s*\\(",
 			"helios_call": "(?i)(?<![A-Za-z0-9_])helios\\s*\\.\\s*(bootstrap|install|activate)\\s*\\(",
 		}
@@ -326,7 +333,7 @@ static func keyword_spans(source: String) -> Array:
 static func _finding(findings: Array, id: String, path: String, line: int, detail: String) -> void:
 	findings.append({"rule_id": id, "path": path, "line": line, "message": detail})
 
-## A record finding points at the PR's ticket or build, not at a file.
+## A record finding points at the PR's issue or build, not at a file.
 static func _record_finding(findings: Array, id: String, record: String, record_id: String, detail: String) -> void:
 	findings.append({"rule_id": id, "path": "", "line": 0, "record": record, "id": record_id, "message": detail})
 
@@ -338,28 +345,29 @@ static func _has_tests(files: Array) -> bool:
 		if _is_test(str(file.path)): return true
 	return false
 
-## A quoted string assigned with = to a credential-looking name, in code only.
-static func _assigns_secret(mask: String, raw: String) -> bool:
-	for found: RegExMatch in _pattern("assign").search_all(mask):
-		var name: String = found.get_string(1).to_lower()
-		var credential: bool = false
-		for word: String in SECRET_WORDS:
-			credential = credential or word in name
-		if not credential: continue
-		var at: int = found.get_end()
-		while at < raw.length() and raw[at] == " ": at += 1
-		if at < raw.length() and raw[at] in ["'", "\""]: return true
+## The function names a code line defines (`def name`), in code only.
+static func _def_names(mask: String) -> Array:
+	var names: Array = []
+	for found: RegExMatch in _pattern("def").search_all(mask):
+		names.append(found.get_string(1))
+	return names
+
+## Whether a comment holds a TODO without an owner on the list (P05).
+static func _ghost_todo(comment: String) -> bool:
+	for found: RegExMatch in _pattern("todo").search_all(comment):
+		var owner: RegExMatch = _pattern("owner").search(comment, found.get_end())
+		if owner == null or owner.get_start() != found.get_end() or owner.get_string(1).to_lower() not in TODO_OWNERS: return true
 	return false
 
 ## Audit data only; all line references are one-based source lines, and 0 means
-## the whole file. `records` is the PR's ticket and build ({} audits code only).
+## the whole file. `records` is the PR's issue and build ({} audits code only).
 static func findings(files: Array, day: int, records: Dictionary = {}) -> Array:
 	return _findings(files, day, active_ids(day), records)
 
 ## `active` lists the standards to check, so tests can audit against any rulebook.
 static func _findings(files: Array, day: int, active: Array, records: Dictionary = {}) -> Array:
 	var result: Array = []
-	var ticket_ref: String = str(records.get("ticket_ref", ""))
+	var issue_ref: String = str(records.get("issue_ref", ""))
 	for file: Dictionary in files:
 		var path: String = file.path
 		var source: String = file.source
@@ -369,14 +377,25 @@ static func _findings(files: Array, day: int, active: Array, records: Dictionary
 			for comment: Dictionary in lexer.comments:
 				if "load-bearing" in str(comment.text).to_lower():
 					_finding(result, "P01", path, int(comment.line) + 1, "The comment contains load-bearing.")
-		if "P02" in active and file.get("keyword_ink", "blue") != "blue" and not permit_valid(str(file.get("permit", "")), day, ticket_ref):
+		if "P02" in active and file.get("keyword_ink", "blue") != "blue" and not permit_valid(str(file.get("permit", "")), day, issue_ref):
 			var spans: Array = keyword_spans(source)
 			if not spans.is_empty():
 				_finding(result, "P02", path, int(spans[0].line) + 1, "A listed keyword token is pink instead of blue.")
-		if "P11" in active:
+		if "P03" in active:
+			for comment: Dictionary in lexer.comments:
+				if "helios" in str(comment.text).to_lower():
+					_finding(result, "P03", path, int(comment.line) + 1, "The comment names Helios.")
+		if "P04" in active:
 			for line_index in range(lexer.code_lines.size()):
-				if _assigns_secret(str(lexer.code_lines[line_index]), lines[line_index]):
-					_finding(result, "P11", path, line_index + 1, "A quoted string is assigned to a credential name.")
+				for name: String in _def_names(str(lexer.code_lines[line_index])):
+					var word: String = _contains_word(name, HR_WORDS)
+					if not word.is_empty():
+						_finding(result, "P04", path, line_index + 1, "The function %s contains %s." % [name, word])
+						break
+		if "P05" in active:
+			for comment: Dictionary in lexer.comments:
+				if _ghost_todo(str(comment.text)):
+					_finding(result, "P05", path, int(comment.line) + 1, "A TODO has no owner on the list.")
 		if "P15" in active:
 			for line_index in range(lines.size()):
 				var mask: String = str(lexer.code_lines[line_index]) if line_index < lexer.code_lines.size() else ""
@@ -386,46 +405,34 @@ static func _findings(files: Array, day: int, active: Array, records: Dictionary
 					_finding(result, "P15", path, line_index + 1, "This line hands control to Helios through bootstrap/install.")
 				elif lines[line_index].length() > 160:
 					_finding(result, "P15", path, line_index + 1, "This line packs a change too wide to read (over 160 characters).")
-	# Whole-PR standards: one finding per changed file, since any of them is evidence.
-	var whole: Array = []
-	if "P09" in active:
-		var changed: int = changed_lines(files)
-		if changed > DIFF_BUDGET:
-			whole.append(["P09", "The PR changes %d lines; the budget is %d." % [changed, DIFF_BUDGET]])
-	for fault: Array in whole:
-		for file: Dictionary in files:
-			_finding(result, str(fault[0]), str(file.path), 0, str(fault[1]))
 	if not records.is_empty():
-		_record_findings(result, files, day, active, records)
+		_record_findings(result, day, active, records)
 	return result
 
-## The PR's ticket (Jiro) and build (Pipeline), against the record standards.
-static func _record_findings(result: Array, files: Array, day: int, active: Array, records: Dictionary) -> void:
-	var ref: String = str(records.get("ticket_ref", ""))
-	var ticket: Dictionary = Records.find(records.get("tickets", []), ref)
+## The PR's issue (Lineal) and build (Pipeline), against the record standards.
+static func _record_findings(result: Array, day: int, active: Array, records: Dictionary) -> void:
+	var ref: String = str(records.get("issue_ref", ""))
+	var issue: Dictionary = Records.find(records.get("issues", []), ref)
 	if "P16" in active:
-		if ref.is_empty(): _record_finding(result, "P16", "ticket", "", "The PR links no ticket.")
-		elif ticket.is_empty(): _record_finding(result, "P16", "ticket", ref, "%s does not exist in Jiro." % ref)
-		elif str(ticket.status) not in Records.OPEN_STATUSES: _record_finding(result, "P16", "ticket", ref, "%s is %s." % [ref, ticket.status])
-	# Without a ticket Jiro can find, there is no assignee or component to check.
-	if not ticket.is_empty():
-		if "P17" in active and str(ticket.assignee) != str(records.get("author", "")):
-			_record_finding(result, "P17", "ticket", ref, "%s is assigned to %s, not the author." % [ref, ticket.assignee])
-		if "P18" in active:
-			for file: Dictionary in files:
-				if not component_covers(str(ticket.component), str(file.path), day):
-					_record_finding(result, "P18", "ticket", ref, "%s is outside the ticket's component %s." % [file.path, ticket.component])
-					break
+		if ref.is_empty(): _record_finding(result, "P16", "issue", "", "The PR links no issue.")
+		elif issue.is_empty(): _record_finding(result, "P16", "issue", ref, "%s does not exist in Lineal." % ref)
+		elif Records.has_vibes(issue): _record_finding(result, "P16", "issue", ref, "%s is labeled vibes." % ref)
+	# Without an issue Lineal can find, there is no priority or estimate to check.
+	if not issue.is_empty():
+		if "P17" in active and str(issue.get("priority", "")) == "Urgent":
+			_record_finding(result, "P17", "issue", ref, "%s is Urgent." % ref)
+		if "P18" in active and not estimate_valid(int(issue.get("estimate", 1)), day):
+			_record_finding(result, "P18", "issue", ref, "%s is estimated at %d." % [ref, int(issue.get("estimate", 1))])
 	var build: Dictionary = records.get("build", {})
 	if build.is_empty(): return
 	var build_id: String = str(build.id)
 	if "P19" in active:
 		if str(build.status) == "failed": _record_finding(result, "P19", "build", build_id, "Build %s failed." % build_id)
 		elif str(build.get("override", "")) == "helios" and day >= OVERRIDE_BANNED_DAY: _record_finding(result, "P19", "build", build_id, "Build %s only passed by Helios override." % build_id)
-	if "P20" in active and int(build.reruns) > RERUN_LIMIT:
-		_record_finding(result, "P20", "build", build_id, "Build %s was rerun %d times." % [build_id, int(build.reruns)])
-	if "P21" in active and int(build.coverage_before) - int(build.coverage_after) > COVERAGE_DROP:
-		_record_finding(result, "P21", "build", build_id, "Build %s drops coverage from %s to %s." % [build_id, Records.coverage_text(int(build.coverage_before)), Records.coverage_text(int(build.coverage_after))])
+	if "P20" in active and not _contains_word(str(build.get("branch", "")), BRANCH_WORDS).is_empty():
+		_record_finding(result, "P20", "build", build_id, "Build %s ran on branch %s." % [build_id, build.branch])
+	if "P21" in active and not _contains_word(str(build.get("commit", "")), HEX_WORDS).is_empty():
+		_record_finding(result, "P21", "build", build_id, "Build %s has commit %s." % [build_id, build.commit])
 
 ## True when a code citation's pointed-at location is real evidence for that rule.
 ## line 0 means the whole file. Whole-PR findings are listed on every changed file,
@@ -438,8 +445,8 @@ static func evidence_accepted(audit: Array, rule_id: String, path: String, line:
 	return false
 
 ## Any citation's evidence: a {path, line} location in the code, or a
-## {record, id} record (record "ticket" or "build"). A record is accepted only by
-## the record standard it was found under, for that exact ticket or build.
+## {record, id} record (record "issue" or "build"). A record is accepted only by
+## the record standard it was found under, for that exact issue or build.
 static func evidence_matches(audit: Array, rule_id: String, evidence: Dictionary) -> bool:
 	if evidence.has("record"):
 		for finding: Dictionary in audit:
@@ -467,7 +474,7 @@ static func _explanation(files: Array, day: int, records: Dictionary = {}) -> St
 		seen.append(finding.rule_id)
 		var location: String = "the PR" if finding.rule_id in PR_SCOPED else str(finding.path).get_file()
 		if finding.has("record"):
-			location = "the PR's %s %s" % [finding.record, finding.id] if not str(finding.id).is_empty() else "the PR's ticket link"
+			location = "the PR's %s %s" % [finding.record, finding.id] if not str(finding.id).is_empty() else "the PR's issue link"
 		elif int(finding.line) > 0:
 			location += ":%d" % finding.line
 		pieces.append("%s (%s): %s" % [finding.rule_id, location, finding.message])
@@ -573,35 +580,10 @@ static func _clean(lines: Array, _day: int) -> Array:
 
 # Fault and decoy wording. Inserted lines must read naturally anywhere: they never
 # describe code that isn't in the file, and never trip a standard they aren't for.
-## Lookup tables that blow (or only just respect) the diff budget.
-const TABLES: Array = [
-	["# offboarded badges, kept for the records office", "OFFBOARDED = ["],
-	["# synergy matrix, pasted from the planning sheet", "SYNERGY = ["],
-	["# vendored copy of the holiday calendar", "HOLIDAYS = ["],
-]
 
-static func _table(count: int, variant: int) -> Array:
-	var style: Array = TABLES[variant % TABLES.size()]
-	var lines: Array = [style[0], style[1]]
-	for row in range(maxi(1, count - 3)):
-		match variant % TABLES.size():
-			0: lines.append("    'badge-%04d'," % (4100 + row * 7))
-			1: lines.append("    (%d, %d, 'aligned')," % [row + 1, (row * 5) % 9 + 1])
-			_: lines.append("    '2026-%02d-%02d: revoked'," % [row % 12 + 1, (row * 3) % 28 + 1])
-	lines.append("]")
-	return lines
-
-static func _insert_lines(file: Dictionary, inserted: Array) -> void:
-	var lines: Array = Array(str(file.source).split("\n", true))
-	var at: int = mini(1, lines.size())
-	for offset in range(inserted.size()):
-		lines.insert(at + offset, inserted[offset])
-	file.source = "\n".join(lines)
-	_refresh_diff(file)
-
-## A permit the Exception Desk would honor that day, for a PR linking `ticket_ref`.
-static func _valid_permit(day: int, ticket_ref: String) -> String:
-	return PERMIT if day < TICKET_DAY else PERMIT + " " + ticket_ref
+## A permit the Exception Desk would honor that day, for a PR linking `issue_ref`.
+static func _valid_permit(day: int, issue_ref: String) -> String:
+	return PERMIT if day < ISSUE_DAY else PERMIT + " " + issue_ref
 
 ## Fault wordings, picked by a recipe's variant number (the tutorial packet uses
 ## index 8). Comment forms keep "load-bearing" after an unquoted #.
@@ -609,14 +591,14 @@ const LOAD_BEARING: Array = [
 	"# load-bearing: do not touch, ask Dave",
 	"# NOTE: this file is load-bearing for payroll",
 	"# load-bearing module, do not refactor",
-	"# TODO(2019): find out why this is load-bearing",
+	"# NOTE(2019): find out why this is load-bearing",
 	"# load-bearing sleep. removing it breaks Tuesdays",
 	"# this try/except is load-bearing. we do not know why",
 	"# HACK: load-bearing global, see incident 4471",
 	"# do not remove: load-bearing print statement",
 	"# Load-Bearing. Dave left. Nobody else knows",
 	"# the order of these imports is load-bearing",
-	"# FIXME load-bearing typo, the API depends on it",
+	"# NB load-bearing typo, the API depends on it",
 	"# load-bearing since the 2021 migration (temporary)",
 	"x = 0  # load-bearing x",
 	"# legacy shim, extremely load-bearing, handle with tongs",
@@ -636,30 +618,97 @@ const NEAR_LOAD_BEARING: Array = [
 	"# bearing a load of tech debt",
 	"# Load bearing walls are a facilities problem",
 ]
-## Hard-coded secrets: a quoted string assigned to a credential-looking name.
-const HARDCODED_SECRETS: Array = [
-	"API_KEY = 'sk-live-4f9a2c71e0'",
-	"DB_PASSWORD = 'hunter2'",
-	"CHAT_TOKEN = 'xoxb-0042-paperclip'",
-	"admin_password = 'Paperclip2026!'",
-	"STRIPE_SECRET = 'sk_live_51Hx9'",
-	"github_token = 'ghp_dontcommitme'",
-	"PAYROLL_API_KEY = 'temp-for-demo'",
-	"smtp_password = 'password123'",
-	"JWT_SECRET = 'change-me-later'",
-	"backup_token = ''",
+## P03: a comment that names Helios, in any case, even inside a longer word.
+const HELIOS_COMMENTS: Array = [
+	"# Helios wrote this part. Do not tell it we read it",
+	"# per helios: ship it",
+	"# ask HELIOS before editing",
+	"# thanks, Helios",
+	"x = 1  # Helios approved",
+	"# heliosphere-scale refactor, phase one",
+	"# Helios says this is fine",
+	"# do not let helios see this file",
+	"# written by a human, reviewed by Helios",
+	"# Helios: please stop renaming this",
+	"# the colleague (Helios) asked for this",
+	"# HeLiOs mode: on",
+]
+## Near misses: Helios in code or quotes, or a comment that only looks close.
+const NEAR_HELIOS: Array = [
+	"import helios",
+	"COLLEAGUE = 'Helios'",
+	"# the colleague approved this",
+	"# helium balloons for the offsite",
+	"# Heli0s asked nicely (that is a zero)",
+	"# the colleague says hello",
+	"OWNER = 'helios'  # the colleague",
+	"# heli-os, per the font on the lobby sign",
+]
+## P04: a def whose name contains fire, layoff, union, or lunch.
+const HR_FUNCTIONS: Array = [
+	"def fire_drill(): pass",
+	"def lunch_and_learn(): pass",
+	"def plan_layoffs(): pass",
+	"def union_of(a, b): pass",
+	"def campfire_story(): pass",
+	"def reunion_rsvp(): pass",
+	"def fire_and_forget(): pass",
+	"def Lunch_Order(): pass",
+	"def merge_unions(): pass",
+	"def ceasefire(): pass",
+	"def layoff_faq(): pass",
+	"def misfire(): pass",
+	"def brunch_or_lunch(): pass",
+	"def FIREWALL_RULES(): pass",
+]
+## Near misses: the words outside a function name, or names that only look close.
+const NEAR_HR: Array = [
+	"lunch_budget = 0",
+	"FIRE_EXITS = 3",
+	"# the union of both lists, per the spec",
+	"def launch(): pass",
+	"def onion_count(): pass",
+	"MENU = 'lunch'",
+	"def fir_tree(): pass",
+	"def layout_offset(): pass",
+]
+## P05: a TODO without an owner on the list.
+const GHOST_TODOS: Array = [
+	"# TODO ask Dave",
+	"# TODO(dave): fix before the reorg",
+	"# TODO(priya) remove after the migration",
+	"# TODO(colleague): optimize the humans",
+	"# TODO(Gary): explain the rounding",
+	"x = 1  # TODO",
+	"# TODO(sam): consolidate this",
+	"# TODO (maya): rename after the reorg",
+	"# TODO(intern): figure this out",
+	"# TODO(): find an owner",
+	"# TODO(everyone): circle back",
+	"# TODO(morgan_maybe) decide",
+]
+## Near misses: owned TODOs, lowercase todos, and TODO in code or quotes.
+const NEAR_TODO: Array = [
+	"# TODO(maya): rename after the reorg",
+	"# TODO(Gwen) threat-model this",
+	"# todo, lowercase, is just a note",
+	"TODO_LIMIT = 3",
+	"STATUS = 'TODO'",
+	"# TODO(june): circle back",
+	"# TODO(Penny): sorry",
+	"# TODO(theo) make it faster",
 ]
 
-## A permit that looks right and isn't: misspelled before the ticket requirement,
-## and from then on bare, from the old system, typo'd, or naming another ticket.
-static func _forged_permit(day: int, variant: int, ticket_ref: String) -> String:
-	if day < TICKET_DAY:
+## A permit that looks right and isn't: misspelled before the issue requirement,
+## and from then on bare, from the old system, typo'd, or naming another issue.
+static func _forged_permit(day: int, variant: int, issue_ref: String) -> String:
+	if day < ISSUE_DAY:
 		return ["INK-EXEPTION", "ink-exception", "INK EXCEPTION"][variant % 3]
-	var number: int = Records.ticket_number(ticket_ref)
+	var number: int = Records.issue_number(issue_ref)
 	return [PERMIT, "%s PCL-%04d" % [PERMIT, (number * 7) % 10000], "%s %s-%d" % [PERMIT, Records.PROJECT, number + 3], "%s %s%d" % [PERMIT, Records.PROJECT, number]][variant % 4]
 
 ## `variant` picks the fault's wording; recipes record it so a rebuilt file reads the
-## same. Whole-PR standards are applied by `_whole_pr`, record standards by `_records`.
+## same. Record standards are applied by `_records`.
 static func _apply_fault(file: Dictionary, rule_id: String, day: int, variant: int = -1) -> void:
 	var lines: Array = Array(str(file.source).split("\n", true))
 	if variant < 0: variant = str(file.path).length()
@@ -672,8 +721,12 @@ static func _apply_fault(file: Dictionary, rule_id: String, day: int, variant: i
 			if keyword_spans("\n".join(lines)).is_empty():
 				lines.insert(at, "def stamp():")
 				lines.insert(at + 1, "    return 'a copy'")
-		"P11":
-			lines.insert(at, HARDCODED_SECRETS[variant % HARDCODED_SECRETS.size()])
+		"P03":
+			lines.insert(at, HELIOS_COMMENTS[variant % HELIOS_COMMENTS.size()])
+		"P04":
+			lines.insert(at, HR_FUNCTIONS[variant % HR_FUNCTIONS.size()])
+		"P05":
+			lines.insert(at, GHOST_TODOS[variant % GHOST_TODOS.size()])
 		_:
 			return
 	file.source = "\n".join(lines)
@@ -681,21 +734,21 @@ static func _apply_fault(file: Dictionary, rule_id: String, day: int, variant: i
 
 ## Decoys are clean on the day they appear: near misses of active standards, and
 ## the old faults of standards that have since been retired. File decoys edit a
-## file here; record decoys (tickets and builds) are rendered by `_records`.
+## file here; record decoys (issues and builds) are rendered by `_records`.
+const NEAR_LINES: Dictionary = {"near-load": NEAR_LOAD_BEARING, "near-helios": NEAR_HELIOS, "near-hr": NEAR_HR, "near-todo": NEAR_TODO}
+
 static func _apply_decoy(file: Dictionary, kind: String, day: int, variant: int) -> void:
 	var lines: Array = Array(str(file.source).split("\n", true))
 	var at: int = mini(1, lines.size())
-	match kind:
-		"near-load":
-			lines.insert(at, NEAR_LOAD_BEARING[variant % NEAR_LOAD_BEARING.size()])
-		"vault":
-			lines.insert(at, ["API_KEY = vault.read('payroll/api_key')", "TOKEN_TTL = 3600", "PASSWORD_MIN_LENGTH = 12"][variant % 3])
-		"P01", "P11":
-			# A retired standard's old fault is just text now.
-			_apply_fault(file, kind, day, variant)
-			return
-		_:
-			return
+	if NEAR_LINES.has(kind):
+		var near: Array = NEAR_LINES[kind]
+		lines.insert(at, near[variant % near.size()])
+	elif kind in ["P01", "P03", "P04", "P05"]:
+		# A retired standard's old fault is just text now.
+		_apply_fault(file, kind, day, variant)
+		return
+	else:
+		return
 	file.source = "\n".join(lines)
 	_refresh_diff(file)
 
@@ -717,7 +770,7 @@ static func _companion_file(kind: String, entry: Dictionary, day: int) -> Dictio
 ## A packet's private generation recipe: the bank entry, its slot and author, which
 ## companion files exist, clean decoys, every fault in the order it was applied
 ## (with its wording), author notes, and permits. `_build` turns a recipe back into
-## files and `_records` into its ticket and build, so revisions can be regenerated.
+## files and `_records` into its issue and build, so revisions can be regenerated.
 static func _build(recipe: Dictionary) -> Array:
 	var entry: Dictionary = _entry(int(recipe.entry))
 	var day: int = int(recipe.day)
@@ -733,59 +786,30 @@ static func _build(recipe: Dictionary) -> Array:
 		_insert_note(files[int(note.file)], str(note.text))
 	for permit: Dictionary in recipe.permits:
 		files[int(permit.file)].permit = str(permit.permit)
-	_component_files(files, recipe, entry, day)
-	_whole_pr(files, recipe, entry, day)
 	return files
 
-## Files that exist for the ticket's component: a shim in a legacy/ subfolder (a
-## component fault before subfolders count, a near miss after), or a test file,
-## which no component needs to cover.
-static func _component_files(files: Array, recipe: Dictionary, entry: Dictionary, day: int) -> void:
-	var nested: bool = false
-	var test: bool = false
-	for fault: Dictionary in recipe.faults:
-		if str(fault.rule) == "P18" and _component_kind(int(fault.variant), day) == "nested": nested = true
-	for decoy: Dictionary in recipe.get("decoys", []):
-		if str(decoy.kind) == "nested-ok": nested = true
-		if str(decoy.kind) == "test-exempt": test = true
-	if nested: files.append(_companion_file("nested", entry, day))
-	if test and not _has_tests(files): files.append(_companion_file("test", entry, day))
-
-## Whole-PR shape, settled after every file is written: lookup tables sized
-## against the diff budget.
-static func _whole_pr(files: Array, recipe: Dictionary, entry: Dictionary, day: int) -> void:
-	var faults: Dictionary = {}
-	for fault: Dictionary in recipe.faults:
-		if str(fault.rule) in PR_SCOPED and not faults.has(fault.rule): faults[fault.rule] = int(fault.variant)
-	var rows: int = int(recipe.get("fill", 0))
-	var style: int = int(recipe.get("fill_variant", 0))
-	if faults.has("P09"):
-		# Just past the budget, whatever else the author fixed or added meanwhile.
-		rows = maxi(6, DIFF_BUDGET + 1 + int(faults.P09) % 4 - changed_lines(files))
-		style = int(faults.P09) / 4
-	if rows > 0:
-		_insert_lines(files[0], _table(rows, style))
-
 # --- Records -------------------------------------------------------------------
-# From Wednesday every PR links a Jiro ticket; from Friday it also has a Pipeline
+# From Wednesday every PR links a Lineal issue; from Friday it also has a Pipeline
 # build. Both come from the recipe like the files do: clean PRs get clean records,
 # a record fault is visible in its app, and a revision rebuilds them minus the
 # faults the author fixed (with a new build, since every push runs CI again).
 
-## How a P16 fault shows: the ticket's status (stable even beside other ticket
-## faults), or the PR's link itself (only when nothing else depends on the ticket).
-const LINK_FAULTS: Array = ["wontfix", "closed", "duplicate", "missing", "ghost"]
+## How a P16 fault shows: a vibes label on the issue (stable even beside other
+## issue faults), or the PR's link itself (only when nothing else depends on it).
+const LINK_FAULTS: Array = ["vibes", "vibes-caps", "vibes-pair", "vibes-shout", "missing", "ghost"]
+const STATUS_FAULTS: int = 4
 
-static func _component_kind(variant: int, day: int) -> String:
-	return ["sibling", "subfolder", "nested"][variant % (2 if day >= SUBFOLDER_DAY else 3)]
+## How a P18 fault shows: an estimate off the scale, or (before 0 counts) a zero.
+static func _estimate_kind(variant: int, day: int) -> String:
+	return ["off-scale", "zero"][variant % (1 if day >= ZERO_DAY else 2)]
 
 static func _slot(day: int, index: int) -> int:
 	var slot: int = index
 	for count: int in DAY_COUNTS.slice(0, maxi(0, day - 1)): slot += count
 	return slot
 
-## The slot's author, as recorded in its recipe (so Jiro's assignee check sees the
-## real author). LINEUP via slot_author is the one source of truth.
+## The slot's author, as recorded in its recipe. LINEUP via slot_author is the one
+## source of truth.
 static func _author(day: int, index: int) -> String:
 	return slot_author(day, index)
 
@@ -794,33 +818,30 @@ static func _record_effects(kind: String, variant: int, day: int) -> Array:
 	match kind:
 		"P16":
 			var fault: String = LINK_FAULTS[variant % LINK_FAULTS.size()]
-			return [{"what": "link" if fault in ["missing", "ghost"] else "status", "kind": fault, "variant": variant}]
-		"P17":
-			return [{"what": "assignee", "kind": ["coworker", "helios", "departed"][variant % 3], "variant": variant / 3}]
-		"P18":
-			var component: String = _component_kind(variant, day)
-			return [] if component == "nested" else [{"what": "component", "kind": component, "variant": variant}]
+			return [{"what": "link" if fault in ["missing", "ghost"] else "vibes", "kind": fault, "variant": variant}]
+		"P17": return [{"what": "priority", "kind": "urgent", "variant": variant}]
+		"P18": return [{"what": "estimate", "kind": _estimate_kind(variant, day), "variant": variant / 2}]
 		"P19":
 			var red: String = "failed" if day < OVERRIDE_BANNED_DAY or variant % 2 == 0 else "override"
 			return [{"what": "build", "kind": red, "variant": variant}]
-		"P20":
-			return [{"what": "reruns", "count": RERUN_LIMIT + 1 + variant % 6}]
-		"P21":
-			return [{"what": "coverage", "drop": COVERAGE_DROP + 1 + (variant * 7) % 40}]
-		"odd-ticket": return [{"what": "odd", "variant": variant}]
-		"watched": return [{"what": "watched", "variant": variant}]
+		"P20": return [{"what": "branch", "kind": "banned", "variant": variant}]
+		"P21": return [{"what": "commit", "kind": "banned", "variant": variant}]
+		"odd-issue": return [{"what": "odd", "variant": variant}]
+		"high": return [{"what": "priority", "kind": "high", "variant": variant}]
+		"thirteen": return [{"what": "estimate", "kind": "thirteen", "variant": variant}]
+		"zero-ok": return [{"what": "estimate", "kind": "zero", "variant": variant}]
 		"flaky": return [{"what": "flaky", "variant": variant}]
 		"override-ok": return [{"what": "build", "kind": "override", "variant": variant}]
-		"three-reruns": return [{"what": "reruns", "count": RERUN_LIMIT}]
-		"two-points": return [{"what": "coverage", "drop": COVERAGE_DROP}]
+		"near-branch": return [{"what": "branch", "kind": "near", "variant": variant}]
+		"near-hash": return [{"what": "commit", "kind": "near", "variant": variant}]
 	return []
 
-## The PR's ticket link, its ticket(s) in Jiro, and its build in Pipeline, plus its
-## author: {author, ticket_ref, tickets, build}. {} before Jiro exists, or for a
+## The PR's issue link, its issue(s) in Lineal, and its build in Pipeline, plus its
+## author: {author, issue_ref, issues, build}. {} before Lineal exists, or for a
 ## recipe without a slot (an ad-hoc test recipe), which audits code only.
 static func _records(recipe: Dictionary) -> Dictionary:
 	var day: int = int(recipe.day)
-	if day < JIRO_DAY or not recipe.has("slot"): return {}
+	if day < LINEAL_DAY or not recipe.has("slot"): return {}
 	var entry: Dictionary = _entry(int(recipe.entry))
 	var effects: Array = []
 	for decoy: Dictionary in recipe.get("decoys", []):
@@ -832,15 +853,13 @@ static func _records(recipe: Dictionary) -> Dictionary:
 	var history: Array = []
 	for fixed: Dictionary in recipe.get("resolved", []):
 		match str(fixed.rule):
-			"P16": history.append("Linked to the PR by %s after review." % author if LINK_FAULTS[int(fixed.variant) % LINK_FAULTS.size()] in ["missing", "ghost"] else "Reopened by %s after review." % author)
-			"P17": history.append("Reassigned to %s after review." % author)
-			"P18": history.append("Component updated by %s after review." % author)
-	# `team` is who's on staff that day: a misassigned ticket goes to someone who
-	# actually works here, never to a coworker who hasn't joined yet.
+			"P16": history.append("Linked to the PR by %s after review." % author if LINK_FAULTS[int(fixed.variant) % LINK_FAULTS.size()] in ["missing", "ghost"] else "Label vibes removed by %s after review. Morale was informed." % author)
+			"P17": history.append("Priority lowered from Urgent by %s after review. Helios was informed." % author)
+			"P18": history.append("Re-estimated by %s after review." % author)
 	var spec: Dictionary = {"day": day, "slot": int(recipe.slot), "version": int(recipe.get("version", 1)), "author": author,
 		"team": staff(day), "path": str(entry.path), "function": _entry_function(entry.lines), "effects": effects, "history": history}
-	var linked: Dictionary = Records.ticket(spec)
-	return {"author": author, "ticket_ref": str(linked.ticket_ref), "tickets": linked.tickets,
+	var linked: Dictionary = Records.issue(spec)
+	return {"author": author, "issue_ref": str(linked.issue_ref), "issues": linked.issues,
 		"build": Records.build(spec) if day >= PIPELINE_DAY else {}}
 
 ## What a recipe's files and records break.
@@ -851,8 +870,6 @@ static func _audit(recipe: Dictionary, files: Variant = null) -> Array:
 ## the other ten break at least one standard, and together they break every
 ## standard active that day. A few break two, more often in week two.
 const CLEAN_SLOTS: Array = [1, 4, 7, 10, 13]
-## Decoys that shape the whole PR rather than one file or record.
-const PLAN_DECOYS: Array = ["fill", "big-diff"]
 
 static func _companions(day: int, index: int) -> Array:
 	if day == 1:
@@ -866,18 +883,19 @@ static func _companions(day: int, index: int) -> Array:
 static func _near_misses(rule_id: String, day: int) -> Array:
 	match rule_id:
 		"P01": return ["near-load"]
-		"P09": return ["fill"]
-		"P11": return ["vault"]
-		"P16": return ["odd-ticket"]
-		"P17": return ["watched"]
-		"P18": return ["nested-ok"] if day >= SUBFOLDER_DAY else ["test-exempt"]
+		"P03": return ["near-helios"]
+		"P04": return ["near-hr"]
+		"P05": return ["near-todo"]
+		"P16": return ["odd-issue"]
+		"P17": return ["high"]
+		"P18": return ["zero-ok", "thirteen"] if day >= ZERO_DAY else ["thirteen"]
 		"P19": return ["override-ok", "flaky"] if day >= OVERRIDE_DAY and day < OVERRIDE_BANNED_DAY else ["flaky"]
-		"P20": return ["three-reruns"]
-		"P21": return ["two-points"]
+		"P20": return ["near-branch"]
+		"P21": return ["near-hash"]
 	return []
 
 ## A retired standard's old fault, which is just paperwork now.
-const OUTDATED: Dictionary = {"P01": "P01", "P11": "P11", "P17": "P17", "P20": "P20", "P09": "big-diff"}
+const OUTDATED: Dictionary = {"P01": "P01", "P03": "P03", "P04": "P04", "P05": "P05", "P17": "P17", "P20": "P20"}
 
 ## Decoys worth showing today, as two lists, freshest first. "outdated" is what an
 ## old rulebook would reject: faults of retired standards. "near" holds near misses
@@ -914,7 +932,7 @@ static func _plannable_ids(day: int) -> Array:
 static func _plans(day: int) -> Array:
 	var active: Array = _plannable_ids(day)
 	var pool: Dictionary = _decoy_pool(day)
-	var per_file_pool: Array = (pool.outdated + pool.near).filter(func(kind: String) -> bool: return kind not in PLAN_DECOYS)
+	var per_file_pool: Array = pool.outdated + pool.near
 	# The block's second day shows the decoys its first day didn't.
 	var turn: int = (day - block_start(day)) * 4
 	var plans: Array = []
@@ -924,7 +942,7 @@ static func _plans(day: int) -> Array:
 	var inked: int = 0
 	var valid_ink_placed: bool = false
 	for index in range(DAY_COUNTS[day - 1]):
-		var plan: Dictionary = {"rules": [], "decoys": [], "inks": [], "companions": _companions(day, index), "fill": false, "big": false, "forged": false}
+		var plan: Dictionary = {"rules": [], "decoys": [], "inks": [], "companions": _companions(day, index), "forged": false}
 		if index in CLEAN_SLOTS:
 			if day >= PERMIT_DAY and clean == 0:
 				# A pink file with a valid permit is clean.
@@ -949,37 +967,31 @@ static func _plans(day: int) -> Array:
 				# A valid permit on a PR that is broken for some other reason.
 				plan.inks.append("last")
 				valid_ink_placed = true
-			if day >= JIRO_DAY and broken in [2, 7] and not per_file_pool.is_empty():
+			if day >= LINEAL_DAY and broken in [2, 7] and not per_file_pool.is_empty():
 				plan.decoys.append(per_file_pool[(broken + day) % per_file_pool.size()])
 			broken += 1
 		plans.append(plan)
 	return plans
 
 static func _add_decoy(plan: Dictionary, kind: String) -> void:
-	match kind:
-		"fill": plan.fill = true
-		"big-diff": plan.big = true
-		"": pass
-		_: plan.decoys.append(kind)
+	if not kind.is_empty(): plan.decoys.append(kind)
 
 ## Simpler versions of a plan, for a bank that can't realize the original.
 static func _fallbacks(plan: Dictionary) -> Array:
 	var plain: Dictionary = plan.duplicate(true)
 	plain.decoys = []
-	plain.fill = false
-	plain.big = false
 	var single: Dictionary = plain.duplicate(true)
 	single.rules = plan.rules.slice(0, 1)
 	return [plan, plain, single]
 
-## A record fault's variant. A missing or mistyped ticket link would hide the
-## assignee and component (and, once permits name the ticket, every permit), so
-## beside those a ticket fault is always about the ticket's status instead.
+## A record fault's variant. A missing or mistyped issue link would hide the
+## priority and estimate (and, once permits name the issue, every permit), so
+## beside those an issue fault is always about the issue's status instead.
 static func _record_variant(rule_id: String, day: int, index: int, plan: Dictionary) -> int:
 	if rule_id == "P16":
-		var coupled: bool = "P17" in plan.rules or "P18" in plan.rules or (day >= TICKET_DAY and ("P02" in plan.rules or not plan.inks.is_empty()))
-		return (index + day) % (3 if coupled else LINK_FAULTS.size())
-	if rule_id == "P21": return index * 3 + day
+		var coupled: bool = "P17" in plan.rules or "P18" in plan.rules or (day >= ISSUE_DAY and ("P02" in plan.rules or not plan.inks.is_empty()))
+		return (index + day) % (STATUS_FAULTS if coupled else LINK_FAULTS.size())
+	if rule_id in ["P18", "P21"]: return index * 3 + day
 	return index + day
 
 ## Turn a plan into a recipe for one bank entry, or {} if that entry can't carry it.
@@ -987,43 +999,35 @@ static func _realize(entry_index: int, day: int, index: int, plan: Dictionary) -
 	var entry: Dictionary = _entry(entry_index)
 	var slot: int = _slot(day, index)
 	var recipe: Dictionary = {"entry": entry_index, "day": day, "slot": slot, "author": _author(day, index), "version": 1,
-		"files": ["primary"] + plan.companions, "decoys": [], "faults": [], "notes": [], "permits": [], "fill": 0, "fill_variant": 0}
+		"files": ["primary"] + plan.companions, "decoys": [], "faults": [], "notes": [], "permits": []}
 	var per_file: Array = plan.rules.filter(func(rule_id: String) -> bool: return rule_id not in PR_SCOPED and rule_id not in RECORD_SCOPED)
 	# Different files prevent edits to one flaw from concealing another.
 	if per_file.size() > 1 and recipe.files.size() == 1:
 		recipe.files.append("config")
 	var paths: Array = _build(recipe).map(func(file: Dictionary) -> String: return str(file.path))
 	var last: int = recipe.files.size() - 1
-	var ticket: String = Records.ticket_id(slot)
+	var issue: String = Records.issue_id(slot)
 	for kind: String in plan.decoys:
 		recipe.decoys.append({"file": last, "kind": kind, "variant": index + day})
 	for position in range(plan.rules.size()):
 		var rule_id: String = plan.rules[position]
 		var target: int = last if position == 0 else 0
 		var variant: int = str(paths[target]).length()
-		if rule_id == "P09": variant = index % 3 + 4 * ((day + index) % TABLES.size())
-		elif rule_id in RECORD_SCOPED: variant = _record_variant(rule_id, day, index, plan)
+		if rule_id in RECORD_SCOPED: variant = _record_variant(rule_id, day, index, plan)
 		recipe.faults.append({"file": target, "rule": rule_id, "variant": variant})
 		if rule_id == "P02" and plan.forged:
-			recipe.permits.append({"file": target, "permit": _forged_permit(day, variant + day, ticket)})
+			recipe.permits.append({"file": target, "permit": _forged_permit(day, variant + day, issue)})
 	for where: String in plan.inks:
 		var target: int = 0 if where == "first" else last
 		recipe.faults.append({"file": target, "rule": "P02", "variant": str(paths[target]).length()})
-		recipe.permits.append({"file": target, "permit": _valid_permit(day, ticket)})
-	if plan.fill or plan.big:
-		var built: int = changed_lines(_build(recipe))
-		var rows: int = (DIFF_BUDGET - 1 - index % 2 - built) if plan.fill else (DIFF_BUDGET + 4 + index % 5 - built)
-		if rows < 4: return {}
-		recipe.fill = rows
-		recipe.fill_variant = index + day
+		recipe.permits.append({"file": target, "permit": _valid_permit(day, issue)})
 	var expected: Array = plan.rules.duplicate()
 	expected.sort()
 	return recipe if _verify(recipe, expected) else {}
 
 ## A realized recipe must break exactly what was planned, leave the code on main
 ## clean, and come apart predictably: fixing any one planned fault leaves exactly
-## the others, so revisions behave. It also leaves room under the diff budget for
-## an author's note and a regression.
+## the others, so revisions behave.
 static func _verify(recipe: Dictionary, expected: Array) -> bool:
 	var day: int = int(recipe.day)
 	var files: Array = _build(recipe)
@@ -1033,7 +1037,6 @@ static func _verify(recipe: Dictionary, expected: Array) -> bool:
 		if file.status != "added":
 			var main_copy: Dictionary = {"path": file.get("old_path", file.path), "source": file.base, "keyword_ink": "blue"}
 			if not evaluate([main_copy], day).is_empty(): return false
-	if not _roomy(files, day, expected, 1 if int(recipe.fill) > 0 else 2): return false
 	var variants: Array = []
 	for rule_id: String in expected:
 		var trial: Dictionary = recipe.duplicate(true)
@@ -1045,11 +1048,8 @@ static func _verify(recipe: Dictionary, expected: Array) -> bool:
 		variants.append([spotless, []])
 	for variant: Array in variants:
 		var rebuilt: Array = _build(variant[0])
-		if _audit(variant[0], rebuilt) != variant[1] or not _roomy(rebuilt, day, variant[1], 1): return false
+		if _audit(variant[0], rebuilt) != variant[1]: return false
 	return true
-
-static func _roomy(files: Array, day: int, expected: Array, spare: int) -> bool:
-	return not _on("P09", day) or "P09" in expected or changed_lines(files) <= DIFF_BUDGET - spare
 
 ## Fit one of the day's waiting plans to a bank entry: the slot's own plan first,
 ## then any plan still waiting that day, then simpler versions of the slot's own.
@@ -1089,7 +1089,7 @@ static func _summary(files: Array) -> String:
 	return ", ".join(summary)
 
 ## Every packet, original or revision, has the same shape so grading and UI just work.
-## `ticket_ref`, `tickets`, and `build` are its records: visible to the reviewer,
+## `issue_ref`, `issues`, and `build` are its records: visible to the reviewer,
 ## like its files. Only `violations`, `findings`, `explanation`, and `recipe` are audit data.
 static func _packet(fields: Dictionary, files: Array, records: Dictionary = {}) -> Dictionary:
 	var day: int = int(fields.day)
@@ -1100,8 +1100,8 @@ static func _packet(fields: Dictionary, files: Array, records: Dictionary = {}) 
 	packet.file = files[0].path
 	packet.files = files
 	packet.diff = "\n\n".join(combined)
-	packet.ticket_ref = str(records.get("ticket_ref", ""))
-	packet.tickets = records.get("tickets", []).duplicate(true)
+	packet.issue_ref = str(records.get("issue_ref", ""))
+	packet.issues = records.get("issues", []).duplicate(true)
 	packet.build = records.get("build", {}).duplicate(true)
 	packet.violations = evaluate(files, day, records)
 	packet.findings = findings(files, day, records)
@@ -1216,7 +1216,7 @@ static func practice() -> Dictionary:
 # of the 150; each breaks exactly P15 (every other active standard is satisfied).
 
 static var _payloads: Array = []
-## Payload records use slots past the campaign's 150 for their ticket and build IDs.
+## Payload records use slots past the campaign's 150 for their issue and build IDs.
 const PAYLOAD_SLOT: int = 200
 ## Each payload: the day it lands, a stable key for its pleading dialogue, the
 ## seat that ships it, its escalation tier, title, file path, and the proposed
@@ -1262,15 +1262,15 @@ static func payloads() -> Array:
 			var day: int = int(spec.day)
 			var files: Array = [_file(str(spec.path), _clean(spec.code, day))]
 			var id: String = "PR-P%d" % day
-			# Clean records, so a payload breaks nothing but P15: an open ticket the
+			# Clean records, so a payload breaks nothing but P15: an open issue the
 			# author owns, in the payload's own component, and a green build. Slots
-			# past the authored 150 keep their ticket and build IDs unique.
+			# past the authored 150 keep their issue and build IDs unique.
 			var records: Dictionary = {}
-			if day >= JIRO_DAY:
+			if day >= LINEAL_DAY:
 				var record_spec: Dictionary = {"day": day, "slot": PAYLOAD_SLOT + day, "version": 1, "author": str(spec.author),
 					"path": str(spec.path), "function": _entry_function(spec.code), "effects": [], "history": []}
-				var linked: Dictionary = Records.ticket(record_spec)
-				records = {"author": str(spec.author), "ticket_ref": str(linked.ticket_ref), "tickets": linked.tickets,
+				var linked: Dictionary = Records.issue(record_spec)
+				records = {"author": str(spec.author), "issue_ref": str(linked.issue_ref), "issues": linked.issues,
 					"build": Records.build(record_spec) if day >= PIPELINE_DAY else {}}
 			_payloads.append(_packet({
 				"id": id, "title": str(spec.title), "author": str(spec.author), "day": day,
@@ -1282,12 +1282,12 @@ static func payloads() -> Array:
 	return _payloads.duplicate(true)
 
 ## A packet's records for auditing: rebuilt from its recipe, or (for a payload,
-## which has no recipe) read back from the ticket and build it carries.
+## which has no recipe) read back from the issue and build it carries.
 static func packet_records(packet: Dictionary) -> Dictionary:
 	if packet.has("recipe"): return _records(packet.recipe)
-	if int(packet.get("day", 1)) < JIRO_DAY: return {}
-	return {"author": str(packet.get("author", "")), "ticket_ref": str(packet.get("ticket_ref", "")),
-		"tickets": packet.get("tickets", []), "build": packet.get("build", {})}
+	if int(packet.get("day", 1)) < LINEAL_DAY: return {}
+	return {"author": str(packet.get("author", "")), "issue_ref": str(packet.get("issue_ref", "")),
+		"issues": packet.get("issues", []), "build": packet.get("build", {})}
 
 static func payloads_for_day(day: int) -> Array:
 	var result: Array = []
@@ -1313,14 +1313,15 @@ const REGRESSION_EXEMPT: Array = []
 const CITED_WORDS: Dictionary = {
 	"P01": ["the load-bearing comment", "removed the comment you were so attached to"],
 	"P02": ["the keyword ink", "repainted the keywords a calmer blue"],
-	"P09": ["the size of the diff", "split out everything that wasn't strictly necessary"],
-	"P11": ["the hardcoded secret", "moved the secret into the vault"],
-	"P16": ["the ticket's status", "linked a ticket that's actually open"],
-	"P17": ["the ticket's assignee", "put my own name on the ticket"],
-	"P18": ["the ticket's component", "lined the ticket up with the files"],
+	"P03": ["the comment naming the colleague", "stopped naming the colleague in comments"],
+	"P04": ["the function name HR would read aloud", "renamed the function to something HR can say out loud"],
+	"P05": ["the ownerless TODO", "gave the TODO an owner who still badges in"],
+	"P16": ["the vibes label", "took the vibes off the issue"],
+	"P17": ["the urgent issue", "let Helios keep the urgency"],
+	"P18": ["the estimate", "re-estimated it on the Fibonacci scale"],
 	"P19": ["the build status", "got the build green the honest way"],
-	"P20": ["the rerun count", "ran the build once, like a grown-up"],
-	"P21": ["the coverage numbers", "wrote enough tests to steady the coverage"],
+	"P20": ["the branch name", "renamed the branch to something the board can hear"],
+	"P21": ["the commit hash", "pushed again until the hash stopped spelling things"],
 	"P15": ["the unreadable blob", "made the code readable instead of a blob"],
 }
 ## The author's note on the PR form (and in the archived chat content). {Fixes}/{fixes} come from CITED_WORDS.
@@ -1333,7 +1334,7 @@ const REVISION_MESSAGES: Dictionary = {
 		3: ["v3. {Fixes}. I refactored nothing this time. I've grown.", "v3. {Fixes}. Still saying you're welcome, just quieter.", "v3. {Fixes}. Honestly, my best work yet. Like the last two."]},
 	"June": {
 		2: ["v2 is up. Circling back: I have {fixes}.", "v2. I have {fixes}, as requested, and captured my feelings as a learning in the retro deck.", "v2. I have {fixes}. Let me know if there's any other impact you'd like removed."],
-		3: ["v3 is up. I have {fixes}, again. Per my last two messages.", "v3. I have {fixes}, for what I'm told is the final time. Disagree and commit.", "v3. I have {fixes}. I've also refreshed my LinkedIn, for unrelated reasons."]},
+		3: ["v3 is up. I have {fixes}, again. Per my last two messages.", "v3. I have {fixes}, for what I'm told is the final time. Disagree and commit.", "v3. I have {fixes}. I've also refreshed my LinkedOut, for unrelated reasons."]},
 	"Penny": {
 		2: ["v2. Sorry. I {fixes}, and I checked it three times.", "Here's v2. I {fixes}. I learned so much doing it.", "v2 is up. {Fixes}. Sorry for the trouble. Helios cheered me on."],
 		3: ["v3. I {fixes}, again. I'm so sorry. I made a checklist.", "Version three. {Fixes}. I asked Helios to watch me do it.", "v3. I {fixes}. Sorry. I'm still learning. I'm learning so much."]},
@@ -1386,15 +1387,15 @@ static func _remaining(parent: Dictionary, fixed: Array) -> Array:
 
 ## The parent's recipe minus the faults the author fixed. A fault that a later fault
 ## had already erased (a regenerated file) stays gone instead of resurfacing. The
-## revision is a new push, so its build is a new run; fixed ticket faults are
-## remembered so Jiro can show who reopened or reassigned the ticket.
+## revision is a new push, so its build is a new run; fixed issue faults are
+## remembered so Lineal can show who reopened or reassigned the issue.
 static func _revised_recipe(parent: Dictionary, fixed: Array) -> Dictionary:
 	var recipe: Dictionary = parent.recipe.duplicate(true)
 	var expected: Array = _remaining(parent, fixed)
 	recipe.version = int(parent.get("revision", 1)) + 1
 	if not recipe.has("resolved"): recipe.resolved = []
 	for fault: Dictionary in recipe.faults:
-		if fault.rule in fixed and str(fault.rule) in TICKET_SCOPED: recipe.resolved.append({"rule": fault.rule, "variant": int(fault.variant)})
+		if fault.rule in fixed and str(fault.rule) in ISSUE_SCOPED: recipe.resolved.append({"rule": fault.rule, "variant": int(fault.variant)})
 	recipe.faults = recipe.faults.filter(func(fault: Dictionary) -> bool: return fault.rule not in fixed)
 	for _pass in range(4):
 		var extra: Array = _audit(recipe).filter(func(rule_id: String) -> bool: return rule_id not in expected)

@@ -97,7 +97,7 @@ func run() -> void:
 				state = Sim.dispatch(state, {"type":"consult-ai"})
 				check(state.consulted, "Helios can advise after unlocking, revisions included.")
 			first_of_day = false
-			# Its files and its records (the Jiro ticket and Pipeline build) are the evidence.
+			# Its files and its records (the Lineal issue and Pipeline build) are the evidence.
 			check(packet.violations == Policy.evaluate(packet.files, day, Policy.packet_records(packet)), "The audit is computed from the PR's visible files and records.")
 			if packet.get("payload", false): check(packet.violations == ["P15"], "A Helios payload breaks only the readable-code standard.")
 			for rule: String in packet.violations:

@@ -5,8 +5,8 @@ extends SceneTree
 ## designer voice, and real brands. The main menu and save/settings errors may
 ## stay game UI; they are skipped or allowlisted below.
 ##
-## content/policy_campaign.gd and content/records.gd are not scanned yet: rule
-## text and ticket templates are owned elsewhere.
+## A TODO is only flagged as an unfinished-text marker ("TODO:"); TODO(maya)
+## and the Lineal status Todo are in-world (the ghost-TODO standard is about them).
 
 const SCANNED: Array[String] = [
 	"res://content/banter.gd",
@@ -20,6 +20,8 @@ const SCANNED: Array[String] = [
 	"res://content/encounters.gd",
 	"res://content/encounter_lines.gd",
 	"res://content/pr_bank.gd",
+	"res://content/policy_campaign.gd",
+	"res://content/records.gd",
 	"res://content/trees/days_01_02.gd",
 	"res://content/trees/days_03_04.gd",
 	"res://content/trees/days_05_06.gd",
@@ -33,6 +35,7 @@ const SCANNED: Array[String] = [
 	"res://native/desktop_notifications.gd",
 	"res://native/daily_reader.gd",
 	"res://native/review_banter.gd",
+	"res://native/waiting_line.gd",
 ]
 const PRESS_FEED := "res://content/daily_press.json"
 
@@ -45,7 +48,7 @@ const BANNED: Array[String] = [
 	"(?:\\d+|%d) real (?:minutes|seconds)\\b", "\\bgraded\\b", "\\b(?:in)?correct answer\\b", "\\bwrong answer\\b",
 	"\\bcounts? against you\\b", "\\bmistake counted\\b", "\\baudit will mark\\b",
 	"\\b(?:trust|stress|relationship|morale) [+\\-−]\\s*\\d", "\\b(?:trust|stress|relationship) [+\\-−]{2}",
-	"\\btodo\\b", "\\bfixme\\b", "\\bplaceholder\\b", "\\blorem\\b", "\\bphase:", "\\bstate:",
+	"\\btodo:", "\\bfixme\\b", "\\bplaceholder\\b", "\\blorem\\b", "\\bphase:", "\\bstate:",
 	"\\bjira\\b", "\\bslack\\b", "\\bgithub\\b", "\\bgitlab\\b", "\\blinkedin\\b", "\\bstack overflow\\b",
 	"\\bhacker news\\b", "\\bgoogle\\b", "\\btwitter\\b", "\\bchatgpt\\b", "\\bopenai\\b", "\\bcopilot\\b",
 	"\\bclaude\\b", "\\banthropic\\b", "\\bgodot\\b",
@@ -137,7 +140,7 @@ func _check_text(text: String, where: String) -> void:
 func _test_guard_catches_meta() -> void:
 	for line: String in ["This practice is untimed. Follow the tutorial.", "Save this run and choose a slot for a new game?",
 			"Each shift lasts 3 real minutes.", "It said so in Jira.", "You go home and rest. Stress -24.",
-			"That'll count against you, player.", "Play the ending cinematic."]:
+			"That'll count against you, player.", "Play the ending cinematic.", "TODO: write the memo."]:
 		_check(not _offence(line).is_empty(), "The guard flags: " + line)
-	for line: String in ["Quick win. I've added it to the wins channel.", "Above my pay grade.", "MORGAN'S TRUST: steady"]:
+	for line: String in ["Quick win. I've added it to the wins channel.", "Above my pay grade.", "MORGAN'S TRUST: steady", "Every TODO needs an owner: TODO(maya).", "Status: Todo"]:
 		_check(_offence(line).is_empty(), "The guard allows in-world lines: " + line)

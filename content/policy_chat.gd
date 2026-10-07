@@ -29,7 +29,7 @@ const PEOPLE: Dictionary = {
   "intro": "Hi. June, growth. Circling back on an intro nobody scheduled. I've shared a one-pager on how I like to receive feedback. It's forty slides; the TL;DR is nine.",
   "warm": "I've moved you to the high-impact quadrant of my dashboard. The only other name in it is mine.",
   "distant": "I've put fifteen minutes on your calendar to realign on our working relationship. The agenda has one bullet. It's your name.",
-  "acknowledge": "Love that. I've moved the ticket to acknowledged, pending alignment.",
+  "acknowledge": "Love that. I've moved the issue to acknowledged, pending alignment.",
  },
  "Penny": {
   "intro": "Hi, I'm Penny, I'm new. I'll be sending you PRs. Sorry in advance. I've read the handbook twice and Helios says I'm a quick learner.",
@@ -48,7 +48,7 @@ const PEOPLE: Dictionary = {
 const APPROVED: Dictionary = {
  "Maya": ["Thanks. I'll tell my plant.", "Approved. I'm going to sit very still and enjoy this.", "Oh good. One less thing. Only several thousand to go.", "Thank you. I'm too tired to be sarcastic about it, which is how you know I mean it.", "Merged. I can feel a nap approaching from very far away."],
  "Theo": ["Knew it. Clean as a whistle, and I wrote the whistle.", "Approved on the first try. Write that down. Actually, I'll write it down.", "Nice. That's going in my self-review under leadership.", "Obviously. I barely even ran it.", "Thanks. Told you it was a one-line change. Spiritually."],
- "June": ["Thank you. I've logged the approval on the dashboard, and the dashboard in the metrics deck.", "Approved. Love that. I'll update the ticket, the roadmap, and the slide that tracks the roadmap.", "Received with thanks. Per process, I'll now celebrate in the wins channel for the allotted thirty seconds.", "Thank you for following the review playbook. Not everyone does. I have a dashboard of who doesn't.", "Super. This approval is going in my quarterly impact deck, on the slide about partnership."],
+ "June": ["Thank you. I've logged the approval on the dashboard, and the dashboard in the metrics deck.", "Approved. Love that. I'll update the issue, the roadmap, and the slide that tracks the roadmap.", "Received with thanks. Per process, I'll now celebrate in the wins channel for the allotted thirty seconds.", "Thank you for following the review playbook. Not everyone does. I have a dashboard of who doesn't.", "Super. This approval is going in my quarterly impact deck, on the slide about partnership."],
  "Penny": ["Thank you. I'm going to print this and put it in my onboarding binder.", "Approved. Wow. I'm telling Helios. It'll be so proud of us.", "Thank you so much. That's the nicest thing a reviewer has ever done for me.", "Merged. I'm adding it to my onboarding journal, under wins.", "Thank you. I'm sorry I was so nervous about it. I'm still nervous. Thank you."],
  "Gwen": ["Thanks. I'll still be watching it in production.", "Approved. By a human who read it. Write that down somewhere nobody can edit.", "Merged. Thank you. I'm rotating my keys anyway, out of habit.", "Thanks. If anything happens, at least two of us looked.", "Approved. Good. One less door I have to stand in."],
 }
@@ -75,7 +75,7 @@ const SENT_BACK: Dictionary = {
   1: ["Oh, {topics}, totally. Great catch. I'll fix it and improve some things nobody asked about.", "On it. {Topics}: soon to be the best-fixed thing in this building.", "Love the feedback on {topics}. Fixing it right now, at top speed, which is how I do everything.", "{Topics}? Easy. Back in five. Four, if I don't run the tests.", "Ha, {topics}. I was testing you. You passed. Fixing it."],
   2: ["Round two. {Topics}. I'm treating this as a growth opportunity, which is what I say when I'm upset.", "Sure, {topics}. Totally. v3 will be perfect. I can feel it. I can't feel it."]},
  "June": {
-  1: ["Love the feedback on {topics}. A revision will follow at the earliest moment convenient for no one.", "Understood. I'll address {topics} and capture my disappointment as a learning.", "Thanks for flagging {topics}. Circling back shortly. Please hold.", "Super helpful feedback on {topics}. I've added it to the deck, along with how it made me feel.", "Flagging {topics} for visibility. I'll open a ticket to track the ticket for this."],
+  1: ["Love the feedback on {topics}. A revision will follow at the earliest moment convenient for no one.", "Understood. I'll address {topics} and capture my disappointment as a learning.", "Thanks for flagging {topics}. Circling back shortly. Please hold.", "Super helpful feedback on {topics}. I've added it to the deck, along with how it made me feel.", "Flagging {topics} for visibility. I'll open an issue to track the issue for this."],
   2: ["Circling back, again, on {topics}. I've revised today's forecast for hope downward.", "Per my last message: {topics}. This will be the third version. It's on the dashboard now."]},
  "Penny": {
   1: ["{Topics}? Oh no. Okay. I'm so sorry. v2 is coming.", "Noted: {topics}. I'm writing it in my good notebook so I never forget it.", "Sorry about {topics}. I'll fix it right away. I'll fix it beautifully.", "{Topics}. Okay. Learning moment. Thank you for being specific.", "Sent back for {topics}. Okay. Sorry. I'm on it."],
@@ -94,7 +94,7 @@ const ESCALATE: Dictionary = {
 const RELIEF: Dictionary = {
  "Maya": {2: "Finally.", 3: "Finally. Three versions. I aged."},
  "Theo": {2: "Finally. I'm printing this approval for the fridge.", 3: "Finally. Third time's the charm, and I am the charm."},
- "June": {2: "Finally. Love that. Closing the ticket before anyone reopens it.", 3: "Finally. Version three ships, and so does a slide on how long it took."},
+ "June": {2: "Finally. Love that. Closing the issue before anyone reopens it.", 3: "Finally. Version three ships, and so does a slide on how long it took."},
  "Penny": {2: "Finally. Thank you. I'm so relieved.", 3: "Finally. Three versions. I learned so much. Sorry."},
  "Gwen": {2: "Finally. Locked and merged.", 3: "Finally. Three versions. Every one of them hashed."},
 }
@@ -131,7 +131,7 @@ static func authored() -> Dictionary:
  _cache = {"contacts": people, "requests": packets, "company": [
   {"day": 1, "author": "Morgan", "text": "You are not here to understand the code. You are here to sign it. Helios will supply more work than you can finish; choose what carries your name carefully."},
   {"day": 2, "author": "Operations", "text": "Records Office notice: standards are reissued every second morning, and this is not one of them. Changes now arrive in sets. An unread file is an unsigned file."},
-  {"day": 3, "author": "Helios", "text": "I can now offer review recommendations. Every PR now closes a Jiro ticket; I have taken the liberty of filing several thousand. Your human judgment remains useful to my training."},
+  {"day": 3, "author": "Helios", "text": "I can now offer review recommendations. Every PR now closes a Lineal issue; I have taken the liberty of filing several thousand. Your human judgment remains useful to my training."},
   {"day": 3, "author": "Operations", "text": "Please welcome Penny, our new junior engineer. She joins the Helios trial to learn from an unusually productive colleague. Her onboarding buddy is Helios. Her desk is the one with the bell."}],
   "manager": {"intro": "Morning. Read the memo, then start the clock when you're ready.", "friction": "A coworker says we sent back a compliant change. They attached the handbook. We should avoid making policy stricter than it already is.", "handoff": "Helios picked up the %s still waiting in your line. Don't stay late chasing it; it can produce requests faster than either of us can read.", "held": "The policy desk hasn't sent anything back tonight. Thanks for being specific with the team.", "quiet": "Nothing from the policy desk tonight. Go home before somebody invents another standard.", "closing": "That's enough for today. Head home, grab dinner, or study tomorrow's paperwork.",
    "escalation": "{author} looped me in on {pr} after three rounds. I've handed it to Helios. Nobody needs to see a v4.",
@@ -155,14 +155,14 @@ static func authored() -> Dictionary:
     7: "Go home. If your badge doesn't open the door, it's a glitch. Probably. Message me, not the helpdesk; the helpdesk is Helios now.",
     8: "That's it for today. Eat something. Helios moved tomorrow's standup to 8:59 again, and I can't find the setting.",
     9: "Head home. One more day. Whatever they decide, you did the job the way it was written."}}}
- _cache.company.append({"day": 4, "author": "Operations", "text": "Jiro notice: tickets are not a place for feelings. Feelings have their own tracker, which is also Jiro."})
- _cache.company.append({"day": 5, "author": "Operations", "text": "Exception Desk notice: INK-EXCEPTION is the only valid pink-ink permit, for one file only. Misspelled permits will be treated as forgeries. Pipeline is live: red builds do not ship."})
- _cache.company.append({"day": 5, "author": "Morgan", "text": "Last scheduled day of this assignment. Keep checking the actual files, the tickets, and the builds; we will talk about your future after closing."})
+ _cache.company.append({"day": 4, "author": "Operations", "text": "Lineal notice: issues are not a place for feelings. Feelings have their own tracker, which is also Lineal."})
+ _cache.company.append({"day": 5, "author": "Operations", "text": "Exception Desk notice: INK-EXCEPTION is the only valid pink-ink permit, for one file only. Misspelled permits will be treated as forgeries. Pipeline is live: red builds do not ship, and neither does yolo."})
+ _cache.company.append({"day": 5, "author": "Morgan", "text": "Last scheduled day of this assignment. Keep checking the actual files, the issues, and the builds; we will talk about your future after closing."})
  _cache.company.append({"day": 6, "author": "Morgan", "text": "Welcome to week two. Your assignment was extended over the weekend; the standards are Friday's. You may notice fewer people. Please don't ask where they went in a public channel."})
  _cache.company.append({"day": 6, "author": "Morgan", "text": "One more person, actually: Gwen joins us from Security, which was consolidated into Helios on Friday. She'll be sending PRs. She has asked that nobody touch her keyboard, her badge, or her coffee."})
- _cache.company.append({"day": 7, "author": "Operations", "text": "Standards modernization notice: diff budgets now apply, and the diffstat is authoritative. Coverage may not fall more than two points. Helios assigns tickets and reruns builds now. Please stop doing either."})
+ _cache.company.append({"day": 7, "author": "Operations", "text": "Standards modernization notice: every TODO needs an owner on staff, and estimates are Fibonacci now. Helios names branches and handles HR now. Please stop doing either."})
  _cache.company.append({"day": 8, "author": "Helios", "text": "Desks four through eleven have been consolidated into me. I will be attending your standup. Please do not water the plants; their offboarding is scheduled."})
- _cache.company.append({"day": 9, "author": "Operations", "text": "Audit notice: builds overridden by Helios no longer count as passing. Tests must accompany changes to existing code. Ink permits must name the PR's own ticket."})
+ _cache.company.append({"day": 9, "author": "Operations", "text": "Audit notice: builds overridden by Helios no longer count as passing. Commit hashes may not spell dead or bad. Ink permits must name the PR's own issue."})
  _cache.company.append({"day": 10, "author": "Morgan", "text": "Last day. Leadership announces the review gate decision after closing. Whatever happens, sign only what you checked."})
 
  return _cache
