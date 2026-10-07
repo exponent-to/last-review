@@ -79,8 +79,8 @@ func _work(state: Dictionary, count: int, wrong: Callable = Callable()) -> Dicti
 			continue
 		var desk: Dictionary = Sim.active_request(state)
 		if desk.is_empty() or signed >= count:
-			var coming: bool = signed < count and int(state.desk_at) >= 0 and int(state.desk_at) < Catalog.shift_seconds()
-			state = Sim.advance(state, int(state.desk_at) - int(state.shift_seconds) if coming else Catalog.shift_seconds())
+			var coming: bool = signed < count and Sim.next_landing(state) >= 0 and Sim.next_landing(state) < Catalog.shift_seconds()
+			state = Sim.advance(state, Sim.next_landing(state) - int(state.shift_seconds) if coming else Catalog.shift_seconds())
 			continue
 		var packet: Dictionary = Catalog.packet(state, str(desk.id))
 		var broken: bool = not packet.violations.is_empty()
@@ -195,6 +195,12 @@ func _test_balance() -> void:
 		check(int(careful.lowest) >= 0 and int(careful.red_days) == 0, "A careful reviewer signing %d a day never goes into the red (lowest %d)." % [count, int(careful.lowest)])
 		check(int(careful.dinners) >= count - 1, "A careful reviewer signing %d a day can afford dinner a few times (%d)." % [count, int(careful.dinners)])
 		check(careful.state.ending != "garnished" and careful.state.ending != "player_fired", "A careful run reaches the last Friday.")
+	# A careful reviewer keeping a human pace (six or seven a day while the line
+	# grows behind them) lets Helios take the rest every night and still gets ahead.
+	var paced := _run(7)
+	check(int(paced.lowest) >= 0 and int(paced.red_days) == 0 and paced.state.ending not in ["garnished", "player_fired"], "A careful reviewer signing 7 a day with the line growing never goes into the red (lowest %d)." % int(paced.lowest))
+	check(paced.state.shift_history.all(func(shift: Dictionary) -> bool: return int(shift.handed_off) > 0), "At that pace Helios takes part of the line every night.")
+	print("Balance: careful ×7 ends %d CR with %d dinners; Helios took %s." % [int(paced.state.credits), int(paced.dinners), str(paced.state.shift_history.map(func(shift: Dictionary) -> int: return int(shift.handed_off)))])
 	# Sloppy: every third call wrong. The money runs out, and dinner with it.
 	var sloppy := _run(6, func(signed: int) -> bool: return signed % 3 == 2)
 	var careful := _run(4)

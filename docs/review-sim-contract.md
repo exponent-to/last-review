@@ -18,7 +18,7 @@ Core state fields (see simulation.md for the full action journal): version=5, da
 
 Commands: `{type:'toggle-rule',rule_id:String}`, `{type:'consult-ai'}`, `{type:'review',verdict:'approve'|'request_changes'}`, `{type:'next-day',choice:'rest'|'socialize'|'study'}`.
 
-On a decision, request_index advances immediately; last_feedback describes the previous decision and must remain visible. When the catalog's current day ends, phase=debrief and pay/expenses apply exactly once. next-day applies the evening choice, advances to the next catalog day and returns to review; after the final day it changes phase to complete. Last day choice still applies. Complete cannot review again. Do not show prospective queue counts or campaign denominators in the interface.
+On a decision, request_index advances immediately; last_feedback describes the previous decision and must remain visible. When the catalog's current day ends, phase=debrief and pay/expenses apply exactly once. next-day applies the evening choice, advances to the next catalog day and returns to review; after the final day it changes phase to complete. Last day choice still applies. Complete cannot review again. Show the line that is already waiting (who and how long), never PRs not yet arrived or campaign denominators.
 
 Feedback fields: `{pr_id:String,author:String,correct:bool,verdict:String,message:String,expected_rules:Array,relationship_delta:int,trust_delta:int}`. Debrief fields: `{day:int,reviewed:int,correct:int,pay:int,expenses:int,balance:int,message:String}`.
 

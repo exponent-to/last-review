@@ -42,7 +42,7 @@ func _run() -> void:
 	ui._windows.review.minimize_window()
 	ui.render_state(state)
 	ui._open_notification("review", str(Catalog.request_at(0).id))
-	check(ui._windows["review"].visible and ui._app_counts.review == 0, "The review notification opens Review")
+	check(ui._windows["review"].visible and ui._app_counts.review == Simulation.waiting_count(state), "The review notification opens Review; the badge still counts the line")
 	check(ui._file_picker.item_count == 2, "The first review must expose both changed files")
 	var first_diff: String = ui._diff.text
 	ui._diff.set_caret_line(4)
@@ -107,20 +107,20 @@ func _run() -> void:
 			if not typing.is_empty():
 				saw_typing = true
 				check(ui._banter.visible and ui._banter.typing and ui._banter.speaker == str(typing.author), "A revise-now author stays at the desk, typing")
-			check(ui._pr_id.text == header and ui._approve.disabled and ui._app_counts.review == 0, "Between PRs the desk is clear and nothing is waiting unread")
-			var coming: bool = int(state.desk_at) >= 0 and int(state.desk_at) < Simulation.Catalog.shift_seconds()
-			state = Simulation.advance(state, int(state.desk_at) - int(state.shift_seconds) if coming else Simulation.Catalog.shift_seconds())
+			check(ui._pr_id.text == header and ui._approve.disabled and ui._app_counts.review == Simulation.waiting_count(state), "Between PRs the desk is clear and the badge counts only the line")
+			var coming: bool = Simulation.next_landing(state) >= 0 and Simulation.next_landing(state) < Simulation.Catalog.shift_seconds()
+			state = Simulation.advance(state, Simulation.next_landing(state) - int(state.shift_seconds) if coming else Simulation.Catalog.shift_seconds())
 			ui._windows.review.minimize_window()
 			ui.render_state(state)
 			if coming:
-				check(ui._app_counts.review == 1 and ui._app_badges.review.visible, "A PR landing on the desk shows a review badge of exactly one")
+				check(ui._app_counts.review == 1 + Simulation.waiting_count(state) and ui._app_badges.review.visible, "A PR landing on the desk adds one unread to the line on the review badge")
 				check(ui._notifications._items.any(func(item: Dictionary) -> bool: return item.app == "review" and item.target == state.active_request_id), "A PR landing on the desk shows a review notification card")
 		if state.phase == "review":
 			var packet: Dictionary = Catalog.packet(state, state.active_request_id)
 			# Alternate the two ways to the desk: the review card and the REVIEW icon.
 			if ui._windows.review.visible or state.decisions.size() % 2 == 0: ui._home_icons.review.pressed.emit()
 			else: ui._open_notification("review", str(packet.id))
-			check(ui._windows.review.visible and ui._app_counts.review == 0, "REVIEW and its notification open the desk PR and read it")
+			check(ui._windows.review.visible and ui._app_counts.review == Simulation.waiting_count(state), "REVIEW and its notification open the desk PR and read it")
 			check(ui._pr_id.text == Catalog.display_id(str(packet.id)) + " / AWAITING REVIEW", "The form shows the desk PR, revisions as 'PR · vN'")
 			if int(packet.revision) > 1:
 				saw_revision = true

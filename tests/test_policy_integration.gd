@@ -23,8 +23,8 @@ func command(event: Dictionary) -> void:
 ## Wait for the next PR to land; false when nothing else is coming today.
 func await_desk() -> bool:
 	if not Sim.active_request(state).is_empty(): return true
-	if int(state.desk_at) < 0 or int(state.desk_at) >= Catalog.shift_seconds(): return false
-	state = Sim.advance(state, int(state.desk_at) - int(state.shift_seconds))
+	if Sim.next_landing(state) < 0 or Sim.next_landing(state) >= Catalog.shift_seconds(): return false
+	state = Sim.advance(state, Sim.next_landing(state) - int(state.shift_seconds))
 	return true
 ## Days whose every packet is save-replayed mid-shift (see test_simulation.gd):
 ## a new rulebook or mechanic (all BLOCK_STARTS) or a newcomer's first morning.

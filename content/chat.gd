@@ -296,8 +296,11 @@ static func _shift_report(state: Dictionary, shift: Dictionary) -> Array:
 			held = true
 			if not bool(decision.get("correct", true)): had_friction = true
 	if had_friction: report.append({"text": str(copy.friction), "closing": false})
-	if int(shift.get("handed_off", 0)) > 0:
-		report.append({"text": str(copy.handoff), "closing": false})
+	var handed_off := int(shift.get("handed_off", 0))
+	if handed_off > 0:
+		# Morgan says how many Helios took off your desk and out of the line.
+		var count := "one PR" if handed_off == 1 else "%d PRs" % handed_off
+		report.append({"text": str(copy.handoff).replace("%s", count), "closing": false})
 	elif not had_incident and not had_friction:
 		report.append({"text": str(copy.held if held else copy.quiet), "closing": false})
 	report.append({"text": str(copy.get("closings", {}).get(int(shift.day), copy.closing)), "closing": true})
