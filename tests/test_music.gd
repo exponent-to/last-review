@@ -27,6 +27,7 @@ func _run() -> void:
 	_test_tracks()
 	_test_mapping()
 	await _test_transitions()
+	await _test_manual_loops()
 	await _test_settings()
 	await _test_application()
 	DirAccess.remove_absolute(Music.settings_path)
@@ -151,6 +152,61 @@ func _test_transitions() -> void:
 	music.queue_free()
 	await process_frame
 
+## Web samples restart a loop from wherever play() began, ignoring the loop
+## offset, so on the web the manager drives the wrap itself.
+func _test_manual_loops() -> void:
+	Music.manual_loops = true
+	var music := Music.new()
+	root.add_child(music)
+	await process_frame
+	music.set_process(false)
+	music.set_scene("morning")
+	_settle(music, Music.FADE_SECONDS + 0.5)
+	var player: AudioStreamPlayer = music._players.morning
+	var offset := music.loop_offset("morning")
+	_check(offset > 20.0, "Morning has a loop offset past its intro (%.1f s)." % offset)
+	_check(player.playing and not (player.stream as AudioStreamOggVorbis).loop, "With manual loops, the first pass plays a non-looping copy from the top.")
+	_check(player.get_playback_position() < 5.0, "The first pass starts at the beginning.")
+	# The pass ends: the manager restarts at the loop offset on the looping stream.
+	player.stop()
+	player.finished.emit()
+	_check(player.playing and (player.stream as AudioStreamOggVorbis).loop, "At the end of a pass the looping stream takes over.")
+	_check(player.get_playback_position() >= offset - 0.05, "The wrap restarts at loop_begin (%.2f s), not at 0 (got %.2f s)." % [offset, player.get_playback_position()])
+	# A late finished signal, or _apply seeing the gap first, must not double-start or restart from 0.
+	var at := player.get_playback_position()
+	player.finished.emit()
+	music.step(0.1)
+	_check(player.playing and player.get_playback_position() >= at - 0.01, "A repeated end signal neither double-starts nor rewinds.")
+	player.stop()
+	music.step(0.1)
+	_check(player.playing and player.get_playback_position() >= offset - 0.05, "If the frame sees the end before the signal, it still wraps to the loop offset.")
+	# Motorik Minor resumed mid-song wraps to its own offset (0), not to the resume point.
+	music.set_scene("shift", 0.0)
+	_settle(music, Music.FADE_SECONDS + 0.5)
+	music._resume = 120.0
+	music.set_scene("evening")
+	_settle(music, Music.FADE_SECONDS + 0.5)
+	music._resume = 120.0
+	music.set_scene("shift", 0.5)
+	_settle(music, 0.25)
+	var song: AudioStreamPlayer = music._players.motorik_minor
+	_check(song.playing and song.get_playback_position() >= 119.9 and not (song.stream as AudioStreamOggVorbis).loop, "A resumed song plays a non-looping pass from where it stopped.")
+	song.stop()
+	song.finished.emit()
+	_check(song.playing and song.get_playback_position() < 1.0, "The resumed song wraps to its loop offset (0), not to its resume point.")
+	# One-shots still play once.
+	music.set_scene("cold_open")
+	_settle(music, Music.FADE_SECONDS + 0.5)
+	var cold: AudioStreamPlayer = music._players.cold_open
+	cold.stop()
+	cold.finished.emit()
+	_settle(music, 0.5)
+	_check(not cold.playing, "Cold Open still plays once with manual loops.")
+	music.queue_free()
+	await process_frame
+	Music.manual_loops = false
+
+
 func _test_settings() -> void:
 	DirAccess.remove_absolute(Music.settings_path)
 	var defaults := Music.load_settings()
@@ -210,6 +266,30 @@ func _test_application() -> void:
 	app._set_paused(false)
 	app._sync_music()
 	_check(not app.music.paused, "Resuming the shift restores the music.")
+	# The menu's MUSIC corner switch and SYSTEM's toggle stay in step.
+	var corner: Button = app.menu._music_toggle
+	_check(corner.text == "MUSIC: ON" and corner.button_pressed, "The menu shows MUSIC: ON.")
+	corner.button_pressed = false
+	_check(not app.music.enabled and not app.interface._music_toggle.button_pressed and app.interface._music_toggle.text == "MUSIC: OFF", "The menu's switch turns music off and SYSTEM follows.")
+	_check(corner.text == "MUSIC: OFF", "The menu shows MUSIC: OFF.")
+	app.interface._music_toggle.button_pressed = true
+	_check(app.music.enabled and corner.button_pressed and corner.text == "MUSIC: ON", "SYSTEM's toggle turns music back on and the menu follows.")
+	# Until the browser's first gesture, the menu hints at clicking for sound.
+	app.menu.show()
+	app.music._awaiting_gesture = true
+	app._sync_music()
+	_check(app.menu._sound_hint.visible, "The menu hints 'click anywhere for sound' while audio is blocked.")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	app.music._input(click)
+	app._sync_music()
+	_check(not app.menu._sound_hint.visible and not app.music.awaiting_gesture(), "The first click clears the hint.")
+	app.music._awaiting_gesture = true
+	corner.button_pressed = false
+	app._sync_music()
+	_check(not app.menu._sound_hint.visible, "With music off there is nothing to hint about.")
+	corner.button_pressed = true
 	app.queue_free()
 	await process_frame
 	DirAccess.remove_absolute(Music.settings_path)

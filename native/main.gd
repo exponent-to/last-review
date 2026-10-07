@@ -38,6 +38,9 @@ func _ready() -> void:
 	menu.new_game_requested.connect(_new_game)
 	menu.load_game_requested.connect(_on_load)
 	menu.quit_requested.connect(func() -> void: get_tree().quit())
+	menu.music_toggled.connect(music.set_enabled)
+	music.enabled_changed.connect(_on_music_enabled)
+	menu.set_music_enabled(music.enabled)
 	menu.set_slots(SaveStore.list_slots())
 
 func _build_interface() -> void:
@@ -141,6 +144,7 @@ func _process(delta: float) -> void:
 ## panel, or the finished assignment.
 func _sync_music() -> void:
 	if not is_instance_valid(music): return
+	menu.set_sound_hint(menu.visible and music.awaiting_gesture())
 	var at_desk := is_instance_valid(interface) and interface.visible and not menu.visible
 	music.set_paused(paused and at_desk)
 	music.set_focused(_focused)
@@ -159,6 +163,11 @@ func _sync_music() -> void:
 	else:
 		var progress := float(state.get("shift_seconds", 0)) / float(maxi(1, Simulation.Catalog.shift_seconds()))
 		music.set_scene("shift", progress, not Simulation.Encounters.pending(state).is_empty())
+
+## Keep both MUSIC switches (the menu corner and SYSTEM) showing the same state.
+func _on_music_enabled(enabled: bool) -> void:
+	menu.set_music_enabled(enabled)
+	if is_instance_valid(interface): interface.set_music_settings(enabled, music.volume)
 
 func _tick_shift(delta: float) -> void:
 	if not tutorial.is_empty() or not is_instance_valid(interface) or not interface.visible or paused or not _focused or state.get("phase") != "review":
